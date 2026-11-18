@@ -1,0 +1,472 @@
+import AppKit
+import SwiftData
+import SwiftUI
+
+struct SettingsView: View {
+    var body: some View {
+        TabView {
+            ProvidersSettingsView()
+                .tabItem { Label("Providers", systemImage: "key") }
+            RoutingSettingsView()
+                .tabItem { Label("Routing", systemImage: "arrow.triangle.branch") }
+            ShortcutsSettingsView()
+                .tabItem { Label("Shortcuts", systemImage: "keyboard") }
+            UsageSettingsView()
+                .tabItem { Label("Usage", systemImage: "chart.bar") }
+            PrivacySettingsView()
+                .tabItem { Label("Privacy & Data", systemImage: "lock.shield") }
+        }
+        .padding(16)
+        .navigationTitle("Settings")
+    }
+}
+
+// MARK: - Providers and API keys
+
+struct ProvidersSettingsView: View {
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("API keys are stored in your macOS Keychain and are never written to logs, settings files or the database.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                ForEach(AIProviderID.allCases) { provider in
+                    ProviderCard(provider: provider)
+                }
+            }
+            .padding(8)
+        }
+    }
+}
+
+private struct ProviderCard: View {
+    let provider: AIProviderID
+
+    @AppStorage private var isEnabled: Bool
+    @AppStorage private var model: String
+    @AppStorage(PrefKey.ollamaBaseURL) private var ollamaURL = "http://localhost:11434"
+
+    @State private var keyInput = ""
+    @State private var hasKey = false
+    @State private var status: String?
+    @State private var statusIsError = false
+    @State private var isTesting = false
+    @State private var models: [String] = []
+
+    init(provider: AIProviderID) {
+        self.provider = provider
+        _isEnabled = AppStorage(wrappedValue: provider != .ollama, PrefKey.enabled(provider))
+        _model = AppStorage(wrappedValue: provider.defaultModel, PrefKey.model(provider))
+    }
+
+    var body: some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text(provider.displayName).font(.headline)
+                    Spacer()
+                    Toggle("Enabled", isOn: $isEnabled).toggleStyle(.switch)
+                }
+                Text(provider.dataNotice).font(.caption).foregroundStyle(.secondary)
+
+                if provider.requiresAPIKey {
+                    keyRow
+                } else {
+                    HStack {
+                        Text("Server URL").frame(width: 90, alignment: .leading)
+                        TextField("http://localhost:11434", text: $ollamaURL)
+                            .textFieldStyle(.roundedBorder)
+                    }
+                }
+
+                HStack {
+                    Text("Model").frame(width: 90, alignment: .leading)
+                    Picker("", selection: $model) {
+                        ForEach(modelOptions, id: \.self) { Text($0).tag($0) }
+                    }
+                    .labelsHidden()
+                    .frame(maxWidth: 280)
+                    TextField("or type a model id", text: $model)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(maxWidth: 220)
+                }
+
+                HStack {
+                    Button(action: testConnection) {
+                        if isTesting { ProgressView().controlSize(.small) } else { Text("Test connection") }
+                    }
+                    .disabled(isTesting || (provider.requiresAPIKey && !hasKey))
+                    if let status {
+                        Label(status, systemImage: statusIsError ? "xmark.octagon" : "checkmark.circle")
+                            .foregroundStyle(statusIsError ? .red : .green)
+                            .font(.callout)
+                            .lineLimit(3)
+                    }
+                }
+            }
+            .padding(8)
+        }
+        .onAppear {
+            hasKey = provider.requiresAPIKey ? KeychainStore.exists(account: provider.rawValue) : true
+            models = Prefs.cachedModels(for: provider)
+        }
+    }
+
+    private var keyRow: some View {
+        HStack {
+            Text("API key").frame(width: 90, alignment: .leading)
+            SecureField(hasKey ? "Saved in Keychain — paste to replace" : "Paste your API key", text: $keyInput)
+                .textFieldStyle(.roundedBorder)
+            Button("Save") { saveKey() }
+                .disabled(keyInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            Button("Delete", role: .destructive) { deleteKey() }
+                .disabled(!hasKey)
+        }
+    }
+
+    private var modelOptions: [String] {
+        var options = models
+        if !model.isEmpty, !options.contains(model) { options.insert(model, at: 0) }
+        return options
+    }
+
+    private func saveKey() {
+        let key = keyInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        do {
+            try KeychainStore.save(key, account: provider.rawValue)
+            keyInput = ""
+            hasKey = true
+            setStatus("Key saved to Keychain.", error: false)
+            testConnection()
+        } catch {
+            setStatus(error.localizedDescription, error: true)
+        }
+    }
+
+    private func deleteKey() {
+        do {
+            try KeychainStore.delete(account: provider.rawValue)
+            hasKey = false
+            setStatus("Key deleted.", error: false)
+        } catch {
+            setStatus(error.localizedDescription, error: true)
+        }
+    }
+
+    private func testConnection() {
+        isTesting = true
+        status = nil
+        let provider = provider
+        Task {
+            do {
+                let fetched = try await AIRouter.client(for: provider).listModels()
+                if !fetched.isEmpty {
+                    Prefs.setCachedModels(fetched, for: provider)
+                    models = fetched
+                }
+                setStatus("Connected. \(fetched.count) models available.", error: false)
+            } catch {
+                setStatus(AIError.describe(error), error: true)
+            }
+            isTesting = false
+        }
+    }
+
+    private func setStatus(_ text: String, error: Bool) {
+        status = text
+        statusIsError = error
+    }
+}
+
+// MARK: - Provider routing (PRD section 5)
+
+struct RoutingSettingsView: View {
+    @AppStorage(PrefKey.chatProvider) private var chatProvider = AIProviderID.anthropic.rawValue
+    @AppStorage(PrefKey.analysisProvider) private var analysisProvider = AIProviderID.anthropic.rawValue
+    @AppStorage(PrefKey.transcriptionProvider) private var transcriptionProvider = TranscriptionProviderID.openAI.rawValue
+    @AppStorage(PrefKey.transcriptionModel) private var transcriptionModel = "gpt-4o-transcribe"
+    @AppStorage(PrefKey.liveTranscriptionModel) private var liveTranscriptionModel = "gpt-4o-transcribe"
+    @AppStorage(PrefKey.defaultSystemPrompt) private var systemPrompt = ""
+
+    var body: some View {
+        Form {
+            Section("AI conversations") {
+                Picker("Default provider for new chats", selection: $chatProvider) {
+                    ForEach(AIProviderID.allCases) { Text($0.displayName).tag($0.rawValue) }
+                }
+                VStack(alignment: .leading) {
+                    Text("Default system prompt")
+                    TextEditor(text: $systemPrompt)
+                        .frame(minHeight: 70)
+                        .font(.body)
+                }
+            }
+            Section("Transcript analysis (summaries, action items)") {
+                Picker("Provider", selection: $analysisProvider) {
+                    ForEach(AIProviderID.allCases) { Text($0.displayName).tag($0.rawValue) }
+                }
+            }
+            Section {
+                Picker("Provider", selection: $transcriptionProvider) {
+                    ForEach(TranscriptionProviderID.allCases) { Text($0.displayName).tag($0.rawValue) }
+                }
+                TextField("File transcription model", text: $transcriptionModel)
+                TextField("Live transcription model", text: $liveTranscriptionModel)
+            } header: {
+                Text("Audio transcription")
+            } footer: {
+                Text("Claude is used for analysis, not speech-to-text. Transcription itself ships in Phase 3; local Whisper in Phase 7.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+    }
+}
+
+// MARK: - Shortcuts
+
+struct ShortcutsSettingsView: View {
+    private let manager = ShortcutManager.shared
+
+    var body: some View {
+        Form {
+            Section {
+                ForEach(ShortcutAction.allCases) { action in
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text(action.title)
+                            Spacer()
+                            ShortcutRecorder(action: action)
+                        }
+                        if let failure = manager.failures[action] {
+                            Text(failure).font(.caption).foregroundStyle(.red)
+                        }
+                    }
+                }
+            } footer: {
+                Text("Click a shortcut, then press the new key combination. Esc cancels, Delete clears it.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Section {
+                Button("Restore defaults") { manager.resetAll() }
+            }
+        }
+        .formStyle(.grouped)
+    }
+}
+
+struct ShortcutRecorder: View {
+    let action: ShortcutAction
+    @State private var isRecording = false
+    @State private var monitor: Any?
+    private let manager = ShortcutManager.shared
+
+    var body: some View {
+        Button {
+            isRecording ? stop() : start()
+        } label: {
+            Text(isRecording ? "Press keys…" : (manager.hotKey(for: action)?.displayString ?? "None"))
+                .frame(minWidth: 110)
+        }
+        .buttonStyle(.bordered)
+        .tint(isRecording ? Color.accentColor : nil)
+        .onDisappear { stop() }
+    }
+
+    private func start() {
+        manager.suspend()
+        isRecording = true
+        monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            handle(event)
+            return nil
+        }
+    }
+
+    private func handle(_ event: NSEvent) {
+        let flags = event.modifierFlags.intersection([.command, .option, .control, .shift])
+        if event.keyCode == 53 { // Escape
+            stop()
+            return
+        }
+        if event.keyCode == 51 && flags.isEmpty { // Delete clears
+            manager.set(nil, for: action)
+            stop()
+            return
+        }
+        guard !flags.isEmpty, flags != .shift else { NSSound.beep(); return }
+        let hotKey = HotKey(
+            keyCode: UInt32(event.keyCode),
+            carbonModifiers: HotKey.carbonModifiers(from: flags),
+            keyLabel: HotKey.label(for: event)
+        )
+        stop()
+        manager.set(hotKey, for: action)
+    }
+
+    private func stop() {
+        if let monitor { NSEvent.removeMonitor(monitor) }
+        monitor = nil
+        if isRecording {
+            isRecording = false
+            manager.resume()
+        }
+    }
+}
+
+// MARK: - Usage and limits
+
+struct UsageSettingsView: View {
+    @State private var usage: [AIProviderID: UsageTracker.Usage] = [:]
+
+    var body: some View {
+        Form {
+            Section {
+                ForEach(AIProviderID.allCases) { provider in
+                    UsageRow(provider: provider, usage: usage[provider] ?? .init()) {
+                        UsageTracker.reset(provider)
+                        refresh()
+                    }
+                }
+            } header: {
+                Text("This month (\(UsageTracker.monthKey()))")
+            } footer: {
+                Text("Counts come from token usage reported by each provider. Check your provider dashboard for billing. A limit of 0 means no limit; when a limit is reached, MacPilot stops sending requests to that provider until next month.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+        .onAppear(perform: refresh)
+    }
+
+    private func refresh() {
+        for provider in AIProviderID.allCases {
+            usage[provider] = UsageTracker.current(provider)
+        }
+    }
+}
+
+private struct UsageRow: View {
+    let provider: AIProviderID
+    let usage: UsageTracker.Usage
+    var onReset: () -> Void
+    @AppStorage private var limit: Int
+
+    init(provider: AIProviderID, usage: UsageTracker.Usage, onReset: @escaping () -> Void) {
+        self.provider = provider
+        self.usage = usage
+        self.onReset = onReset
+        _limit = AppStorage(wrappedValue: 0, PrefKey.tokenLimit(provider))
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(provider.displayName).font(.headline)
+                Spacer()
+                Button("Reset", action: onReset).buttonStyle(.borderless)
+            }
+            Text("\(usage.requests) requests · \(usage.inputTokens.formatted()) input · \(usage.outputTokens.formatted()) output tokens")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            HStack {
+                Text("Monthly token limit")
+                TextField("0", value: $limit, format: .number)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 140)
+                if limit > 0 {
+                    ProgressView(value: min(Double(usage.totalTokens) / Double(limit), 1))
+                        .frame(width: 140)
+                }
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+// MARK: - Privacy and data
+
+struct PrivacySettingsView: View {
+    @Environment(\.modelContext) private var context
+    @State private var confirmDeleteChats = false
+    @State private var confirmDeleteAll = false
+    @State private var confirmDeleteKeys = false
+    @State private var message: String?
+
+    var body: some View {
+        Form {
+            Section("Where your data goes") {
+                ForEach(AIProviderID.allCases) { provider in
+                    HStack(alignment: .top) {
+                        Image(systemName: provider.isExternal ? "arrow.up.right.circle" : "desktopcomputer")
+                        VStack(alignment: .leading) {
+                            Text(provider.displayName)
+                            Text(provider.dataNotice).font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                Text("Everything else (chats, notes, tasks, prompts) stays on this Mac in \(Persistence.storeDirectory.path). There is no MacPilot account or server.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+            }
+            Section("Recording") {
+                Text("MacPilot never records in the background. A red indicator shows in the menu bar whenever audio is captured. You are responsible for getting consent from people you record.")
+                    .font(.callout)
+            }
+            Section("Your data") {
+                Button("Export all data as JSON…", action: exportAll)
+                Button("Reveal data folder in Finder") {
+                    NSWorkspace.shared.activateFileViewerSelecting([Persistence.storeDirectory])
+                }
+                Button("Delete all conversations…", role: .destructive) { confirmDeleteChats = true }
+                Button("Delete all API keys…", role: .destructive) { confirmDeleteKeys = true }
+                Button("Delete all local data…", role: .destructive) { confirmDeleteAll = true }
+                if let message {
+                    Text(message).font(.caption).foregroundStyle(.secondary)
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .confirmationDialog("Delete all conversations?", isPresented: $confirmDeleteChats) {
+            Button("Delete conversations", role: .destructive) {
+                run { try DataManager.deleteAllConversations(context: context) }
+            }
+        } message: {
+            Text("This cannot be undone.")
+        }
+        .confirmationDialog("Delete all API keys from the Keychain?", isPresented: $confirmDeleteKeys) {
+            Button("Delete keys", role: .destructive) {
+                DataManager.deleteAllAPIKeys()
+                message = "API keys deleted."
+            }
+        }
+        .confirmationDialog("Delete all local MacPilot data?", isPresented: $confirmDeleteAll) {
+            Button("Delete everything", role: .destructive) {
+                run { try DataManager.deleteAllLocalData(context: context) }
+            }
+        } message: {
+            Text("Conversations, notes, tasks, prompts and usage stats will be removed. API keys are kept unless you delete them separately. This cannot be undone.")
+        }
+    }
+
+    private func exportAll() {
+        do {
+            let json = try DataManager.exportAllJSON(context: context)
+            Exporter.save(text: json, suggestedName: "MacPilot-export.json", fileExtension: "json")
+        } catch {
+            message = error.localizedDescription
+        }
+    }
+
+    private func run(_ action: () throws -> Void) {
+        do {
+            try action()
+            message = "Done."
+        } catch {
+            message = error.localizedDescription
+        }
+    }
+}
