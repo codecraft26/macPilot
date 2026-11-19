@@ -73,6 +73,12 @@ enum LauncherCatalog {
                                         primary: { PasteService.write(text: conversion.text) },
                                         secondaryLabel: "Paste", secondary: { PasteService.paste(text: conversion.text, into: windows.previousApp) }))
         }
+        if let timer = TimerParser.parse(trimmed) {
+            let what = TimerParser.describe(timer.seconds) + (timer.label.isEmpty ? "" : " · \(timer.label)")
+            instant.append(LauncherItem(id: "timer.start", title: "Start timer: \(what)", subtitle: "Shows in the notch and chimes when done",
+                                        icon: .system("timer"), section: "Timer",
+                                        primary: { NotchTimers.shared.start(seconds: timer.seconds, label: timer.label) }))
+        }
         if let url = WebLinks.url(from: trimmed) {
             instant.append(LauncherItem(id: "url:\(url.absoluteString)", title: "Open \(url.absoluteString)", icon: .system("safari"), section: "Web",
                                         primary: { NSWorkspace.shared.open(url) }))
@@ -129,6 +135,9 @@ enum LauncherCatalog {
                          })
         }
         commands += [
+            LauncherItem(id: "timer.cancel", title: NotchTimers.shared.current == nil ? "Timer: type “timer 25m”" : "Cancel timer",
+                         icon: .system("timer"), section: "Timer",
+                         primary: { if NotchTimers.shared.current != nil { NotchTimers.shared.cancel() } else { WindowManager.shared.toggleLauncher() } }),
             LauncherItem(id: "sys.lock", title: "Lock Screen", icon: .system("lock"), section: "System", primary: { SystemCommands.lockScreen() }),
             LauncherItem(id: "sys.sleepdisplay", title: "Sleep Display", icon: .system("display"), section: "System", primary: { SystemCommands.sleepDisplay() }),
             LauncherItem(id: "sys.screensaver", title: "Start Screen Saver", icon: .system("sparkles.tv"), section: "System", primary: { SystemCommands.startScreenSaver() }),
@@ -312,7 +321,7 @@ private struct LauncherRow: View {
         case "Tasks": return AppSection.tasks.tint
         case "Clipboard": return AppSection.clipboard.tint
         case "MacPilot": return DS.indigo
-        case "Calculator", "Convert": return .orange
+        case "Calculator", "Convert", "Timer": return .orange
         case "Web": return .blue
         case "Window": return .teal
         case "System": return .gray

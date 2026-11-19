@@ -41,7 +41,11 @@ struct NotchView: View {
                 NotchShape(topRadius: ear, bottomRadius: notch.isExpanded ? 28 : min(14, size.height / 2))
                     .fill(Color.black)
                     .shadow(color: .black.opacity(notch.isExpanded ? 0.35 : 0), radius: 18, y: 8)
-                if notch.isExpanded {
+                if let peek = notch.peekMessage, !notch.isExpanded {
+                    PeekBanner(peek: peek, notchHeight: notch.geometry.notch.height)
+                        .padding(.horizontal, ear + 14)
+                        .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .top)))
+                } else if notch.isExpanded {
                     ExpandedNotch(notchSize: notch.geometry.notch.size)
                         .padding(.horizontal, ear + 18)
                         .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .top)))
@@ -93,6 +97,13 @@ private struct CompactNotch: View {
             WaveformBars(level: dictation.level).frame(width: 30, height: 16)
         case .meetingSoon:
             Image(systemName: "calendar").foregroundStyle(Color.red)
+        case .timer:
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                ProgressRing(progress: NotchTimers.shared.current?.progress(at: context.date) ?? 1, color: .orange)
+                    .frame(width: 16, height: 16)
+            }
+        case .nowPlaying:
+            ArtworkThumb(image: NowPlaying.shared.artwork, size: 20)
         case .idle:
             EmptyView()
         }
@@ -112,6 +123,12 @@ private struct CompactNotch: View {
                 Text(Countdown.text(to: start, end: start.addingTimeInterval(3600), now: context.date)
                     .replacingOccurrences(of: " min", with: "m"))
             }
+        case .timer:
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                Text(TranscriptSegment.format(NotchTimers.shared.current?.remaining(at: context.date) ?? 0)).foregroundStyle(.orange)
+            }
+        case .nowPlaying:
+            EqualizerBars(playing: NowPlaying.shared.isPlaying).frame(width: 18, height: 14)
         case .idle:
             EmptyView()
         }
@@ -146,6 +163,8 @@ private struct ExpandedNotch: View {
         VStack(alignment: .leading, spacing: 12) {
             header
             mainCard
+            if NotchTimers.shared.current != nil { TimerCard() }
+            if NowPlaying.shared.track != nil { MediaCard() }
             quickActions
         }
         .foregroundStyle(.white)
@@ -333,5 +352,160 @@ private extension View {
         padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.white.opacity(0.08)))
+    }
+}
+
+// MARK: - Peek, timer and media
+
+private struct PeekBanner: View {
+    let peek: NotchPeek
+    let notchHeight: CGFloat
+
+    private var color: Color {
+        switch peek.tint {
+        case .accent: return DS.accent
+        case .red: return .red
+        case .orange: return .orange
+        case .green: return .green
+        case .blue: return .blue
+        }
+    }
+
+    var body: some View {
+        Button {
+            if let action = peek.action { NotchController.shared.perform(action) } else { NotchController.shared.dismissPeek() }
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: peek.systemImage)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 30, height: 30)
+                    .background(Circle().fill(color.gradient))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(peek.title).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+                    if !peek.subtitle.isEmpty {
+                        Text(peek.subtitle).font(.system(size: 11)).foregroundStyle(.white.opacity(0.7)).lineLimit(1)
+                    }
+                }
+                Spacer(minLength: 0)
+                if peek.action != nil {
+                    Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(.white.opacity(0.6))
+                }
+            }
+            .foregroundStyle(.white)
+            .padding(.top, notchHeight + 6)
+            .padding(.bottom, 10)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(peek.title)
+    }
+}
+
+private struct TimerCard: View {
+    private let timers = NotchTimers.shared
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            if let countdown = timers.current {
+                HStack(spacing: 12) {
+                    ProgressRing(progress: countdown.progress(at: context.date), color: .orange).frame(width: 26, height: 26)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(countdown.label).font(.headline).lineLimit(1)
+                        Text("Ends \(countdown.endsAt.formatted(date: .omitted, time: .shortened))").font(.caption).foregroundStyle(.white.opacity(0.7))
+                    }
+                    Spacer()
+                    Text(TranscriptSegment.format(countdown.remaining(at: context.date)))
+                        .font(.system(.title3, design: .rounded).monospacedDigit().weight(.semibold))
+                        .foregroundStyle(.orange)
+                    NotchButton(systemImage: "plus", label: "Add 5 minutes") { timers.addFiveMinutes() }
+                    NotchButton(systemImage: "xmark", label: "Cancel timer") { timers.cancel() }
+                }
+                .notchCard()
+            }
+        }
+    }
+}
+
+private struct MediaCard: View {
+    private let media = NowPlaying.shared
+
+    var body: some View {
+        if let track = media.track {
+            HStack(spacing: 12) {
+                Button { media.openPlayer() } label: { ArtworkThumb(image: media.artwork, size: 38) }
+                    .buttonStyle(.plain)
+                    .help("Open \(track.player.rawValue)")
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(track.title).font(.headline).lineLimit(1)
+                    Text([track.artist, track.album].filter { !$0.isEmpty }.joined(separator: " · "))
+                        .font(.caption).foregroundStyle(.white.opacity(0.7)).lineLimit(1)
+                }
+                Spacer()
+                EqualizerBars(playing: media.isPlaying).frame(width: 18, height: 14)
+                NotchButton(systemImage: "backward.fill", label: "Previous") { media.previous() }
+                NotchButton(systemImage: media.isPlaying ? "pause.fill" : "play.fill", label: media.isPlaying ? "Pause" : "Play") { media.playPause() }
+                NotchButton(systemImage: "forward.fill", label: "Next") { media.next() }
+            }
+            .notchCard()
+        }
+    }
+}
+
+private struct ProgressRing: View {
+    let progress: Double
+    let color: Color
+
+    var body: some View {
+        ZStack {
+            Circle().stroke(color.opacity(0.25), lineWidth: 3)
+            Circle().trim(from: 0, to: max(0.001, min(1, 1 - progress)))
+                .stroke(color, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+                .animation(.linear(duration: 1), value: progress)
+        }
+        .accessibilityHidden(true)
+    }
+}
+
+private struct ArtworkThumb: View {
+    let image: NSImage?
+    let size: CGFloat
+
+    var body: some View {
+        Group {
+            if let image {
+                Image(nsImage: image).resizable().scaledToFill()
+            } else {
+                ZStack {
+                    LinearGradient(colors: [.pink, .purple], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    Image(systemName: "music.note").font(.system(size: size * 0.45, weight: .bold)).foregroundStyle(.white)
+                }
+            }
+        }
+        .frame(width: size, height: size)
+        .clipShape(RoundedRectangle(cornerRadius: size * 0.22, style: .continuous))
+        .accessibilityHidden(true)
+    }
+}
+
+/// Little bouncing bars while music plays.
+private struct EqualizerBars: View {
+    let playing: Bool
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 0.12, paused: !playing)) { context in
+            let t = context.date.timeIntervalSinceReferenceDate
+            HStack(alignment: .bottom, spacing: 2) {
+                ForEach(0..<4) { index in
+                    let phase = sin(t * (5 + Double(index) * 1.7) + Double(index))
+                    Capsule()
+                        .fill(Color.green)
+                        .frame(width: 3, height: playing ? 4 + CGFloat((phase + 1) / 2) * 10 : 4)
+                }
+            }
+            .frame(maxHeight: .infinity, alignment: .bottom)
+        }
+        .accessibilityLabel(playing ? "Playing" : "Paused")
     }
 }

@@ -89,3 +89,28 @@ final class NotchTests: XCTestCase {
         XCTAssertEqual(controller.shapeSize, .zero, "nothing shows on screens without a notch when idle")
     }
 }
+
+final class TimerParserTests: XCTestCase {
+    func testParsesDurationsAndLabels() {
+        XCTAssertEqual(TimerParser.parse("timer 25m")?.seconds, 1500)
+        XCTAssertEqual(TimerParser.parse("timer 1h30m deep work")?.seconds, 5400)
+        XCTAssertEqual(TimerParser.parse("timer 1h30m deep work")?.label, "Deep work")
+        XCTAssertEqual(TimerParser.parse("timer 90s")?.seconds, 90)
+        XCTAssertEqual(TimerParser.parse("10 min tea timer")?.label, "Tea")
+        XCTAssertEqual(TimerParser.parse("timer 10")?.seconds, 600)
+        XCTAssertEqual(TimerParser.parse("set timer for 5 minutes")?.seconds, 300)
+    }
+
+    func testRejectsNonTimers() {
+        XCTAssertNil(TimerParser.parse("25m"))
+        XCTAssertNil(TimerParser.parse("timer"))
+        XCTAssertNil(TimerParser.parse("timer 30h"))
+        XCTAssertNil(TimerParser.parse("timers are great"))
+    }
+
+    func testDescribe() {
+        XCTAssertEqual(TimerParser.describe(1500), "25 min")
+        XCTAssertEqual(TimerParser.describe(5400), "1 h 30 min")
+        XCTAssertEqual(TimerParser.describe(90), "1 min 30 s")
+    }
+}

@@ -194,6 +194,9 @@ enum RecordingProcessor {
                 transcript: recording.transcriptText
             )
             recording.apply(analysis)
+            NotchController.shared.peek(NotchPeek(systemImage: "sparkles", tint: .accent, title: "Summary ready: \(recording.title)",
+                                                   subtitle: "\(recording.actionItems.count) action item\(recording.actionItems.count == 1 ? "" : "s")",
+                                                   duration: 7, action: .openRecording(recording.uid, kind: recording.kind)))
             recording.status = .ready
         } catch {
             recording.status = .failed

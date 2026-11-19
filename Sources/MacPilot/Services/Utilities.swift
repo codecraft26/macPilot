@@ -192,6 +192,22 @@ enum DataManager {
 enum NotificationService {
     static var isAvailable: Bool { Bundle.main.bundleIdentifier != nil }
 
+    /// A one-off alert after `seconds` (used by notch timers).
+    static func alert(id: String, heading: String, body: String, after seconds: TimeInterval) {
+        guard isAvailable, seconds >= 1 else { return }
+        let center = UNUserNotificationCenter.current()
+        center.removePendingNotificationRequests(withIdentifiers: [id])
+        center.requestAuthorization(options: [.alert, .sound]) { granted, _ in
+            guard granted else { return }
+            let content = UNMutableNotificationContent()
+            content.title = heading
+            content.body = body
+            content.sound = .default
+            center.add(UNNotificationRequest(identifier: id, content: content,
+                                             trigger: UNTimeIntervalNotificationTrigger(timeInterval: seconds, repeats: false)))
+        }
+    }
+
     static func schedule(id: String, title: String, at date: Date?) {
         guard isAvailable else { return }
         let center = UNUserNotificationCenter.current()
