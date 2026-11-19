@@ -141,6 +141,7 @@ enum S3Client {
     }
 
     static func put(fileURL: URL, bucket: String, key: String, region: String) async throws {
+        try await S3Bucket.ensure(bucket: bucket, region: region) // creates the bucket the first time if it doesn't exist
         S3Tracking.record(bucket: bucket, region: region, key: key) // so deleting the recording can clean this up
         let data = try Data(contentsOf: fileURL, options: .mappedIfSafe)
         let url = objectURL(bucket: bucket, region: region, key: key)

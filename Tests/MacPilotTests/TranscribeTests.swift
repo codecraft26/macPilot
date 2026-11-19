@@ -113,3 +113,33 @@ final class S3CleanupTests: XCTestCase {
         XCTAssertEqual(tracking.locations, [S3Location(bucket: "b", region: "us-east-1", prefix: TranscribeSettings.keyPrefix + "job9/")])
     }
 }
+
+final class S3BucketTests: XCTestCase {
+    func testBucketNameRules() {
+        XCTAssertNil(S3Bucket.nameProblem("macpilot-transcribe-us-east-1-abc123"))
+        XCTAssertNil(S3Bucket.nameProblem("my.bucket.name"))
+        XCTAssertNotNil(S3Bucket.nameProblem("ab"))
+        XCTAssertNotNil(S3Bucket.nameProblem("My_Bucket"))
+        XCTAssertNotNil(S3Bucket.nameProblem("-bucket"))
+        XCTAssertNotNil(S3Bucket.nameProblem("bad..dots"))
+        XCTAssertNotNil(S3Bucket.nameProblem("192.168.1.10"))
+        XCTAssertNotNil(S3Bucket.nameProblem("xn--bucket"))
+    }
+
+    func testSuggestedNameIsValid() {
+        for region in ["us-east-1", "ap-southeast-4", "eu-north-1"] {
+            let name = S3Bucket.suggestedName(region: region)
+            XCTAssertNil(S3Bucket.nameProblem(name), name)
+            XCTAssertTrue(name.contains(region))
+        }
+    }
+
+    func testCreateAndLifecycleBodies() {
+        XCTAssertNil(S3Bucket.createBody(region: "us-east-1"))
+        let body = String(decoding: S3Bucket.createBody(region: "eu-west-1") ?? Data(), as: UTF8.self)
+        XCTAssertTrue(body.contains("<LocationConstraint>eu-west-1</LocationConstraint>"))
+        let rules = String(decoding: S3Bucket.lifecycleBody(prefix: "macpilot/"), as: UTF8.self)
+        XCTAssertTrue(rules.contains("<Prefix>macpilot/</Prefix>"))
+        XCTAssertTrue(rules.contains("<Days>1</Days>"))
+    }
+}

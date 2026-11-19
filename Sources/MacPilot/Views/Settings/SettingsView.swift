@@ -262,6 +262,7 @@ private struct AWSTranscriptionSettingsView: View {
                 .font(.caption).foregroundStyle(.secondary)
             TextField("AWS region", text: $region, prompt: Text(BedrockConfig.region))
             TextField("S3 bucket", text: $bucket)
+            BucketStatusRow(bucket: $bucket)
             Text(provider == .bedrock
                  ? "Bedrock uploads audio and writes transcripts to this bucket. Use a bucket in the AWS region above."
                  : "A bucket in this region enables batch jobs. Leave it blank to stream saved audio to Amazon Transcribe.")
@@ -1173,5 +1174,80 @@ private struct S3CleanupRow: View {
             }
             running = false
         }
+    }
+}
+
+// MARK: - S3 bucket status
+
+/// Shows whether the bucket exists and offers to create it (or suggest a free name).
+private struct BucketStatusRow: View {
+    @Binding var bucket: String
+    @State private var status: String?
+    @State private var isError = false
+    @State private var busy = false
+    @State private var canCreate = false
+
+    private var name: String { bucket.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if name.isEmpty {
+                Button("Suggest a name") { bucket = S3Bucket.suggestedName(region: TranscribeSettings.region) }
+            } else {
+                Button(busy ? "Checking…" : "Check bucket") { check() }.disabled(busy)
+                if canCreate {
+                    Button("Create bucket") { create() }.disabled(busy).buttonStyle(.borderedProminent)
+                }
+            }
+            if let status {
+                Text(status).font(.caption).foregroundStyle(isError ? .red : .secondary).lineLimit(3)
+            } else if !name.isEmpty, let problem = S3Bucket.nameProblem(name) {
+                Text("Name: \(problem)").font(.caption).foregroundStyle(.red)
+            } else if !name.isEmpty {
+                Text("Created automatically on first use if it doesn't exist.").font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .onChange(of: bucket) { _, _ in
+            status = nil
+            canCreate = false
+        }
+    }
+
+    private func check() {
+        busy = true
+        Task {
+            defer { busy = false }
+            do {
+                switch try await S3Bucket.state(bucket: name, region: TranscribeSettings.region) {
+                case .exists: set("✓ Bucket found in \(TranscribeSettings.region).", error: false)
+                case .missing:
+                    set("This bucket doesn't exist yet.", error: false)
+                    canCreate = S3Bucket.nameProblem(name) == nil
+                case .otherRegion(let region): set(S3Bucket.BucketError.otherRegion(bucket: name, region: region).localizedDescription, error: true)
+                case .noAccess: set(S3Bucket.BucketError.noAccess(name).localizedDescription, error: true)
+                }
+            } catch {
+                set(AIError.describe(error), error: true)
+            }
+        }
+    }
+
+    private func create() {
+        busy = true
+        Task {
+            defer { busy = false }
+            do {
+                let note = try await S3Bucket.create(bucket: name, region: TranscribeSettings.region, prefix: TranscribeSettings.keyPrefix)
+                canCreate = false
+                set(note ?? "✓ Created “\(name)” in \(TranscribeSettings.region) (private, encrypted; temporary files expire after 1 day).", error: false)
+            } catch {
+                set(AIError.describe(error), error: true)
+            }
+        }
+    }
+
+    private func set(_ text: String, error: Bool) {
+        status = text
+        isError = error
     }
 }
