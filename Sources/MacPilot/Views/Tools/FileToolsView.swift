@@ -7,6 +7,7 @@ struct FileToolsView: View {
     @Environment(AppState.self) private var appState
     @State private var search = ""
     @State private var selected: ConversionTool?
+    @State private var editingPages = false
 
     private var visibleTools: [ConversionTool] {
         ConversionTool.allCases.filter { search.isEmpty || "\($0.title) \($0.subtitle)".localizedCaseInsensitiveContains(search) }
@@ -16,7 +17,9 @@ struct FileToolsView: View {
 
     var body: some View {
         Group {
-            if let tool = selected {
+            if editingPages {
+                PDFPageEditorView { editingPages = false }
+            } else if let tool = selected {
                 ToolWorkspace(tool: tool) { selected = nil }
                     .id(tool)
             } else {
@@ -42,6 +45,9 @@ struct FileToolsView: View {
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 220)
                 }
+                if search.isEmpty || "edit pdf pages rotate reorder delete page numbers watermark".contains(search.lowercased()) {
+                    pageEditorBanner
+                }
                 ForEach(ConversionTool.Category.allCases, id: \.self) { category in
                     let tools = visibleTools.filter { $0.category == category }
                     if !tools.isEmpty {
@@ -60,10 +66,37 @@ struct FileToolsView: View {
         }
     }
 
+    private var pageEditorBanner: some View {
+        Button { editingPages = true } label: {
+            HStack(spacing: DS.Space.m) {
+                IconTile(systemImage: "doc.on.doc", color: .red, size: 44)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Edit PDF pages").font(.title3.weight(.semibold)).foregroundStyle(.primary)
+                    Text("See every page: rotate, drag to reorder, delete, extract, add page numbers or a watermark.")
+                        .font(.callout).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: "arrow.right.circle.fill").font(.title2).foregroundStyle(.red)
+            }
+            .padding(DS.Space.m)
+            .background(RoundedRectangle(cornerRadius: DS.Radius.large, style: .continuous)
+                .fill(LinearGradient(colors: [Color.red.opacity(0.12), Color.orange.opacity(0.06)], startPoint: .leading, endPoint: .trailing)))
+            .overlay(RoundedRectangle(cornerRadius: DS.Radius.large, style: .continuous).strokeBorder(Color.red.opacity(0.25)))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
     private func takePending() {
         guard case .openTool(let raw)? = appState.pendingAction else { return }
         appState.pendingAction = nil
-        selected = ConversionTool(rawValue: raw)
+        if raw == "pageEditor" {
+            selected = nil
+            editingPages = true
+        } else {
+            editingPages = false
+            selected = ConversionTool(rawValue: raw)
+        }
     }
 }
 

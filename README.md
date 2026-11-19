@@ -93,6 +93,8 @@ SIGN_IDENTITY="Apple Development: Your Name (TEAMID)" ./scripts/build-app.sh
 | ⌥N | New note |
 | ⌥T | New task |
 | ⌥K | Command launcher: commands, notes, tasks, clipboard, apps, “Ask AI” |
+| ⌥⇧E | AI on selected text: fix, rewrite, shorten, change tone, translate, then replace it |
+| ⌥⇧A | Ask my Mac: answers from your meetings, notes, tasks and clipboard, with sources |
 
 All shortcuts can be changed in **Settings → Shortcuts**. Some macOS versions refuse global shortcuts that use only ⌥ (or ⌥⇧); if that happens, Settings shows the error and you can add ⌃ or ⌘.
 
@@ -154,7 +156,14 @@ On MacBooks with a notch, MacPilot lives around the camera like a Dynamic Island
 
 Turn on **Settings → Recording & Calendar → Reminders → Sync tasks with Apple Reminders**. MacPilot keeps its tasks and one Reminders list (“MacPilot” by default, created if needed) in step both ways: title, notes, due date and time, priority and done state. Reminders you add in that list on your Mac or iPhone appear as tasks; deleting on either side deletes on the other (unless the other side changed since the last sync). If both sides changed, this Mac's edit wins and a completion on either side counts. It syncs on every change, when Reminders changes, and every 5 minutes; **Reminders** in the Tasks header syncs on demand.
 
-## File Tools
+## AI on selected text (⌥⇧E)
+
+Select text in any app and press **⌥⇧E**. Pick an action — fix spelling & grammar, rewrite more clearly, make shorter or longer, more professional or friendly, bullet points, summarize, explain, draft a reply, translate — or type your own instruction. **⌘1–9** runs an action, **Return** replaces the selection in the original app (the clipboard is restored afterwards), **⌘Return** copies. Needs Accessibility; apps that don't expose the selection (browsers, Electron) are read with a quick ⌘C. Uses the analysis provider from Settings (e.g. Claude on Bedrock).
+
+## Ask my Mac (⌥⇧A)
+
+Ask questions like “What did we decide about the launch date?” or “Which tasks are due this week?”. MacPilot ranks your notes, tasks, meeting summaries/transcripts and recent clipboard text **on this Mac**, sends only the best-matching passages with your question to the AI, and shows the answer with numbered sources — click one (or ⌘1–9) to open that note, meeting or task.
+
 
 A **File Tools** section (also searchable from ⌥K) with on-device converters — nothing is uploaded:
 
@@ -162,6 +171,8 @@ A **File Tools** section (also searchable from ⌥K) with on-device converters �
 - **Documents:** Word/DOC/RTF/ODT/HTML/TXT → PDF, convert between DOCX, RTF, HTML, ODT and plain text, Markdown → Word or PDF.
 - **Images:** images → one PDF, convert between HEIC, JPEG, PNG and TIFF (quality slider), resize to fit, extract text (OCR) from images and scanned PDFs.
 - **Audio & video:** video → MP4 (720p, 1080p or original), extract the soundtrack as M4A.
+
+**Edit PDF pages** shows every page as a thumbnail: rotate left/right, drag to reorder, delete, duplicate, reverse, select odd/even pages, extract the selection to a new PDF, add page numbers (position, format, start number) and a text watermark, with undo. Page text stays selectable.
 
 Drop files on a tool (or choose them), set options, press Convert; results are saved next to the originals (never overwriting) with Open and Show in Finder. PDF → Word keeps the text and basic formatting; complex layouts, tables and images are simplified.
 
@@ -187,6 +198,8 @@ Drop files on a tool (or choose them), set options, press Convert; results are s
 - **Window management** (needs Accessibility): Window: Left/Right/Top/Bottom half, Left/Center/Right third, two thirds, Maximize, Center — applied to the window you were using.
 - **System:** Lock Screen, Sleep Display, Start Screen Saver, Toggle Dark Mode (macOS asks once to allow controlling System Events), Empty Trash (always asks first).
 - **Web:** typing a domain or URL opens it; “Search Google / YouTube / GitHub for …” is always at the bottom; “Ask AI” sends the text to the quick assistant.
+- **Quick links:** `g swift actors`, `yt lofi`, `gh macpilot`, `maps coffee`, `wiki …`, `tr …`, `so …`, `jira ABC-123` open the matching URL. Edit them (and add your own with `{query}`) in **Settings → Snippets & Links**.
+- **Snippets:** type a keyword such as `;date`, `;time`, `;sig` or `;standup` in any app and it expands into the saved text (`{date}`, `{time}`, `{datetime}`, `{clipboard}` are filled in). Also searchable in ⌥K. Needs Accessibility; can be turned off in Settings.
 - The launcher learns what you use: frequent and recent items move up (stored only on this Mac).
 
 ## Developer workspace

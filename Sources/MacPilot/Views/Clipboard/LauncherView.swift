@@ -154,6 +154,9 @@ enum LauncherCatalog {
             LauncherItem(id: "sys.darkmode", title: "Toggle Dark Mode", icon: .system("circle.lefthalf.filled"), section: "System", primary: { SystemCommands.toggleDarkMode() }),
             LauncherItem(id: "sys.emptytrash", title: "Empty Trash…", subtitle: "Asks first", icon: .system("trash"), section: "System", primary: { SystemCommands.emptyTrash() })
         ]
+        commands.append(LauncherItem(id: "tool.pageEditor", title: "Edit PDF pages", subtitle: "Rotate, reorder, delete, page numbers, watermark",
+                                     icon: .system("doc.on.doc"), section: "File Tools",
+                                     primary: { windows.open(.tools, action: .openTool("pageEditor")) }))
         commands += ConversionTool.allCases.map { tool in
             LauncherItem(id: "tool.\(tool.rawValue)", title: tool.title, subtitle: tool.subtitle, icon: .system(tool.systemImage), section: "File Tools",
                          primary: { windows.open(.tools, action: .openTool(tool.rawValue)) })
