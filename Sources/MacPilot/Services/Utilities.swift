@@ -169,6 +169,7 @@ enum DataManager {
         for provider in AIProviderID.allCases {
             try? KeychainStore.delete(account: provider.rawValue)
         }
+        BedrockConfig.deleteAll()
         try? KeychainStore.delete(account: GoogleCalendarService.clientSecretAccount)
         GoogleCalendarService.shared.disconnect()
     }

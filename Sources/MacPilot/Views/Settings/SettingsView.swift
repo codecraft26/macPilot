@@ -59,7 +59,7 @@ private struct ProviderCard: View {
 
     init(provider: AIProviderID) {
         self.provider = provider
-        _isEnabled = AppStorage(wrappedValue: provider != .ollama, PrefKey.enabled(provider))
+        _isEnabled = AppStorage(wrappedValue: provider == .anthropic || provider == .openAI, PrefKey.enabled(provider))
         _model = AppStorage(wrappedValue: provider.defaultModel, PrefKey.model(provider))
     }
 
@@ -73,7 +73,12 @@ private struct ProviderCard: View {
                 }
                 Text(provider.dataNotice).font(.caption).foregroundStyle(.secondary)
 
-                if provider.requiresAPIKey {
+                if provider == .bedrock {
+                    BedrockCredentialsSection(onChange: { saved in
+                        hasKey = provider.hasCredentials
+                        if saved { testConnection() }
+                    })
+                } else if provider.requiresAPIKey {
                     keyRow
                 } else {
                     HStack {
@@ -111,7 +116,7 @@ private struct ProviderCard: View {
             .padding(8)
         }
         .onAppear {
-            hasKey = provider.requiresAPIKey ? KeychainStore.exists(account: provider.rawValue) : true
+            hasKey = provider.hasCredentials
             models = Prefs.cachedModels(for: provider)
         }
     }
@@ -168,7 +173,9 @@ private struct ProviderCard: View {
                     Prefs.setCachedModels(fetched, for: provider)
                     models = fetched
                 }
-                setStatus("Connected. \(fetched.count) models available.", error: false)
+                setStatus(provider == .bedrock
+                          ? "Connected to Bedrock in \(BedrockConfig.region); \(Prefs.model(for: .bedrock)) answered."
+                          : "Connected. \(fetched.count) models available.", error: false)
             } catch {
                 setStatus(AIError.describe(error), error: true)
             }
@@ -785,5 +792,133 @@ struct ClipboardSettingsView: View {
     private func remove(_ bundleID: String) {
         excluded.removeAll { $0 == bundleID }
         Prefs.clipboardExcludedApps = excluded
+    }
+}
+
+// MARK: - Amazon Bedrock credentials
+
+private struct BedrockCredentialsSection: View {
+    var onChange: (_ saved: Bool) -> Void
+
+    @AppStorage(PrefKey.bedrockAuthMethod) private var authMethod = BedrockAuthMethod.accessKeys.rawValue
+    @AppStorage(PrefKey.bedrockRegion) private var region = BedrockConfig.defaultRegion
+    @State private var accessKeyID = ""
+    @State private var secretAccessKey = ""
+    @State private var sessionToken = ""
+    @State private var apiKey = ""
+    @State private var saved: [String: Bool] = [:]
+    @State private var message: String?
+
+    private var method: BedrockAuthMethod { BedrockAuthMethod(rawValue: authMethod) ?? .accessKeys }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Sign in with").frame(width: 90, alignment: .leading)
+                Picker("", selection: $authMethod) {
+                    ForEach(BedrockAuthMethod.allCases) { Text($0.label).tag($0.rawValue) }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .frame(width: 280)
+                .onChange(of: authMethod) { _, _ in onChange(false) }
+            }
+            HStack {
+                Text("Region").frame(width: 90, alignment: .leading)
+                Picker("", selection: $region) {
+                    ForEach(regionOptions, id: \.self) { Text($0).tag($0) }
+                }
+                .labelsHidden()
+                .frame(width: 160)
+                TextField("or type a region", text: $region)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 160)
+            }
+            if method == .accessKeys {
+                secretRow("Access key ID", account: BedrockConfig.Account.accessKeyID, text: $accessKeyID, placeholder: "AKIA…", secure: false)
+                secretRow("Secret key", account: BedrockConfig.Account.secretAccessKey, text: $secretAccessKey, placeholder: "Secret access key", secure: true)
+                secretRow("Session token", account: BedrockConfig.Account.sessionToken, text: $sessionToken, placeholder: "Optional, for temporary credentials", secure: true)
+            } else {
+                secretRow("API key", account: BedrockConfig.Account.apiKey, text: $apiKey, placeholder: "Amazon Bedrock API key", secure: true)
+            }
+            HStack {
+                Button("Save") { save() }
+                    .disabled(!hasInput)
+                Button("Delete credentials", role: .destructive) {
+                    BedrockConfig.deleteAll()
+                    refresh()
+                    message = "Bedrock credentials deleted."
+                    onChange(false)
+                }
+                if let message { Text(message).font(.caption).foregroundStyle(.secondary) }
+                Spacer()
+                Link("Model access in AWS", destination: BedrockConfig.modelAccessURL).font(.caption)
+            }
+            Text(method == .accessKeys
+                 ? "Requests are signed with AWS Signature V4 (service bedrock-mantle). The IAM identity needs bedrock-mantle:CreateInference on the models you use, and each model must be enabled in Amazon Bedrock model access."
+                 : "The identity behind the API key needs bedrock-mantle:CallWithBearerToken and bedrock-mantle:CreateInference. Short-term keys work only in the region where they were created.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .onAppear(perform: refresh)
+    }
+
+    private var regionOptions: [String] {
+        var options = BedrockConfig.suggestedRegions
+        if !region.isEmpty, !options.contains(region) { options.insert(region, at: 0) }
+        return options
+    }
+
+    private var hasInput: Bool {
+        [accessKeyID, secretAccessKey, sessionToken, apiKey].contains { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    }
+
+    private func secretRow(_ label: String, account: String, text: Binding<String>, placeholder: String, secure: Bool) -> some View {
+        HStack {
+            Text(label).frame(width: 90, alignment: .leading)
+            Group {
+                let prompt = saved[account] == true ? "Saved in Keychain — paste to replace" : placeholder
+                if secure {
+                    SecureField(prompt, text: text)
+                } else {
+                    TextField(prompt, text: text)
+                }
+            }
+            .textFieldStyle(.roundedBorder)
+            if saved[account] == true {
+                Image(systemName: "checkmark.circle.fill").foregroundStyle(.green).help("Saved in Keychain")
+            }
+        }
+    }
+
+    private func refresh() {
+        for account in BedrockConfig.Account.all {
+            saved[account] = KeychainStore.exists(account: account)
+        }
+    }
+
+    private func save() {
+        let values: [(String, String)] = [
+            (BedrockConfig.Account.accessKeyID, accessKeyID),
+            (BedrockConfig.Account.secretAccessKey, secretAccessKey),
+            (BedrockConfig.Account.sessionToken, sessionToken),
+            (BedrockConfig.Account.apiKey, apiKey)
+        ]
+        do {
+            for (account, value) in values {
+                let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmed.isEmpty { try KeychainStore.save(trimmed, account: account) }
+            }
+            accessKeyID = ""
+            secretAccessKey = ""
+            sessionToken = ""
+            apiKey = ""
+            refresh()
+            message = "Saved to Keychain."
+            onChange(BedrockConfig.isConfigured)
+        } catch {
+            message = error.localizedDescription
+        }
     }
 }

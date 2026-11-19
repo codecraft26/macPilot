@@ -1,6 +1,6 @@
 # MacPilot
 
-Your personal AI-powered workspace for macOS: a native menu bar app with a floating assistant, a full dashboard, global shortcuts, and bring-your-own-key access to Claude and OpenAI (plus local models through Ollama). Everything is stored locally; API keys live in the macOS Keychain.
+Your personal AI-powered workspace for macOS: a native menu bar app with a floating assistant, a full dashboard, global shortcuts, and bring-your-own-key access to Claude (Anthropic API or Amazon Bedrock) and OpenAI, plus local models through Ollama. Everything is stored locally; API keys live in the macOS Keychain.
 
 ## Status
 
@@ -59,6 +59,17 @@ For installs that open with no warning, sign with a Developer ID certificate (pa
 xcrun notarytool store-credentials macpilot --apple-id you@example.com --team-id TEAMID
 SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" NOTARY_PROFILE=macpilot scripts/package.sh
 ```
+
+### Claude via Amazon Bedrock
+
+Use Claude through your own AWS account instead of an Anthropic API key:
+
+1. In the AWS console, enable the Claude models you want under [Amazon Bedrock → Model access](https://console.aws.amazon.com/bedrock/home#/modelaccess) (Opus 5.5, Sonnet 5.5 and Haiku 5.5 may need access requested).
+2. Create credentials with IAM permission `bedrock-mantle:CreateInference` on those models: either an **access key** (access key ID + secret, plus a session token for temporary credentials) or an **Amazon Bedrock API key** (that identity also needs `bedrock-mantle:CallWithBearerToken`).
+3. In **Settings → Providers → Claude via Amazon Bedrock**, choose *Access key* or *Bedrock API key*, paste the values, pick a region (default `us-east-1`) and press **Save**. Turn the provider on and press **Test connection**.
+4. Pick *Bedrock* as the provider for new chats or for transcript analysis in **Settings → Routing**, or per chat.
+
+MacPilot calls `https://bedrock-mantle.<region>.api.aws/anthropic/v1/messages` (the Messages API, streamed) and signs each request with AWS Signature V4 (service `bedrock-mantle`) or sends the API key as a bearer token. Model IDs carry an `anthropic.` prefix (`anthropic.claude-opus-5-5` by default). Credentials are stored only in the Keychain. Bedrock has no models list or server-side refusal fallback, so **Test connection** sends a 16-token “ping” to the selected model.
 
 ### Keychain prompts
 

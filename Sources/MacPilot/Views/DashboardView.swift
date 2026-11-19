@@ -440,8 +440,7 @@ private struct ProviderStatusCard: View {
 
     private func refresh() {
         for provider in AIProviderID.allCases {
-            let hasKey = provider.requiresAPIKey ? KeychainStore.exists(account: provider.rawValue) : true
-            configured[provider] = Prefs.isEnabled(provider) && hasKey
+            configured[provider] = Prefs.isEnabled(provider) && provider.hasCredentials
         }
     }
 

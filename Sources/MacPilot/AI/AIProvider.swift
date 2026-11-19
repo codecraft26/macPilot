@@ -4,6 +4,7 @@ import Foundation
 enum AIProviderID: String, CaseIterable, Identifiable, Codable {
     case anthropic
     case openAI = "openai"
+    case bedrock
     case ollama
 
     var id: String { rawValue }
@@ -12,6 +13,7 @@ enum AIProviderID: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .anthropic: return "Anthropic (Claude)"
         case .openAI: return "OpenAI"
+        case .bedrock: return "Claude via Amazon Bedrock"
         case .ollama: return "Ollama (local)"
         }
     }
@@ -20,6 +22,7 @@ enum AIProviderID: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .anthropic: return "Claude"
         case .openAI: return "OpenAI"
+        case .bedrock: return "Bedrock"
         case .ollama: return "Ollama"
         }
     }
@@ -28,6 +31,7 @@ enum AIProviderID: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .anthropic: return "claude-opus-5-5"
         case .openAI: return "gpt-5"
+        case .bedrock: return "anthropic.claude-opus-5-5"
         case .ollama: return "llama3.2"
         }
     }
@@ -37,11 +41,22 @@ enum AIProviderID: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .anthropic: return ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5", "claude-fable-5-2"]
         case .openAI: return ["gpt-5", "gpt-5-mini"]
+        case .bedrock: return ["anthropic.claude-opus-5-5", "anthropic.claude-sonnet-5-5", "anthropic.claude-haiku-5-5",
+                               "anthropic.claude-opus-5", "anthropic.claude-sonnet-5", "anthropic.claude-opus-4-8", "anthropic.claude-haiku-4-5"]
         case .ollama: return ["llama3.2"]
         }
     }
 
     var requiresAPIKey: Bool { self != .ollama }
+
+    /// Whether credentials are saved (checked without reading secrets, so no Keychain prompt).
+    var hasCredentials: Bool {
+        switch self {
+        case .ollama: return true
+        case .bedrock: return BedrockConfig.isConfigured
+        default: return KeychainStore.exists(account: rawValue)
+        }
+    }
 
     /// True when user data leaves the Mac for a third-party service.
     var isExternal: Bool { self != .ollama }
@@ -50,6 +65,7 @@ enum AIProviderID: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .anthropic: return "Prompts, attachments and history are sent to Anthropic's API."
         case .openAI: return "Prompts, attachments and history are sent to OpenAI's API."
+        case .bedrock: return "Prompts, attachments and history are sent to Claude in Amazon Bedrock in your AWS account (region \(BedrockConfig.region))."
         case .ollama: return "Runs on your Ollama server. Nothing leaves this Mac when it is on localhost."
         }
     }
@@ -82,13 +98,20 @@ enum AIError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .missingKey(let provider):
+            if provider == .bedrock {
+                return "No AWS credentials for Bedrock yet. Add an access key or Bedrock API key in Settings → Providers."
+            }
             return "No \(provider.shortName) API key yet. Add one in Settings → Providers."
         case .providerDisabled(let provider):
             return "\(provider.displayName) is turned off in Settings → Providers."
         case .limitReached(let provider):
             return "The monthly token limit for \(provider.shortName) has been reached. Change it in Settings → Usage."
         case let .http(provider, status, message):
-            return "\(provider.shortName) returned \(status): \(Redactor.redact(message))"
+            var text = "\(provider.shortName) returned \(status): \(Redactor.redact(message))"
+            if provider == .bedrock && (status == 403 || message.localizedCaseInsensitiveContains("access")) {
+                text += " — check that the IAM identity has bedrock-mantle:CreateInference and that this model is enabled in Amazon Bedrock model access (\(BedrockConfig.modelAccessURL.absoluteString)) for region \(BedrockConfig.region)."
+            }
+            return text
         case .invalidResponse:
             return "The provider sent a response MacPilot could not read."
         case .stream(let message):
@@ -108,7 +131,10 @@ enum AIError: LocalizedError {
 enum Redactor {
     private static let patterns: [NSRegularExpression] = [
         "sk-ant-[A-Za-z0-9_\\-\\*]{4,}",
-        "sk-[A-Za-z0-9_\\-\\*]{6,}"
+        "sk-[A-Za-z0-9_\\-\\*]{6,}",
+        "\\b(AKIA|ASIA)[0-9A-Z]{16}\\b",
+        "Signature=[0-9a-fA-F]+",
+        "\\bABSK[A-Za-z0-9+/=_\\-]{16,}"
     ].compactMap { try? NSRegularExpression(pattern: $0) }
 
     static func redact(_ text: String) -> String {
@@ -171,6 +197,10 @@ enum HTTPSupport {
                 return message
             }
             if let message = object["error"] as? String {
+                return message
+            }
+            // AWS-style errors.
+            if let message = (object["message"] ?? object["Message"]) as? String {
                 return message
             }
         }

@@ -5,6 +5,7 @@ enum AIRouter {
     static func client(for provider: AIProviderID) -> any ChatProvider {
         switch provider {
         case .anthropic: return AnthropicClient()
+        case .bedrock: return AnthropicClient(backend: .bedrock)
         case .openAI: return OpenAIClient()
         case .ollama: return OllamaClient(baseURL: Prefs.ollamaBaseURL)
         }

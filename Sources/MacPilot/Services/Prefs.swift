@@ -25,6 +25,8 @@ enum PrefKey {
     static let clipboardSkipSensitive = "clipboard.skipSensitive"
     static let clipboardExcludedApps = "clipboard.excludedApps"
     static let developerRepos = "developer.repositories"
+    static let bedrockRegion = "bedrock.region"
+    static let bedrockAuthMethod = "bedrock.authMethod"
     static let googleClientID = "google.clientID"
     static let googleAccountEmail = "google.accountEmail"
 
@@ -65,6 +67,8 @@ enum Prefs {
             PrefKey.autoProcessRecordings: true,
             PrefKey.audioRetentionDays: 0,
             PrefKey.defaultEventAlarmMinutes: 10,
+            PrefKey.bedrockRegion: BedrockConfig.defaultRegion,
+            PrefKey.bedrockAuthMethod: BedrockAuthMethod.accessKeys.rawValue,
             PrefKey.clipboardEnabled: true,
             PrefKey.clipboardRetentionDays: 30,
             PrefKey.clipboardMaxItems: 1000,
@@ -74,7 +78,7 @@ enum Prefs {
             PrefKey.defaultSystemPrompt: "You are MacPilot, a concise and practical assistant for a professional working on a Mac. Prefer short, direct answers and use Markdown code blocks for code."
         ]
         for provider in AIProviderID.allCases {
-            values[PrefKey.enabled(provider)] = provider != .ollama
+            values[PrefKey.enabled(provider)] = provider == .anthropic || provider == .openAI
             values[PrefKey.model(provider)] = provider.defaultModel
             values[PrefKey.tokenLimit(provider)] = 0
         }
