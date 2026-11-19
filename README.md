@@ -165,6 +165,10 @@ Select text in any app and press **⌥⇧E**. Pick an action — fix spelling & 
 Ask questions like “What did we decide about the launch date?” or “Which tasks are due this week?”. MacPilot ranks your notes, tasks, meeting summaries/transcripts and recent clipboard text **on this Mac**, sends only the best-matching passages with your question to the AI, and shows the answer with numbered sources — click one (or ⌘1–9) to open that note, meeting or task.
 
 
+## Hidden from screen sharing
+
+By default MacPilot's windows (main window, ⌥K/⌥C/⌥⇧E/⌥⇧A panels, assistant, notch) are marked non-shareable, so screenshots, screen recordings and Zoom/Meet/Teams shares show what's behind them while you still see them. Turn it off in **Settings → Privacy & Data**. macOS decides whether each capture app honors this; if one still shows MacPilot, share a single window instead of the whole screen. MacPilot's own screen recordings leave MacPilot out separately (Settings → Recording).
+
 ## iCloud sync between your Macs
 
 Turn on **Settings → Sync** on each Mac (same Apple Account, iCloud Drive on). Notes, tasks, meeting transcripts and summaries, AI chats, the prompt library, and snippets & quick links sync through `iCloud Drive/MacPilot/Sync/`, usually within a minute.

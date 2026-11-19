@@ -28,6 +28,7 @@ enum PrefKey {
     static let developerRepos = "developer.repositories"
     static let snippetsEnabled = "snippets.enabled"
     static let iCloudSyncEnabled = "sync.iCloudEnabled"
+    static let hideFromScreenCapture = "privacy.hideFromScreenCapture"
     static let notchEnabled = "notch.enabled"
     static let notchExpandOnHover = "notch.expandOnHover"
     static let notchMeetingCountdown = "notch.meetingCountdown"
@@ -106,6 +107,7 @@ enum Prefs {
             PrefKey.defaultEventAlarmMinutes: 10,
             PrefKey.bedrockRegion: BedrockConfig.defaultRegion,
             PrefKey.snippetsEnabled: true,
+            PrefKey.hideFromScreenCapture: true,
             PrefKey.notchEnabled: true,
             PrefKey.notchExpandOnHover: true,
             PrefKey.notchMeetingCountdown: true,

@@ -505,9 +505,18 @@ struct PrivacySettingsView: View {
     @State private var confirmDeleteKeys = false
     @State private var message: String?
     @AppStorage(PrefKey.audioRetentionDays) private var retentionDays = 0
+    @AppStorage(PrefKey.hideFromScreenCapture) private var hideFromCapture = true
 
     var body: some View {
         Form {
+            Section("Screen sharing & recording") {
+                Toggle("Hide MacPilot from screenshots, screen recordings and screen sharing", isOn: $hideFromCapture)
+                    .onChange(of: hideFromCapture) { _, _ in ScreenPrivacy.applyAll() }
+                Text("""
+                Others in a Zoom, Meet or Teams share see what's behind MacPilot's windows, not MacPilot itself — you still                 see it normally. macOS decides whether each app honors this; if a capture still shows MacPilot, share a                 single window instead of the whole screen.
+                """)
+                .font(.caption).foregroundStyle(.secondary)
+            }
             Section("Where your data goes") {
                 ForEach(AIProviderID.allCases) { provider in
                     HStack(alignment: .top) {
