@@ -166,6 +166,8 @@ final class Recording {
     var prepNotes: String = ""
     /// Transcript segments, JSON-encoded.
     var segmentsData: Data?
+    /// S3 folders used to transcribe this recording, deleted together with it.
+    var s3LocationsData: Data?
     // Meeting intelligence
     var summary: String = ""
     var decisionsData: Data?
@@ -199,6 +201,11 @@ final class Recording {
     var segments: [TranscriptSegment] {
         get { Self.decode(segmentsData) ?? [] }
         set { segmentsData = Self.encode(newValue) }
+    }
+
+    var s3Locations: [S3Location] {
+        get { Self.decode(s3LocationsData) ?? [] }
+        set { s3LocationsData = newValue.isEmpty ? nil : Self.encode(newValue) }
     }
 
     var decisions: [String] {

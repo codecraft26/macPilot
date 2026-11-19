@@ -141,6 +141,7 @@ enum S3Client {
     }
 
     static func put(fileURL: URL, bucket: String, key: String, region: String) async throws {
+        S3Tracking.record(bucket: bucket, region: region, key: key) // so deleting the recording can clean this up
         let data = try Data(contentsOf: fileURL, options: .mappedIfSafe)
         let url = objectURL(bucket: bucket, region: region, key: key)
         var request = URLRequest(url: url)

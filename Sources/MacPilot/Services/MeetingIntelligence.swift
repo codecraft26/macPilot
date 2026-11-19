@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import SwiftData
 
@@ -151,8 +152,19 @@ enum RecordingProcessor {
         recording.status = .transcribing
         recording.errorMessage = nil
         try? context.save()
+        let tracking = S3Tracking()
+        defer {
+            // Remember S3 folders even when the job failed, so deleting the recording removes leftovers.
+            let found = tracking.locations.filter { !recording.s3Locations.contains($0) }
+            if !found.isEmpty {
+                recording.s3Locations += found
+                try? context.save()
+            }
+        }
         do {
-            let segments = try await TranscriptionService.transcribe(RecordingSnapshot(recording), liveMicrophone: liveMicrophone)
+            let segments = try await S3Tracking.$current.withValue(tracking) {
+                try await TranscriptionService.transcribe(RecordingSnapshot(recording), liveMicrophone: liveMicrophone)
+            }
             recording.segments = segments
             recording.status = .transcribed
             if segments.isEmpty { recording.notice = "No speech was detected." }
@@ -216,10 +228,33 @@ enum RecordingActions {
     }
 
     static func delete(_ recording: Recording, context: ModelContext) {
+        let locations = recording.s3Locations
+        if !locations.isEmpty {
+            Task { await deleteS3(locations, title: recording.title) }
+        }
         RecordingStorage.deleteFiles(for: recording.uid)
         AutomationEngine.discardPending(for: recording.uid, context: context)
         context.delete(recording)
         try? context.save()
+    }
+
+    /// Removes a deleted recording's files from S3; tells the user if that isn't possible.
+    private static func deleteS3(_ locations: [S3Location], title: String) async {
+        var failures: [String] = []
+        for location in locations {
+            do {
+                try await S3Client.deletePrefix(bucket: location.bucket, prefix: location.prefix, region: location.region)
+            } catch {
+                failures.append("\(location.displayPath): \(AIError.describe(error))")
+            }
+        }
+        guard !failures.isEmpty else { return }
+        let alert = NSAlert()
+        alert.messageText = "“\(title)” was deleted on this Mac, but its files in S3 could not be removed."
+        alert.informativeText = failures.joined(separator: "\n") + "\n\nCheck that your AWS key allows s3:ListBucket and s3:DeleteObject, or delete these folders in the S3 console. Settings → Routing → “Clean up S3” retries all of them."
+        alert.alertStyle = .warning
+        NSApp.activate(ignoringOtherApps: true)
+        alert.runModal()
     }
 
     /// A chat whose system prompt carries the transcript, so the user can ask follow-up questions.

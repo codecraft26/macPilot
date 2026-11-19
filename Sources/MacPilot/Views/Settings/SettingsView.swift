@@ -269,6 +269,7 @@ private struct AWSTranscriptionSettingsView: View {
             if provider == .bedrock || !bucket.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 TextField("S3 key prefix", text: $prefix)
                 Toggle(provider == .bedrock ? "Delete uploaded audio after a job finishes" : "Delete uploaded audio and completed job", isOn: $cleanUp)
+                S3CleanupRow()
             }
             if provider == .bedrock {
                 TextField("Data Automation profile ARN", text: $profile)
@@ -1133,6 +1134,44 @@ private struct RemindersSettingsSection: View {
         } footer: {
             Text("Two-way: tasks go to the “\(listName.isEmpty ? "MacPilot" : listName)” list (created if needed) with title, notes, due date, priority and done state, and reminders you add or change there come back here. Syncs on every change and every 5 minutes; on iPhone the list syncs through iCloud.")
                 .font(.caption).foregroundStyle(.secondary)
+        }
+    }
+}
+
+// MARK: - S3 cleanup
+
+/// Deletes everything MacPilot stored under its key prefix in the transcription bucket.
+private struct S3CleanupRow: View {
+    @State private var confirm = false
+    @State private var running = false
+    @State private var message: String?
+
+    var body: some View {
+        HStack {
+            Button(running ? "Cleaning up…" : "Clean up S3…") { confirm = true }
+                .disabled(running || TranscribeSettings.bucket.isEmpty || TranscribeSettings.keyPrefix.isEmpty)
+            if let message { Text(message).font(.caption).foregroundStyle(.secondary).lineLimit(2) }
+        }
+        .confirmationDialog("Delete everything MacPilot stored in s3://\(TranscribeSettings.bucket)/\(TranscribeSettings.keyPrefix)?",
+                            isPresented: $confirm) {
+            Button("Delete from S3", role: .destructive, action: run)
+        } message: {
+            Text("Uploaded audio and transcription output under this prefix are deleted permanently. Recordings and transcripts on this Mac are not affected.")
+        }
+    }
+
+    private func run() {
+        running = true
+        message = nil
+        Task {
+            do {
+                let count = try await S3Client.deletePrefix(bucket: TranscribeSettings.bucket, prefix: TranscribeSettings.keyPrefix,
+                                                            region: TranscribeSettings.region)
+                message = count == 0 ? "Nothing to delete." : "Deleted \(count) file\(count == 1 ? "" : "s") from S3."
+            } catch {
+                message = AIError.describe(error)
+            }
+            running = false
         }
     }
 }

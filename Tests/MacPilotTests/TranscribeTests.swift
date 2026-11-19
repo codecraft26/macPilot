@@ -81,3 +81,35 @@ final class TranscribeParsingTests: XCTestCase {
         XCTAssertEqual(segments.map(\.speaker), ["Speaker 1", "Speaker 2"])
     }
 }
+
+final class S3CleanupTests: XCTestCase {
+    func testJobPrefix() {
+        XCTAssertEqual(S3Location.jobPrefix(forKey: "macpilot/macpilot-abc/audio.m4a", keyPrefix: "macpilot/"), "macpilot/macpilot-abc/")
+        XCTAssertEqual(S3Location.jobPrefix(forKey: "macpilot/job1/input/audio.m4a", keyPrefix: "macpilot/"), "macpilot/job1/")
+        XCTAssertEqual(S3Location.jobPrefix(forKey: "job2/audio.wav", keyPrefix: ""), "job2/")
+        XCTAssertNil(S3Location.jobPrefix(forKey: "macpilot/audio.m4a", keyPrefix: "macpilot/"), "never the whole prefix")
+    }
+
+    func testListParsing() {
+        let xml = """
+        <ListBucketResult><IsTruncated>true</IsTruncated>
+        <Contents><Key>macpilot/j1/audio.m4a</Key></Contents>
+        <Contents><Key>macpilot/j1/output/a&amp;b.json</Key></Contents>
+        <NextContinuationToken>tok123</NextContinuationToken></ListBucketResult>
+        """
+        let page = S3Client.parseList(Data(xml.utf8))
+        XCTAssertEqual(page.keys, ["macpilot/j1/audio.m4a", "macpilot/j1/output/a&b.json"])
+        XCTAssertEqual(page.nextToken, "tok123")
+        XCTAssertNil(S3Client.parseList(Data("<ListBucketResult><IsTruncated>false</IsTruncated></ListBucketResult>".utf8)).nextToken)
+    }
+
+    func testTrackingIsTaskLocal() async {
+        let tracking = S3Tracking()
+        await S3Tracking.$current.withValue(tracking) {
+            S3Tracking.record(bucket: "b", region: "us-east-1", key: TranscribeSettings.keyPrefix + "job9/audio.m4a")
+            S3Tracking.record(bucket: "b", region: "us-east-1", key: TranscribeSettings.keyPrefix + "job9/output/x.json")
+        }
+        S3Tracking.record(bucket: "b", region: "us-east-1", key: "outside/job/audio.m4a") // no collector: ignored
+        XCTAssertEqual(tracking.locations, [S3Location(bucket: "b", region: "us-east-1", prefix: TranscribeSettings.keyPrefix + "job9/")])
+    }
+}
