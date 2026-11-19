@@ -44,6 +44,22 @@ Tests: `swift test`
 
 On first launch the dashboard opens on **Settings → Providers**. Paste your Anthropic and/or OpenAI key, press **Save**, and MacPilot tests the connection and loads the model list.
 
+### Installing on another Mac
+
+1. On this Mac run `scripts/package.sh`. It builds a universal app (Apple silicon and Intel, macOS 14+) and writes `build/MacPilot-<version>.zip` and `.dmg`. Send the zip or dmg, not the bare `.app` folder: copying the folder through some apps strips permissions and macOS then calls it "damaged".
+2. On the other Mac, unzip (or open the dmg) and drag **MacPilot** into **Applications**.
+3. The default build is not signed with an Apple Developer ID, so macOS blocks the first launch. Allow it once, either:
+   - double-click MacPilot, then **System Settings → Privacy & Security**, scroll down and press **Open Anyway**; or
+   - in Terminal: `xattr -dr com.apple.quarantine /Applications/MacPilot.app`
+4. Open MacPilot. It lives in the menu bar (paper-plane icon); there is no Dock icon until you open the dashboard.
+
+For installs that open with no warning, sign with a Developer ID certificate (paid Apple Developer Program) and notarize:
+
+```bash
+xcrun notarytool store-credentials macpilot --apple-id you@example.com --team-id TEAMID
+SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" NOTARY_PROFILE=macpilot scripts/package.sh
+```
+
 ### Keychain prompts
 
 The build script signs ad hoc by default, so macOS may ask for Keychain access again after each rebuild. To avoid that, sign with your own identity:
