@@ -149,6 +149,10 @@ final class TaskItem {
     var isCompleted: Bool = false
     var completedAt: Date?
     var createdAt: Date = Date()
+    /// Apple Reminders item this task is synced with (EventKit `calendarItemIdentifier`).
+    var reminderID: String?
+    /// Task state at the last successful sync, used to tell which side changed.
+    var reminderFingerprint: String?
 
     init(title: String, dueDate: Date? = nil, priority: TaskPriority = .none, category: String = "") {
         self.title = title

@@ -10,7 +10,7 @@ MacPilot is a native macOS menu bar app with a floating AI assistant, meeting re
 | 2 | OpenAI + Claude streaming chat, history, prompt library | Done (plus Ollama) |
 | 3 | Microphone recording, dictation, transcription, transcript editor | Done: recording, import, transcription, editing and ⌥D push-to-talk dictation. |
 | 4 | Meeting recording, system audio, speakers, meeting intelligence | Post-recording analysis and optional live microphone captions with Amazon Transcribe. |
-| 5 | Calendar, notes, tasks, reminders | Done (Apple Reminders sync not yet) |
+| 5 | Calendar, notes, tasks, reminders | Done (with two-way Apple Reminders sync) |
 | 6 | Clipboard manager, developer workspace | Done (plus ⌥K command launcher) |
 | 7 | Automations, local Whisper, distribution | Workflows with approvals and run history, on-device transcription with whisper.cpp, and ZIP and DMG packaging. |
 
@@ -141,6 +141,10 @@ Workflows can create a note or task and can optionally require approval first. *
 - Styles: Plain, Message, Email, Code prompt and Translate — pick the default in **Settings → Dictation** or change it on the pill. **⌥⇧T** turns speech into a task, with any spoken date as the due date.
 - Your clipboard is restored after pasting, and MacPilot's own pastes are not added to clipboard history. Pasting needs **Accessibility** permission; without it the text is copied and you press ⌘V.
 - Add names and technical terms under **Settings → Dictation → Vocabulary** so they're spelled right. The last 50 dictations are in **Voice & Transcription → Dictations**.
+
+## Apple Reminders
+
+Turn on **Settings → Recording & Calendar → Reminders → Sync tasks with Apple Reminders**. MacPilot keeps its tasks and one Reminders list (“MacPilot” by default, created if needed) in step both ways: title, notes, due date and time, priority and done state. Reminders you add in that list on your Mac or iPhone appear as tasks; deleting on either side deletes on the other (unless the other side changed since the last sync). If both sides changed, this Mac's edit wins and a completion on either side counts. It syncs on every change, when Reminders changes, and every 5 minutes; **Reminders** in the Tasks header syncs on demand.
 
 ## Clipboard history (Raycast-style)
 

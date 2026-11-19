@@ -662,6 +662,7 @@ struct RecordingSettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            RemindersSettingsSection()
             GoogleCalendarSettingsSection()
         }
         .formStyle(.grouped)
@@ -1097,5 +1098,39 @@ struct DictationSettingsView: View {
         }
         .formStyle(.grouped)
         .onAppear { isTrusted = PasteService.isTrusted }
+    }
+}
+
+// MARK: - Apple Reminders
+
+private struct RemindersSettingsSection: View {
+    @AppStorage(PrefKey.remindersSync) private var enabled = false
+    @AppStorage(PrefKey.remindersListName) private var listName = "MacPilot"
+    private let sync = ReminderSync.shared
+
+    var body: some View {
+        Section {
+            Toggle("Sync tasks with Apple Reminders", isOn: $enabled)
+                .onChange(of: enabled) { _, on in
+                    if on { Task { await sync.sync() } }
+                }
+            TextField("Reminders list", text: $listName)
+                .disabled(!enabled)
+            HStack {
+                Button(sync.isSyncing ? "Syncing…" : "Sync now") { Task { await sync.sync() } }
+                    .disabled(!enabled || sync.isSyncing)
+                if let error = sync.lastError {
+                    Text(error).font(.caption).foregroundStyle(.red).lineLimit(2)
+                } else if let date = sync.lastSync {
+                    Text("\(sync.lastSummary ?? "") · \(date.formatted(.relative(presentation: .named)))")
+                        .font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                }
+            }
+        } header: {
+            Text("Reminders")
+        } footer: {
+            Text("Two-way: tasks go to the “\(listName.isEmpty ? "MacPilot" : listName)” list (created if needed) with title, notes, due date, priority and done state, and reminders you add or change there come back here. Syncs on every change and every 5 minutes; on iPhone the list syncs through iCloud.")
+                .font(.caption).foregroundStyle(.secondary)
+        }
     }
 }

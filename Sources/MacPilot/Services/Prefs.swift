@@ -26,6 +26,9 @@ enum PrefKey {
     static let clipboardSkipSensitive = "clipboard.skipSensitive"
     static let clipboardExcludedApps = "clipboard.excludedApps"
     static let developerRepos = "developer.repositories"
+    static let remindersSync = "reminders.sync"
+    static let remindersListName = "reminders.listName"
+    static let remindersListID = "reminders.listID"
     static let dictationPushToTalk = "dictation.pushToTalk"
     static let dictationCleanup = "dictation.cleanup"
     static let dictationMode = "dictation.mode"
@@ -92,6 +95,8 @@ enum Prefs {
             PrefKey.audioRetentionDays: 0,
             PrefKey.defaultEventAlarmMinutes: 10,
             PrefKey.bedrockRegion: BedrockConfig.defaultRegion,
+            PrefKey.remindersSync: false,
+            PrefKey.remindersListName: "MacPilot",
             PrefKey.dictationPushToTalk: true,
             PrefKey.dictationCleanup: true,
             PrefKey.dictationMode: DictationMode.plain.rawValue,

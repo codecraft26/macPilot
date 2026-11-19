@@ -34,6 +34,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         ShortcutManager.shared.registerAll()
         ClipboardMonitor.shared.start()
+        ReminderSync.shared.start()
         AutomationEngine.shared.start()
 
         let defaults = UserDefaults.standard
