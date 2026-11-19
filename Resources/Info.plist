@@ -8,6 +8,10 @@
     <string>MacPilot</string>
     <key>CFBundleExecutable</key>
     <string>MacPilot</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+    <key>CFBundleIconName</key>
+    <string>AppIcon</string>
     <key>CFBundleIdentifier</key>
     <string>com.macpilot.app</string>
     <key>CFBundleInfoDictionaryVersion</key>

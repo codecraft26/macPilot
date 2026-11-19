@@ -18,6 +18,7 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
 cp "$BIN_DIR/MacPilot" "$APP/Contents/MacOS/MacPilot"
 cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
+cp "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
 shopt -s nullglob
 for bundle in "$BIN_DIR"/*.bundle; do
   cp -R "$bundle" "$APP/Contents/Resources/"
@@ -26,6 +27,9 @@ done
 codesign --force --sign "${SIGN_IDENTITY:--}" \
   --entitlements "$ROOT/Resources/MacPilot.entitlements" \
   "$APP"
+
+# Make Finder and the Dock pick up the new icon.
+touch "$APP"
 
 echo "Built $APP"
 echo "Run it with: open \"$APP\""

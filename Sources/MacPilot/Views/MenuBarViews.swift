@@ -4,10 +4,41 @@ import SwiftUI
 
 struct MenuBarLabel: View {
     @Environment(AppState.self) private var appState
+    private let recorder = RecordingManager.shared
 
     var body: some View {
-        // A filled red record icon whenever audio is being captured (no hidden recording).
-        Image(systemName: appState.isRecording ? "record.circle.fill" : "sparkles")
+        // While audio is captured the icon is a red (orange when paused) record symbol, never hidden.
+        if appState.isRecording {
+            Image(nsImage: MenuBarIcon.recording(paused: recorder.isPaused))
+        } else {
+            Image(nsImage: MenuBarIcon.idle)
+        }
+    }
+}
+
+/// Menu bar images. The idle icon is a template (adapts to light/dark menu bars and highlights);
+/// the recording icon is deliberately non-template so it stays red.
+enum MenuBarIcon {
+    /// Standard menu bar glyph size.
+    private static let pointSize: CGFloat = 15
+
+    static let idle: NSImage = {
+        let config = NSImage.SymbolConfiguration(pointSize: pointSize, weight: .medium)
+        let image = NSImage(systemSymbolName: "paperplane.fill", accessibilityDescription: "MacPilot")?
+            .withSymbolConfiguration(config) ?? NSImage()
+        image.isTemplate = true
+        return image
+    }()
+
+    static func recording(paused: Bool) -> NSImage {
+        let color: NSColor = paused ? .systemOrange : .systemRed
+        let config = NSImage.SymbolConfiguration(pointSize: pointSize, weight: .medium)
+            .applying(NSImage.SymbolConfiguration(paletteColors: [color]))
+        let name = paused ? "pause.circle.fill" : "record.circle.fill"
+        let image = NSImage(systemSymbolName: name, accessibilityDescription: paused ? "Recording paused" : "Recording")?
+            .withSymbolConfiguration(config) ?? NSImage()
+        image.isTemplate = false
+        return image
     }
 }
 
