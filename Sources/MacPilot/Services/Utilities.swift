@@ -154,8 +154,11 @@ enum DataManager {
         try context.delete(model: TaskItem.self)
         try context.delete(model: PromptTemplate.self)
         try context.delete(model: Recording.self)
+        try context.delete(model: ClipboardItem.self)
         try context.save()
         RecordingStorage.deleteAll()
+        ClipboardStorage.deleteAll()
+        CommandHistory.clear()
         NotificationService.cancelAll()
         for provider in AIProviderID.allCases {
             UsageTracker.reset(provider)

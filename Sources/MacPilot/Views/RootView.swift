@@ -31,7 +31,9 @@ struct RootView: View {
         case .settings: SettingsView()
         case .voice: VoiceView()
         case .calendar: CalendarMeetingsView()
-        case .clipboard, .developer, .automations:
+        case .clipboard: ClipboardView()
+        case .developer: DeveloperView()
+        case .automations:
             ComingSoonView(section: section)
         }
     }
@@ -71,15 +73,6 @@ struct ComingSoonView: View {
 
     private var plan: (phase: String, features: [String]) {
         switch section {
-        case .clipboard:
-            return ("Phase 6", ["Clipboard history with search, favorites, pins and folders",
-                                "Sensitive-content exclusions and configurable retention",
-                                "Optional image history"])
-        case .developer:
-            return ("Phase 6", ["Git status, branches, recent commits and AI commit messages",
-                                "AI error explanations, code review and test generation",
-                                "API request builder, JSON formatter and response viewer",
-                                "Terminal shortcuts; every command needs your approval, destructive ones a second confirmation"])
         case .automations:
             return ("Phase 7", ["Triggers: recording finished, meeting ended, transcript ready, daily summary",
                                 "Conditional workflows with run history",

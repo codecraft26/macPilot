@@ -5,6 +5,7 @@ import SwiftUI
 /// The floating assistant opened with ⌥Space from any app.
 struct QuickAssistantView: View {
     @Environment(\.modelContext) private var context
+    @Environment(AppState.self) private var appState
     @State private var prompt = ""
     @State private var turns: [ChatTurn] = []
     @State private var streamingText = ""
@@ -82,7 +83,18 @@ struct QuickAssistantView: View {
         }
         .frame(minWidth: 520, minHeight: 320)
         .background(.regularMaterial)
-        .onAppear { promptFocused = true }
+        .onAppear {
+            promptFocused = true
+            takePendingPrompt()
+        }
+        .onChange(of: appState.pendingQuickPrompt) { _, _ in takePendingPrompt() }
+    }
+
+    private func takePendingPrompt() {
+        guard let pending = appState.pendingQuickPrompt else { return }
+        appState.pendingQuickPrompt = nil
+        prompt = pending
+        ask()
     }
 
     private func ask() {

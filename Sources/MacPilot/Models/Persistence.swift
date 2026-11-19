@@ -9,7 +9,8 @@ enum Persistence {
         PromptTemplate.self,
         Note.self,
         TaskItem.self,
-        Recording.self
+        Recording.self,
+        ClipboardItem.self
     ])
 
     nonisolated static let storeDirectory: URL = {

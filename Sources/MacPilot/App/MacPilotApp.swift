@@ -33,6 +33,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             await CalendarService.shared.refresh(from: Date(), to: Date().addingTimeInterval(7 * 86_400))
         }
         ShortcutManager.shared.registerAll()
+        ClipboardMonitor.shared.start()
 
         let defaults = UserDefaults.standard
         if !defaults.bool(forKey: PrefKey.hasLaunchedBefore) {

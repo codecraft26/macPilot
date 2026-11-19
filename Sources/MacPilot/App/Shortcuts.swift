@@ -267,13 +267,13 @@ enum ShortcutRouter {
         case .assistant:
             windows.toggleQuickAssistant()
         case .launcher:
-            windows.showDashboard(section: .dashboard)
+            windows.toggleLauncher()
         case .newNote:
             windows.open(.notes, action: .newNote)
         case .newTask:
             windows.open(.tasks, action: .newTask)
         case .clipboard:
-            windows.open(.clipboard)
+            windows.toggleClipboardPanel()
         case .recording:
             RecordingManager.shared.toggleMeeting()
         case .dictation:

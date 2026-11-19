@@ -47,7 +47,11 @@ struct CalendarMeetingsView: View {
     }
 
     private func handlePendingAction() {
-        if case .openRecording? = appState.pendingAction { tab = .meetings }
+        switch appState.pendingAction {
+        case .openRecording?: tab = .meetings
+        case .quickAddEvent?: tab = .calendar
+        default: break
+        }
     }
 }
 
@@ -92,6 +96,8 @@ struct CalendarPane: View {
         .sheet(item: $editor) { request in
             EventEditorSheet(draft: request.draft, notice: request.notice)
         }
+        .onAppear(perform: takeQuickAdd)
+        .onChange(of: appState.pendingAction) { _, _ in takeQuickAdd() }
         .confirmationDialog("Delete “\(deleting?.title ?? "")”?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })) {
             Button("Delete Event", role: .destructive) {
                 if let event = deleting {
@@ -212,6 +218,14 @@ struct CalendarPane: View {
     private func move(_ direction: Int) {
         let component: Calendar.Component = mode == .day ? .day : mode == .week ? .weekOfYear : .month
         anchor = cal.date(byAdding: component, value: direction, to: anchor) ?? anchor
+    }
+
+    /// Quick add requested from the command launcher.
+    private func takeQuickAdd() {
+        guard case .quickAddEvent(let text)? = appState.pendingAction else { return }
+        appState.pendingAction = nil
+        quickAdd = text
+        runQuickAdd()
     }
 
     private func runQuickAdd() {

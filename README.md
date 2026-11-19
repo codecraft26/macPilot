@@ -11,7 +11,7 @@ Your personal AI-powered workspace for macOS: a native menu bar app with a float
 | 3 | Microphone recording, dictation, transcription, transcript editor | Recording, import, transcription and editor done; push-to-talk dictation next |
 | 4 | Meeting recording, system audio, speakers, meeting intelligence | Done (live transcription not yet) |
 | 5 | Calendar, notes, tasks, reminders | Done (Apple Reminders sync not yet) |
-| 6 | Clipboard manager, developer workspace | Planned |
+| 6 | Clipboard manager, developer workspace | Done (plus ⌥K command launcher) |
 | 7 | Automations, local Whisper, distribution | Planned |
 
 ## Requirements
@@ -47,10 +47,10 @@ SIGN_IDENTITY="Apple Development: Your Name (TEAMID)" ./scripts/build-app.sh
 | ⌥Space | Floating AI assistant |
 | ⌥D | Voice dictation (opens Voice until push-to-talk ships) |
 | ⌥R | Start / stop a meeting recording (named after the current calendar event) |
-| ⌥C | Clipboard |
+| ⌥C | Clipboard history panel (search, paste into the current app) |
 | ⌥N | New note |
 | ⌥T | New task |
-| ⌥K | Command launcher (opens the dashboard for now) |
+| ⌥K | Command launcher: commands, notes, tasks, clipboard, apps, “Ask AI” |
 
 All shortcuts can be changed in **Settings → Shortcuts**. Some macOS versions refuse global shortcuts that use only ⌥ (or ⌥⇧); if that happens, Settings shows the error and you can add ⌃ or ⌘.
 
@@ -69,6 +69,26 @@ All shortcuts can be changed in **Settings → Shortcuts**. Some macOS versions 
 - **Google Calendar (optional):** in **Settings → Recording & Calendar**, paste the client ID and secret of a Google Cloud OAuth client of type *Desktop app* (Google Calendar API enabled), press **Connect** and approve in your browser. Google calendars then appear next to Apple ones (marked with a G), with the same views, conflict checks, quick add, Record and Prep notes. Sign-in uses PKCE with a loopback redirect; the refresh token and client secret stay in the Keychain. Alternatively add the Google account under System Settings → Internet Accounts and it shows up through Apple Calendar.
 - Each event has **Record** (a meeting linked to the event, with its attendees) and **Prep notes** (a note linked to the event; its text is included when the meeting is analyzed). The dashboard shows upcoming meetings with a live countdown.
 
+## Clipboard history (Raycast-style)
+
+- MacPilot saves what you copy: text, rich text, links, files, colors and (optionally) images, with the app it came from. Copying the same thing again moves it to the top instead of duplicating it.
+- **⌥C** opens a floating panel over the app you are in: type to fuzzy-search, ↑/↓ to move, **Return** pastes into that app, **⇧Return** pastes as plain text, **⌘Return** only copies, **⌘1–⌘9** quick-paste, **⌘P** pin, **⌘F** favorite, **⌘⌫** delete, **Tab** cycles filters (Text, Links, Images, Code, Files, Favorites, Pinned), **Esc** closes.
+- Pasting into other apps needs **Accessibility** permission (System Settings → Privacy & Security → Accessibility). Without it, Return copies and you press ⌘V.
+- Never saved: items marked concealed/transient by password managers, copies from excluded apps (1Password, Bitwarden, Keychain Access, Passwords, LastPass, Dashlane by default) and anything that looks like an API key, token, private key or card number. Pause capture from the menu bar.
+- The **Clipboard** section has the full history with folders, pins, favorites, retention (1 day–unlimited, max items) and AI actions: Explain, Summarize, Fix grammar, Translate, Format JSON.
+
+## Command launcher
+
+**⌥K** searches MacPilot commands (new note/task/event, record, open any section, pause clipboard), your notes, open tasks, clipboard items and installed apps. Typing text offers “Ask AI”, “Add task: …” and “Add event: …” (the event still opens the editor for confirmation). Return runs, ⌘Return runs the secondary action.
+
+## Developer workspace
+
+- **Repositories:** add folders; see branch, ahead/behind, changes (`git status --porcelain=v2`), recent commits, switch branch, stage all and commit with an AI-written message. Open in VS Code, Terminal or Finder.
+- **AI tools:** explain an error, review code, generate tests, explain code (paste or use the staged diff), and write a PR summary from the branch's commits.
+- **Terminal:** saved commands per repository and one-off commands. Every run shows the exact command and folder for confirmation; commands that delete, overwrite, force-push, use sudo and similar need a second “I understand”. Output streams live with a Stop button; history is kept with secrets removed.
+- **API:** request builder with method, URL, headers and body, response status, time, headers and pretty JSON; saved requests never store Authorization, Cookie or API-key header values.
+- **JSON:** format, minify, validate, sort keys.
+
 ## Architecture
 
 ```
@@ -77,7 +97,9 @@ Sources/MacPilot
 ├── AI/           Provider protocol, Anthropic / OpenAI / Ollama streaming clients, router, usage limits
 ├── Models/       SwiftData models (Conversation, ChatMessage, PromptTemplate, Note, TaskItem, Recording) and the store
 ├── Services/     Keychain, preferences, export/delete, notifications, transcription, meeting intelligence, EventKit
-│   └── Audio/    Microphone (AVCaptureSession) and system audio (ScreenCaptureKit) recorders, RecordingManager
+│   ├── Audio/    Microphone (AVCaptureSession) and system audio (ScreenCaptureKit) recorders, RecordingManager
+│   ├── Clipboard/ Pasteboard monitor, sensitive-content filter, paste service, fuzzy matcher, clip AI actions
+│   └── Developer/ git (porcelain v2), argument-array process runner, command safety, HTTP request runner
 └── Views/        Dashboard, Assistant, Quick assistant, Voice, Calendar & Meetings, Notes, Tasks, Settings, menu bar
 ```
 

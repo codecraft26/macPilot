@@ -10,6 +10,10 @@ final class WindowManager: NSObject, NSWindowDelegate {
 
     private var dashboardWindow: NSWindow?
     private var assistantPanel: FloatingPanel?
+    private(set) var clipboardPanel: FloatingPanel?
+    private(set) var launcherPanel: FloatingPanel?
+    /// The app that was frontmost before a MacPilot panel opened; paste goes back to it.
+    private(set) var previousApp: NSRunningApplication?
 
     func showDashboard(section: AppSection? = nil) {
         if let section {
@@ -58,6 +62,66 @@ final class WindowManager: NSObject, NSWindowDelegate {
         assistantPanel?.orderOut(nil)
     }
 
+    /// Opens the quick assistant and asks `prompt` right away.
+    func askQuickAssistant(_ prompt: String) {
+        AppState.shared.pendingQuickPrompt = prompt
+        if assistantPanel?.isVisible != true || assistantPanel?.isKeyWindow != true {
+            toggleQuickAssistant()
+        }
+    }
+
+    private func rememberFrontmostApp() {
+        let front = NSWorkspace.shared.frontmostApplication
+        if front?.bundleIdentifier != Bundle.main.bundleIdentifier || Bundle.main.bundleIdentifier == nil {
+            previousApp = front
+        }
+    }
+
+    /// Raycast-style clipboard history (⌥C). Non-activating, so the app you were in stays frontmost.
+    func toggleClipboardPanel() {
+        if let panel = clipboardPanel, panel.isVisible {
+            panel.orderOut(nil)
+            return
+        }
+        launcherPanel?.orderOut(nil)
+        rememberFrontmostApp()
+        if clipboardPanel == nil {
+            let view = ClipboardPanelView()
+                .environment(AppState.shared)
+                .modelContainer(Persistence.container)
+            clipboardPanel = FloatingPanel(rootView: view, size: NSSize(width: 780, height: 480), nonActivating: true)
+        }
+        guard let panel = clipboardPanel else { return }
+        AppState.shared.panelSession += 1
+        panel.center()
+        panel.makeKeyAndOrderFront(nil)
+    }
+
+    /// Command launcher (⌥K).
+    func toggleLauncher() {
+        if let panel = launcherPanel, panel.isVisible {
+            panel.orderOut(nil)
+            return
+        }
+        clipboardPanel?.orderOut(nil)
+        rememberFrontmostApp()
+        if launcherPanel == nil {
+            let view = LauncherView()
+                .environment(AppState.shared)
+                .modelContainer(Persistence.container)
+            launcherPanel = FloatingPanel(rootView: view, size: NSSize(width: 680, height: 440), nonActivating: true)
+        }
+        guard let panel = launcherPanel else { return }
+        AppState.shared.panelSession += 1
+        panel.center()
+        panel.makeKeyAndOrderFront(nil)
+    }
+
+    func hidePanels() {
+        clipboardPanel?.orderOut(nil)
+        launcherPanel?.orderOut(nil)
+    }
+
     func open(_ section: AppSection, action: PendingAction? = nil) {
         AppState.shared.pendingAction = action
         showDashboard(section: section)
@@ -74,10 +138,12 @@ final class WindowManager: NSObject, NSWindowDelegate {
 
 /// A Spotlight-style floating panel that can take keyboard focus.
 final class FloatingPanel: NSPanel {
-    init<Content: View>(rootView: Content, size: NSSize) {
+    init<Content: View>(rootView: Content, size: NSSize, nonActivating: Bool = false) {
+        var style: NSWindow.StyleMask = [.titled, .closable, .resizable, .fullSizeContentView]
+        if nonActivating { style.insert(.nonactivatingPanel) }
         super.init(
             contentRect: NSRect(origin: .zero, size: size),
-            styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
+            styleMask: style,
             backing: .buffered,
             defer: false
         )

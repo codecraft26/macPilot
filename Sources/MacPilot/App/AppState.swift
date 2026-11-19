@@ -44,6 +44,7 @@ enum PendingAction: Equatable {
     case newTask
     case openNote(UUID)
     case openRecording(UUID)
+    case quickAddEvent(String)
 }
 
 @Observable
@@ -55,6 +56,10 @@ final class AppState {
     var pendingAction: PendingAction?
     /// Drives the menu bar recording indicator. Set by `RecordingManager`.
     var isRecording = false
+    /// Text for the quick assistant to ask as soon as it opens (from the launcher).
+    var pendingQuickPrompt: String?
+    /// Incremented each time a clipboard/launcher panel opens so it can reset its search.
+    var panelSession = 0
 
     private init() {}
 }

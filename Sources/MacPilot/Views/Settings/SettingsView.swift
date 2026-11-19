@@ -11,6 +11,8 @@ struct SettingsView: View {
                 .tabItem { Label("Routing", systemImage: "arrow.triangle.branch") }
             RecordingSettingsView()
                 .tabItem { Label("Recording & Calendar", systemImage: "waveform") }
+            ClipboardSettingsView()
+                .tabItem { Label("Clipboard", systemImage: "doc.on.clipboard") }
             ShortcutsSettingsView()
                 .tabItem { Label("Shortcuts", systemImage: "keyboard") }
             UsageSettingsView()
@@ -461,7 +463,7 @@ struct PrivacySettingsView: View {
                 run { try DataManager.deleteAllLocalData(context: context) }
             }
         } message: {
-            Text("Conversations, notes, tasks, prompts, recordings (with audio) and usage stats will be removed. API keys are kept unless you delete them separately. This cannot be undone.")
+            Text("Conversations, notes, tasks, prompts, recordings (with audio), clipboard history and usage stats will be removed. API keys are kept unless you delete them separately. This cannot be undone.")
         }
     }
 
@@ -663,5 +665,125 @@ private struct GoogleCalendarSettingsSection: View {
         } catch {
             message = error.localizedDescription
         }
+    }
+}
+
+// MARK: - Clipboard
+
+struct ClipboardSettingsView: View {
+    @AppStorage(PrefKey.clipboardEnabled) private var enabled = true
+    @AppStorage(PrefKey.clipboardRetentionDays) private var retentionDays = 30
+    @AppStorage(PrefKey.clipboardMaxItems) private var maxItems = 1000
+    @AppStorage(PrefKey.clipboardCaptureImages) private var captureImages = false
+    @AppStorage(PrefKey.clipboardSkipSensitive) private var skipSensitive = true
+    @State private var excluded = Prefs.clipboardExcludedApps
+    @State private var isTrusted = PasteService.isTrusted
+    @State private var confirmClear = false
+    private let monitor = ClipboardMonitor.shared
+
+    var body: some View {
+        Form {
+            Section("History") {
+                Toggle("Save clipboard history", isOn: $enabled)
+                Toggle("Paused", isOn: Binding(get: { monitor.isPaused }, set: { monitor.isPaused = $0 }))
+                Picker("Keep items for", selection: $retentionDays) {
+                    Text("1 day").tag(1)
+                    Text("7 days").tag(7)
+                    Text("30 days").tag(30)
+                    Text("90 days").tag(90)
+                    Text("Unlimited").tag(0)
+                }
+                Picker("Maximum items", selection: $maxItems) {
+                    Text("200").tag(200)
+                    Text("1,000").tag(1000)
+                    Text("5,000").tag(5000)
+                    Text("Unlimited").tag(0)
+                }
+                Toggle("Save images (stored as PNG, up to 15 MB each)", isOn: $captureImages)
+                Text("Pinned and favorite items never expire. History is stored only on this Mac.")
+                    .font(.caption).foregroundStyle(.secondary)
+                Button("Clear history…", role: .destructive) { confirmClear = true }
+            }
+            .onChange(of: retentionDays) { _, _ in monitor.applyRetention() }
+            .onChange(of: maxItems) { _, _ in monitor.applyRetention() }
+
+            Section {
+                Toggle("Skip passwords, API keys, tokens and card numbers", isOn: $skipSensitive)
+                ForEach(excluded, id: \.self) { bundleID in
+                    HStack {
+                        Text(appName(bundleID))
+                        Text(bundleID).font(.caption).foregroundStyle(.secondary)
+                        Spacer()
+                        Button { remove(bundleID) } label: { Image(systemName: "minus.circle") }.buttonStyle(.borderless)
+                    }
+                }
+                Menu("Exclude a running app") {
+                    ForEach(runningApps, id: \.self) { bundleID in
+                        Button(appName(bundleID)) { add(bundleID) }
+                    }
+                }
+                .fixedSize()
+                Button("Restore default exclusions") {
+                    excluded = SensitiveContent.defaultExcludedBundleIDs
+                    Prefs.clipboardExcludedApps = excluded
+                }
+            } header: {
+                Text("Privacy")
+            } footer: {
+                Text("Copies from excluded apps are never saved. Items that password managers mark as concealed or transient are always skipped.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+
+            Section("Paste into apps") {
+                HStack {
+                    Image(systemName: isTrusted ? "checkmark.circle.fill" : "exclamationmark.triangle")
+                        .foregroundStyle(isTrusted ? .green : .orange)
+                    Text(isTrusted
+                         ? "Accessibility permission granted: Return in the clipboard panel pastes into the app you were using."
+                         : "Without Accessibility permission, Return copies the item and you press ⌘V yourself.")
+                    Spacer()
+                    if !isTrusted {
+                        Button("Open Settings") {
+                            PasteService.requestTrust()
+                            PasteService.openAccessibilitySettings()
+                        }
+                    }
+                }
+                .font(.callout)
+                Text("Shortcuts: \(ShortcutManager.shared.hotKey(for: .clipboard)?.displayString ?? "—") clipboard panel, \(ShortcutManager.shared.hotKey(for: .launcher)?.displayString ?? "—") command launcher (change them in Shortcuts).")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+        .onAppear { isTrusted = PasteService.isTrusted }
+        .confirmationDialog("Clear clipboard history?", isPresented: $confirmClear) {
+            Button("Clear (keep pinned & favorites)", role: .destructive) { monitor.clearHistory(includeKept: false) }
+            Button("Clear everything", role: .destructive) { monitor.clearHistory(includeKept: true) }
+        }
+    }
+
+    private var runningApps: [String] {
+        Array(Set(NSWorkspace.shared.runningApplications
+            .filter { $0.activationPolicy == .regular }
+            .compactMap(\.bundleIdentifier)
+            .filter { !excluded.contains($0) && $0 != Bundle.main.bundleIdentifier }))
+            .sorted { appName($0).localizedCaseInsensitiveCompare(appName($1)) == .orderedAscending }
+    }
+
+    private func appName(_ bundleID: String) -> String {
+        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) {
+            return FileManager.default.displayName(atPath: url.path).replacingOccurrences(of: ".app", with: "")
+        }
+        return bundleID
+    }
+
+    private func add(_ bundleID: String) {
+        excluded.append(bundleID)
+        Prefs.clipboardExcludedApps = excluded
+    }
+
+    private func remove(_ bundleID: String) {
+        excluded.removeAll { $0 == bundleID }
+        Prefs.clipboardExcludedApps = excluded
     }
 }

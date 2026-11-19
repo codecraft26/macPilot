@@ -17,6 +17,14 @@ enum PrefKey {
     static let audioRetentionDays = "privacy.audioRetentionDays"
     static let hiddenCalendarIDs = "calendar.hiddenCalendarIDs"
     static let defaultEventAlarmMinutes = "calendar.defaultAlarmMinutes"
+    static let clipboardEnabled = "clipboard.enabled"
+    static let clipboardPaused = "clipboard.paused"
+    static let clipboardRetentionDays = "clipboard.retentionDays"
+    static let clipboardMaxItems = "clipboard.maxItems"
+    static let clipboardCaptureImages = "clipboard.captureImages"
+    static let clipboardSkipSensitive = "clipboard.skipSensitive"
+    static let clipboardExcludedApps = "clipboard.excludedApps"
+    static let developerRepos = "developer.repositories"
     static let googleClientID = "google.clientID"
     static let googleAccountEmail = "google.accountEmail"
 
@@ -57,6 +65,12 @@ enum Prefs {
             PrefKey.autoProcessRecordings: true,
             PrefKey.audioRetentionDays: 0,
             PrefKey.defaultEventAlarmMinutes: 10,
+            PrefKey.clipboardEnabled: true,
+            PrefKey.clipboardRetentionDays: 30,
+            PrefKey.clipboardMaxItems: 1000,
+            PrefKey.clipboardCaptureImages: false,
+            PrefKey.clipboardSkipSensitive: true,
+            PrefKey.clipboardExcludedApps: SensitiveContent.defaultExcludedBundleIDs,
             PrefKey.defaultSystemPrompt: "You are MacPilot, a concise and practical assistant for a professional working on a Mac. Prefer short, direct answers and use Markdown code blocks for code."
         ]
         for provider in AIProviderID.allCases {
@@ -93,6 +107,17 @@ enum Prefs {
     static var autoProcessRecordings: Bool { defaults.bool(forKey: PrefKey.autoProcessRecordings) }
     static var audioRetentionDays: Int { defaults.integer(forKey: PrefKey.audioRetentionDays) }
     static var defaultEventAlarmMinutes: Int { defaults.integer(forKey: PrefKey.defaultEventAlarmMinutes) }
+
+    static var clipboardEnabled: Bool { defaults.bool(forKey: PrefKey.clipboardEnabled) }
+    static var clipboardRetentionDays: Int { defaults.integer(forKey: PrefKey.clipboardRetentionDays) }
+    static var clipboardMaxItems: Int { defaults.integer(forKey: PrefKey.clipboardMaxItems) }
+    static var clipboardCaptureImages: Bool { defaults.bool(forKey: PrefKey.clipboardCaptureImages) }
+    static var clipboardSkipSensitive: Bool { defaults.bool(forKey: PrefKey.clipboardSkipSensitive) }
+
+    static var clipboardExcludedApps: [String] {
+        get { defaults.stringArray(forKey: PrefKey.clipboardExcludedApps) ?? SensitiveContent.defaultExcludedBundleIDs }
+        set { defaults.set(newValue, forKey: PrefKey.clipboardExcludedApps) }
+    }
 
     static var hiddenCalendarIDs: Set<String> {
         get { Set(defaults.stringArray(forKey: PrefKey.hiddenCalendarIDs) ?? []) }

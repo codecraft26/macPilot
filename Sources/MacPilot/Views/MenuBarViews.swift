@@ -16,6 +16,7 @@ struct MenuBarContent: View {
     @Environment(AppState.self) private var appState
     private let shortcuts = ShortcutManager.shared
     private let recorder = RecordingManager.shared
+    private let clipboard = ClipboardMonitor.shared
 
     var body: some View {
         if recorder.isActive {
@@ -58,6 +59,21 @@ struct MenuBarContent: View {
         }
         Button("Calendar & Meetings") {
             WindowManager.shared.showDashboard(section: .calendar)
+        }
+
+        Divider()
+
+        Button("Clipboard History…  \(shortcutLabel(.clipboard))") {
+            WindowManager.shared.toggleClipboardPanel()
+        }
+        Button(clipboard.isPaused ? "Resume Clipboard Capture" : "Pause Clipboard Capture") {
+            clipboard.isPaused.toggle()
+        }
+        Button("Command Launcher…  \(shortcutLabel(.launcher))") {
+            WindowManager.shared.toggleLauncher()
+        }
+        Button("Developer Workspace") {
+            WindowManager.shared.showDashboard(section: .developer)
         }
 
         Divider()
