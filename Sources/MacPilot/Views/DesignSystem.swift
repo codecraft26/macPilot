@@ -43,6 +43,7 @@ extension AppSection {
         case .notes: return .orange
         case .tasks: return .blue
         case .clipboard: return .teal
+        case .tools: return .indigo
         case .developer: return .gray
         case .automations: return .green
         case .settings: return Color(nsColor: .systemGray)
@@ -52,7 +53,7 @@ extension AppSection {
     var group: String {
         switch self {
         case .dashboard, .assistant, .voice, .calendar: return "Workspace"
-        case .notes, .tasks, .clipboard: return "Organize"
+        case .notes, .tasks, .clipboard, .tools: return "Organize"
         case .developer, .automations: return "Build"
         case .settings: return ""
         }

@@ -117,6 +117,7 @@ final class UISnapshots: XCTestCase {
         snapshot("8-clip-panel", size: CGSize(width: 780, height: 480), ClipboardPanelView())
         snapshot("9-launcher", size: CGSize(width: 680, height: 440), LauncherView())
         snapshot("10-settings", size: big, SettingsView())
+        snapshot("17-file-tools", size: big, FileToolsView())
         let notchGeometry = NotchGeometry(notch: CGRect(x: 0, y: 0, width: 200, height: 32), hasHardwareNotch: true)
         let wallpaper = LinearGradient(colors: [Color(red: 0.25, green: 0.3, blue: 0.55), Color(red: 0.55, green: 0.35, blue: 0.6)], startPoint: .top, endPoint: .bottom)
         for (name, activity, expanded) in [("notch-recording", NotchActivity.recording(paused: false), false),

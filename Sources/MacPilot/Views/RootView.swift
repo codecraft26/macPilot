@@ -28,6 +28,7 @@ struct RootView: View {
         case .voice: VoiceView()
         case .calendar: CalendarMeetingsView()
         case .clipboard: ClipboardView()
+        case .tools: FileToolsView()
         case .developer: DeveloperView()
         case .automations: AutomationsView()
         }

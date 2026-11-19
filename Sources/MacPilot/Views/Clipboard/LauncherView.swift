@@ -144,6 +144,10 @@ enum LauncherCatalog {
             LauncherItem(id: "sys.darkmode", title: "Toggle Dark Mode", icon: .system("circle.lefthalf.filled"), section: "System", primary: { SystemCommands.toggleDarkMode() }),
             LauncherItem(id: "sys.emptytrash", title: "Empty Trash…", subtitle: "Asks first", icon: .system("trash"), section: "System", primary: { SystemCommands.emptyTrash() })
         ]
+        commands += ConversionTool.allCases.map { tool in
+            LauncherItem(id: "tool.\(tool.rawValue)", title: tool.title, subtitle: tool.subtitle, icon: .system(tool.systemImage), section: "File Tools",
+                         primary: { windows.open(.tools, action: .openTool(tool.rawValue)) })
+        }
         commands += AppSection.allCases.map { section in
             LauncherItem(id: "open.\(section.rawValue)", title: "Open \(section.title)", icon: .system(section.systemImage), section: "MacPilot",
                          primary: { windows.showDashboard(section: section) })
@@ -322,6 +326,7 @@ private struct LauncherRow: View {
         case "Clipboard": return AppSection.clipboard.tint
         case "MacPilot": return DS.indigo
         case "Calculator", "Convert", "Timer": return .orange
+        case "File Tools": return .indigo
         case "Web": return .blue
         case "Window": return .teal
         case "System": return .gray
