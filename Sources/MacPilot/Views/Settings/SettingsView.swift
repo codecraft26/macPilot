@@ -612,6 +612,7 @@ struct RecordingSettingsView: View {
             }
             Section {
                 Toggle("Record system audio in meetings", isOn: $includeSystemAudio)
+                ScreenRecordingSettings()
                 HStack {
                     Image(systemName: hasScreenPermission ? "checkmark.circle.fill" : "exclamationmark.triangle")
                         .foregroundStyle(hasScreenPermission ? .green : .orange)
@@ -1249,5 +1250,53 @@ private struct BucketStatusRow: View {
     private func set(_ text: String, error: Bool) {
         status = text
         isError = error
+    }
+}
+
+// MARK: - Screen recording
+
+private struct ScreenRecordingSettings: View {
+    @AppStorage(PrefKey.recordScreen) private var recordScreen = false
+    @AppStorage(PrefKey.screenDisplayID) private var displayID = 0
+    @AppStorage(PrefKey.screenFPS) private var fps = 15
+    @AppStorage(PrefKey.screenMaxDimension) private var maxDimension = 1920
+    @AppStorage(PrefKey.screenHideMacPilot) private var hideMacPilot = true
+
+    private var displays: [(id: Int, name: String)] {
+        NSScreen.screens.compactMap { screen in
+            guard let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID else { return nil }
+            return (Int(number), screen.localizedName)
+        }
+    }
+
+    /// Rough size per hour for the chosen settings (screen content compresses well).
+    private var estimate: String {
+        let size = ScreenVideoSettings.outputSize(width: maxDimension == 0 ? 3024 : maxDimension,
+                                                  height: maxDimension == 0 ? 1964 : maxDimension * 1964 / 3024, maxDimension: maxDimension)
+        let bytesPerHour = Double(ScreenVideoSettings.bitrate(width: size.width, height: size.height, fps: fps)) / 8 * 3600
+        return ByteCountFormatter.string(fromByteCount: Int64(bytesPerHour), countStyle: .file)
+    }
+
+    var body: some View {
+        Toggle("Also record the screen (video) in meetings", isOn: $recordScreen)
+        if recordScreen {
+            Picker("Display", selection: $displayID) {
+                Text("Main display").tag(0)
+                ForEach(displays, id: \.id) { Text($0.name).tag($0.id) }
+            }
+            Picker("Frame rate", selection: $fps) {
+                Text("5 fps (slides, smallest files)").tag(5)
+                Text("15 fps (recommended)").tag(15)
+                Text("30 fps (smooth video)").tag(30)
+            }
+            Picker("Quality", selection: $maxDimension) {
+                Text("Standard (up to 1280 px)").tag(1280)
+                Text("High (up to 1920 px)").tag(1920)
+                Text("Full resolution").tag(0)
+            }
+            Toggle("Hide MacPilot's own windows in the video", isOn: $hideMacPilot)
+            Text("Saved as screen.mp4 next to the meeting audio, about \(estimate) per hour at these settings. Watch it in the meeting's Transcript tab (it follows the transcript) or export one MP4 with screen and sound from Export.")
+                .font(.caption).foregroundStyle(.secondary)
+        }
     }
 }

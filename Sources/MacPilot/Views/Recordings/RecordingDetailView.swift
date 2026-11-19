@@ -1,4 +1,5 @@
 import AVFoundation
+import AVKit
 import AppKit
 import Observation
 import SwiftData
@@ -14,21 +15,11 @@ final class RecordingPlayer {
     private(set) var isLoaded = false
     private var observer: Any?
 
-    func load(tracks: [(url: URL, offset: Double)]) async {
-        let composition = AVMutableComposition()
-        for (url, offset) in tracks {
-            let asset = AVURLAsset(url: url)
-            guard let track = try? await asset.loadTracks(withMediaType: .audio).first,
-                  let duration = try? await asset.load(.duration),
-                  let target = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
-            else { continue }
-            try? target.insertTimeRange(
-                CMTimeRange(start: .zero, duration: duration),
-                of: track,
-                at: CMTime(seconds: offset, preferredTimescale: 600)
-            )
-        }
-        guard !composition.tracks.isEmpty else { return }
+    private(set) var hasVideo = false
+
+    func load(tracks: [(url: URL, offset: Double)], video: (url: URL, offset: Double)? = nil) async {
+        guard let composition = await RecordingMedia.composition(audio: tracks, video: video) else { return }
+        hasVideo = !composition.tracks(withMediaType: .video).isEmpty
         let player = AVPlayer(playerItem: AVPlayerItem(asset: composition))
         observer = player.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.25, preferredTimescale: 600), queue: .main) { [weak self] time in
             MainActor.assumeIsolated {
@@ -98,14 +89,10 @@ struct RecordingDetailView: View {
         }
         .padding(20)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .task(id: recording.audioURLs) {
+        .task(id: recording.audioURLs.map(\.path).joined() + (recording.screenURL?.path ?? "")) {
             player.stop()
-            var tracks: [(URL, Double)] = []
-            if let mic = recording.micURL, recording.audioURLs.contains(mic) { tracks.append((mic, 0)) }
-            if let system = recording.systemURL, recording.audioURLs.contains(system) {
-                tracks.append((system, recording.systemAudioOffset))
-            }
-            await player.load(tracks: tracks.map { (url: $0.0, offset: $0.1) })
+            await player.load(tracks: RecordingMedia.audioTracks(recording),
+                              video: recording.screenURL.map { (url: $0, offset: recording.screenOffset) })
         }
         .onAppear {
             if !recording.hasAnalysis && !recording.segments.isEmpty { tab = .transcript }
@@ -115,6 +102,26 @@ struct RecordingDetailView: View {
             Button("Delete recording and audio", role: .destructive, action: onDelete)
         } message: {
             Text("The audio files, transcript and summary are removed. This cannot be undone.")
+        }
+    }
+
+    private func exportVideo() {
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = Exporter.safeFileName(recording.title) + ".mp4"
+        panel.allowedContentTypes = [.mpeg4Movie]
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        let audio = RecordingMedia.audioTracks(recording)
+        let video = recording.screenURL.map { (url: $0, offset: recording.screenOffset) }
+        flash = "Exporting video…"
+        Task {
+            do {
+                try await RecordingMedia.exportVideo(audio: audio, video: video, to: url)
+                flash = "Video saved to \(url.lastPathComponent)."
+                NSWorkspace.shared.activateFileViewerSelecting([url])
+            } catch {
+                flash = nil
+                recording.errorMessage = "Video export failed: \(error.localizedDescription)"
+            }
         }
     }
 
@@ -167,6 +174,9 @@ struct RecordingDetailView: View {
                     }
                     Button("Plain text…") {
                         Exporter.save(text: recording.transcriptText, suggestedName: Exporter.safeFileName(recording.title) + ".txt", fileExtension: "txt")
+                    }
+                    if recording.screenURL != nil {
+                        Button("Screen video with audio (MP4)…") { exportVideo() }
                     }
                     Button("Subtitles (SRT)…") {
                         Exporter.save(text: TranscriptExport.srt(recording.segments), suggestedName: Exporter.safeFileName(recording.title) + ".srt", fileExtension: "srt")
@@ -337,6 +347,12 @@ private struct TranscriptTab: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
+            if player.hasVideo, let avPlayer = player.player {
+                VideoPlayer(player: avPlayer)
+                    .frame(minHeight: 220, idealHeight: 300, maxHeight: 360)
+                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.medium, style: .continuous))
+                    .accessibilityLabel("Screen recording")
+            }
             HStack(spacing: 10) {
                 Button {
                     player.togglePlay()
@@ -457,6 +473,58 @@ private struct PrepTab: View {
                 .scrollContentBackground(.hidden)
                 .padding(6)
                 .background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .textBackgroundColor)))
+        }
+    }
+}
+
+/// Builds one timeline from a recording's audio tracks and optional screen video.
+enum RecordingMedia {
+    @MainActor
+    static func audioTracks(_ recording: Recording) -> [(url: URL, offset: Double)] {
+        var tracks: [(url: URL, offset: Double)] = []
+        if let mic = recording.micURL, recording.audioURLs.contains(mic) { tracks.append((mic, 0)) }
+        if let system = recording.systemURL, recording.audioURLs.contains(system) { tracks.append((system, recording.systemAudioOffset)) }
+        return tracks
+    }
+
+    static func composition(audio: [(url: URL, offset: Double)], video: (url: URL, offset: Double)?) async -> AVMutableComposition? {
+        let composition = AVMutableComposition()
+        for (url, offset) in audio {
+            await insert(.audio, from: url, at: offset, into: composition)
+        }
+        if let video {
+            await insert(.video, from: video.url, at: video.offset, into: composition)
+        }
+        return composition.tracks.isEmpty ? nil : composition
+    }
+
+    private static func insert(_ type: AVMediaType, from url: URL, at offset: Double, into composition: AVMutableComposition) async {
+        let asset = AVURLAsset(url: url)
+        guard let track = try? await asset.loadTracks(withMediaType: type).first,
+              let duration = try? await asset.load(.duration),
+              let target = composition.addMutableTrack(withMediaType: type, preferredTrackID: kCMPersistentTrackID_Invalid) else { return }
+        try? target.insertTimeRange(CMTimeRange(start: .zero, duration: duration), of: track, at: CMTime(seconds: offset, preferredTimescale: 600))
+        if type == .video, let transform = try? await track.load(.preferredTransform) { target.preferredTransform = transform }
+    }
+
+    /// One MP4 with the screen and all audio mixed together.
+    static func exportVideo(audio: [(url: URL, offset: Double)], video: (url: URL, offset: Double)?, to output: URL) async throws {
+        guard let composition = await composition(audio: audio, video: video),
+              let session = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetHighestQuality) else {
+            throw AVError(.unknown)
+        }
+        // Mix microphone and system audio into the single soundtrack most players expect.
+        let mix = AVMutableAudioMix()
+        mix.inputParameters = composition.tracks(withMediaType: .audio).map { AVMutableAudioMixInputParameters(track: $0) }
+        session.audioMix = mix
+        try? FileManager.default.removeItem(at: output)
+        if #available(macOS 15, *) {
+            try await session.export(to: output, as: .mp4)
+        } else {
+            session.outputURL = output
+            session.outputFileType = .mp4
+            await session.export()
+            if session.status != .completed { throw session.error ?? AVError(.unknown) }
         }
     }
 }

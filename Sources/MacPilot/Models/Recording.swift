@@ -159,6 +159,9 @@ final class Recording {
     /// File names inside `folderURL`.
     var micFileName: String?
     var systemFileName: String?
+    /// Screen video (H.264 .mp4), when screen recording was on.
+    var screenFileName: String?
+    var screenOffset: Double = 0
     /// Seconds from the start of the microphone track to the start of the system audio track.
     var systemAudioOffset: Double = 0
     var calendarEventID: String?
@@ -244,6 +247,11 @@ final class Recording {
     var folderURL: URL { RecordingStorage.folder(for: uid) }
     var micURL: URL? { micFileName.map { folderURL.appendingPathComponent($0) } }
     var systemURL: URL? { systemFileName.map { folderURL.appendingPathComponent($0) } }
+    var screenURL: URL? {
+        guard let url = screenFileName.map({ folderURL.appendingPathComponent($0) }),
+              FileManager.default.fileExists(atPath: url.path) else { return nil }
+        return url
+    }
 
     /// Audio files that still exist on disk.
     var audioURLs: [URL] {
@@ -309,10 +317,11 @@ enum RecordingStorage {
         guard let recordings = try? context.fetch(FetchDescriptor<Recording>()) else { return }
         var changed = false
         for recording in recordings where recording.startedAt < cutoff && !recording.status.isBusy {
-            guard recording.micFileName != nil || recording.systemFileName != nil else { continue }
+            guard recording.micFileName != nil || recording.systemFileName != nil || recording.screenFileName != nil else { continue }
             deleteFiles(for: recording.uid)
             recording.micFileName = nil
             recording.systemFileName = nil
+            recording.screenFileName = nil
             recording.notice = "Audio deleted after \(days) days (Settings → Privacy & Data)."
             changed = true
         }

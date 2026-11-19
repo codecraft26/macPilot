@@ -26,6 +26,11 @@ enum PrefKey {
     static let clipboardSkipSensitive = "clipboard.skipSensitive"
     static let clipboardExcludedApps = "clipboard.excludedApps"
     static let developerRepos = "developer.repositories"
+    static let recordScreen = "recording.recordScreen"
+    static let screenDisplayID = "recording.screenDisplayID"
+    static let screenFPS = "recording.screenFPS"
+    static let screenMaxDimension = "recording.screenMaxDimension"
+    static let screenHideMacPilot = "recording.screenHideMacPilot"
     static let remindersSync = "reminders.sync"
     static let remindersListName = "reminders.listName"
     static let remindersListID = "reminders.listID"
@@ -95,6 +100,11 @@ enum Prefs {
             PrefKey.audioRetentionDays: 0,
             PrefKey.defaultEventAlarmMinutes: 10,
             PrefKey.bedrockRegion: BedrockConfig.defaultRegion,
+            PrefKey.recordScreen: false,
+            PrefKey.screenDisplayID: 0,
+            PrefKey.screenFPS: 15,
+            PrefKey.screenMaxDimension: 1920,
+            PrefKey.screenHideMacPilot: true,
             PrefKey.remindersSync: false,
             PrefKey.remindersListName: "MacPilot",
             PrefKey.dictationPushToTalk: true,
@@ -155,6 +165,7 @@ enum Prefs {
     }
 
     static var includeSystemAudio: Bool { defaults.bool(forKey: PrefKey.includeSystemAudio) }
+    static var recordScreen: Bool { defaults.bool(forKey: PrefKey.recordScreen) }
     static var autoProcessRecordings: Bool { defaults.bool(forKey: PrefKey.autoProcessRecordings) }
     static var audioRetentionDays: Int { defaults.integer(forKey: PrefKey.audioRetentionDays) }
     static var defaultEventAlarmMinutes: Int { defaults.integer(forKey: PrefKey.defaultEventAlarmMinutes) }

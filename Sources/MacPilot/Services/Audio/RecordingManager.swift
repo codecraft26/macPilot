@@ -110,14 +110,17 @@ final class RecordingManager {
         AppState.shared.isRecording = true
         startMeter()
 
-        if kind == .meeting && Prefs.includeSystemAudio {
+        if kind == .meeting && (Prefs.includeSystemAudio || Prefs.recordScreen) {
             systemStartTask = Task { await startSystemAudio(for: recording) }
         }
     }
 
     private func startSystemAudio(for recording: Recording) async {
+        let wantsAudio = Prefs.includeSystemAudio
+        let wantsScreen = Prefs.recordScreen
+        let what = [wantsAudio ? "System audio" : nil, wantsScreen ? "the screen" : nil].compactMap { $0 }.joined(separator: " and ")
         guard SystemAudioRecorder.hasPermission || SystemAudioRecorder.requestPermission() else {
-            let message = "System audio is not being recorded because MacPilot has no Screen Recording permission (System Settings → Privacy & Security → Screen & System Audio Recording). Recording continues with the microphone only."
+            let message = "\(what.prefix(1).uppercased() + what.dropFirst()) is not being recorded because MacPilot has no Screen Recording permission (System Settings → Privacy & Security → Screen & System Audio Recording). Recording continues with the microphone only."
             notice = message
             recording.notice = message
             return
@@ -133,12 +136,17 @@ final class RecordingManager {
             }
         }
         do {
-            try await recorder.start(url: recording.folderURL.appendingPathComponent("system.m4a"))
+            try await recorder.start(
+                audioURL: wantsAudio ? recording.folderURL.appendingPathComponent("system.m4a") : nil,
+                videoURL: wantsScreen ? recording.folderURL.appendingPathComponent("screen.mp4") : nil,
+                video: wantsScreen ? ScreenVideoSettings.current : nil
+            )
             system = recorder
-            recording.systemFileName = "system.m4a"
+            if wantsAudio { recording.systemFileName = "system.m4a" }
+            if wantsScreen { recording.screenFileName = "screen.mp4" }
             if state == .paused { recorder.pause() }
         } catch {
-            let message = "System audio could not be captured (\(error.localizedDescription)). Recording continues with the microphone only."
+            let message = "\(what.prefix(1).uppercased() + what.dropFirst()) could not be captured (\(error.localizedDescription)). Recording continues with the microphone only."
             notice = message
             recording.notice = message
         }
@@ -181,12 +189,21 @@ final class RecordingManager {
         systemStartTask = nil
         if let system {
             let systemStart = await system.startDate()
-            if await system.stop() {
+            let screenStart = await system.videoStartDate()
+            let saved = await system.stopAll()
+            if saved.audio {
                 if let micStart, let systemStart {
                     recording.systemAudioOffset = max(0, systemStart.timeIntervalSince(micStart))
                 }
             } else {
                 recording.systemFileName = nil
+            }
+            if saved.video {
+                if let micStart, let screenStart {
+                    recording.screenOffset = max(0, screenStart.timeIntervalSince(micStart))
+                }
+            } else {
+                recording.screenFileName = nil
             }
         }
 

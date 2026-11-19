@@ -143,3 +143,24 @@ final class S3BucketTests: XCTestCase {
         XCTAssertTrue(rules.contains("<Days>1</Days>"))
     }
 }
+
+final class ScreenVideoTests: XCTestCase {
+    func testOutputSizeKeepsAspectAndEvenNumbers() {
+        XCTAssertEqual(ScreenVideoSettings.outputSize(width: 3024, height: 1964, maxDimension: 1920).width, 1920)
+        let size = ScreenVideoSettings.outputSize(width: 3024, height: 1964, maxDimension: 1920)
+        XCTAssertEqual(size.height % 2, 0)
+        XCTAssertEqual(Double(size.width) / Double(size.height), 3024.0 / 1964.0, accuracy: 0.01)
+        let full = ScreenVideoSettings.outputSize(width: 2561, height: 1441, maxDimension: 0)
+        XCTAssertEqual(full.width, 2560)
+        XCTAssertEqual(full.height, 1440)
+    }
+
+    func testBitrateScalesWithFrameRate() {
+        let low = ScreenVideoSettings.bitrate(width: 1920, height: 1080, fps: 5)
+        let mid = ScreenVideoSettings.bitrate(width: 1920, height: 1080, fps: 15)
+        let high = ScreenVideoSettings.bitrate(width: 1920, height: 1080, fps: 30)
+        XCTAssertLessThan(low, mid)
+        XCTAssertLessThan(mid, high)
+        XCTAssertGreaterThanOrEqual(ScreenVideoSettings.bitrate(width: 2, height: 2, fps: 1), 500_000)
+    }
+}
