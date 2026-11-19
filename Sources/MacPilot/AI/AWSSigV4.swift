@@ -54,6 +54,45 @@ struct AWSSigV4Signer {
         return result
     }
 
+    /// A presigned URL (query-string authentication), e.g. for the Amazon Transcribe WebSocket.
+    /// Only the `host` header is signed and the payload hash is that of an empty body.
+    func presignedURL(_ url: URL, expires: Int = 300, date: Date = Date()) -> URL {
+        let amzDate = Self.amzDateFormatter.string(from: date)
+        let day = String(amzDate.prefix(8))
+        let scope = "\(day)/\(region)/\(service)/aws4_request"
+
+        var components = URLComponents(url: url, resolvingAgainstBaseURL: false)!
+        var items = components.queryItems ?? []
+        items += [
+            URLQueryItem(name: "X-Amz-Algorithm", value: "AWS4-HMAC-SHA256"),
+            URLQueryItem(name: "X-Amz-Credential", value: "\(accessKeyID)/\(scope)"),
+            URLQueryItem(name: "X-Amz-Date", value: amzDate),
+            URLQueryItem(name: "X-Amz-Expires", value: String(expires)),
+            URLQueryItem(name: "X-Amz-SignedHeaders", value: "host")
+        ]
+        if let sessionToken, !sessionToken.isEmpty {
+            items.append(URLQueryItem(name: "X-Amz-Security-Token", value: sessionToken))
+        }
+        let canonicalQuery = Self.canonicalQuery(items)
+        let canonicalRequest = [
+            "GET",
+            Self.canonicalPath(url),
+            canonicalQuery,
+            "host:\(Self.host(of: url))\n",
+            "host",
+            Self.hex(SHA256.hash(data: Data()))
+        ].joined(separator: "\n")
+        let stringToSign = [
+            "AWS4-HMAC-SHA256",
+            amzDate,
+            scope,
+            Self.hex(SHA256.hash(data: Data(canonicalRequest.utf8)))
+        ].joined(separator: "\n")
+        let signature = Self.hex(HMAC<SHA256>.authenticationCode(for: Data(stringToSign.utf8), using: signingKey(day: day)))
+        components.percentEncodedQuery = canonicalQuery + "&X-Amz-Signature=" + signature
+        return components.url!
+    }
+
     func signingKey(day: String) -> SymmetricKey {
         func hmac(_ key: SymmetricKey, _ text: String) -> SymmetricKey {
             SymmetricKey(data: Data(HMAC<SHA256>.authenticationCode(for: Data(text.utf8), using: key)))
@@ -104,7 +143,11 @@ struct AWSSigV4Signer {
     }
 
     static func canonicalQuery(_ url: URL) -> String {
-        guard let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems, !items.isEmpty else { return "" }
+        canonicalQuery(URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? [])
+    }
+
+    static func canonicalQuery(_ items: [URLQueryItem]) -> String {
+        guard !items.isEmpty else { return "" }
         let pairs: [(name: String, value: String)] = items.map { item in
             (name: encode(item.name), value: encode(item.value ?? ""))
         }

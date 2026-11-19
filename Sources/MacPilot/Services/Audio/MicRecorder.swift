@@ -30,9 +30,13 @@ enum RecorderError: LocalizedError {
 
 /// Records the microphone to an AAC .m4a file with pause/resume and a level meter.
 /// Shared state is guarded by `lock`.
-final class MicRecorder: NSObject, AVCaptureFileOutputRecordingDelegate, @unchecked Sendable {
+final class MicRecorder: NSObject, AVCaptureFileOutputRecordingDelegate, AVCaptureAudioDataOutputSampleBufferDelegate, @unchecked Sendable {
     private let session = AVCaptureSession()
     private let output = AVCaptureAudioFileOutput()
+    private let dataOutput = AVCaptureAudioDataOutput()
+    private let dataQueue = DispatchQueue(label: "com.macpilot.mic-data")
+    /// Raw microphone audio for live transcription, called on a background queue. Set before `start`.
+    var onAudio: ((AVAudioPCMBuffer) -> Void)?
     private var finishContinuation: CheckedContinuation<Void, Never>?
     private let lock = NSLock()
     private var _startedAt: Date?
@@ -71,6 +75,10 @@ final class MicRecorder: NSObject, AVCaptureFileOutputRecordingDelegate, @unchec
         }
         session.addInput(input)
         if session.canAddOutput(output) { session.addOutput(output) }
+        if onAudio != nil, session.canAddOutput(dataOutput) {
+            session.addOutput(dataOutput)
+            dataOutput.setSampleBufferDelegate(self, queue: dataQueue)
+        }
         session.commitConfiguration()
 
         output.audioSettings = [
@@ -106,6 +114,13 @@ final class MicRecorder: NSObject, AVCaptureFileOutputRecordingDelegate, @unchec
             output.stopRecording()
         }
         session.stopRunning()
+    }
+
+    // MARK: AVCaptureAudioDataOutputSampleBufferDelegate
+
+    func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
+        guard let onAudio, let buffer = sampleBuffer.pcmBuffer() else { return }
+        onAudio(buffer)
     }
 
     // MARK: AVCaptureFileOutputRecordingDelegate

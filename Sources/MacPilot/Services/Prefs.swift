@@ -25,6 +25,15 @@ enum PrefKey {
     static let clipboardSkipSensitive = "clipboard.skipSensitive"
     static let clipboardExcludedApps = "clipboard.excludedApps"
     static let developerRepos = "developer.repositories"
+    static let transcribeRegion = "transcribe.region"
+    static let transcribeBucket = "transcribe.bucket"
+    static let transcribePrefix = "transcribe.prefix"
+    static let transcribeLanguage = "transcribe.language"
+    static let transcribeIdentifySpeakers = "transcribe.identifySpeakers"
+    static let transcribeMaxSpeakers = "transcribe.maxSpeakers"
+    static let transcribeDeleteAfter = "transcribe.deleteAfter"
+    static let transcribeLive = "transcribe.live"
+    static let transcribeUseLive = "transcribe.useLive"
     static let bedrockRegion = "bedrock.region"
     static let bedrockAuthMethod = "bedrock.authMethod"
     static let googleClientID = "google.clientID"
@@ -39,6 +48,7 @@ enum PrefKey {
 /// Transcription is configured independently from chat (PRD section 5).
 enum TranscriptionProviderID: String, CaseIterable, Identifiable {
     case openAI = "openai"
+    case amazonTranscribe = "aws"
     case localWhisper = "whisper"
 
     var id: String { rawValue }
@@ -46,6 +56,7 @@ enum TranscriptionProviderID: String, CaseIterable, Identifiable {
     var displayName: String {
         switch self {
         case .openAI: return "OpenAI"
+        case .amazonTranscribe: return "Amazon Transcribe (AWS)"
         case .localWhisper: return "Local Whisper (on device)"
         }
     }
@@ -68,6 +79,15 @@ enum Prefs {
             PrefKey.audioRetentionDays: 0,
             PrefKey.defaultEventAlarmMinutes: 10,
             PrefKey.bedrockRegion: BedrockConfig.defaultRegion,
+            PrefKey.transcribeRegion: "",
+            PrefKey.transcribeBucket: "",
+            PrefKey.transcribePrefix: "macpilot/",
+            PrefKey.transcribeLanguage: "auto",
+            PrefKey.transcribeIdentifySpeakers: true,
+            PrefKey.transcribeMaxSpeakers: 4,
+            PrefKey.transcribeDeleteAfter: true,
+            PrefKey.transcribeLive: true,
+            PrefKey.transcribeUseLive: false,
             PrefKey.bedrockAuthMethod: BedrockAuthMethod.accessKeys.rawValue,
             PrefKey.clipboardEnabled: true,
             PrefKey.clipboardRetentionDays: 30,

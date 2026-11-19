@@ -32,6 +32,16 @@ enum TranscriptionService {
         switch Prefs.transcriptionProvider {
         case .localWhisper:
             throw TranscriptionError.localWhisperUnavailable
+        case .amazonTranscribe:
+            var tracks: [[TranscriptSegment]] = []
+            if let mic = recording.micURL {
+                tracks.append(try await amazonTranscribe(mic, track: recording.micSpeaker == "Me" ? "Me" : "Speaker", offset: 0))
+            }
+            if let system = recording.systemURL {
+                tracks.append(try await amazonTranscribe(system, track: "Others", offset: recording.systemOffset))
+            }
+            guard !tracks.isEmpty else { throw TranscriptionError.noAudio }
+            return TranscriptMerger.merge(tracks)
         case .openAI:
             let model = Prefs.transcriptionModel
             var tracks: [[TranscriptSegment]] = []
@@ -44,6 +54,14 @@ enum TranscriptionService {
             guard !tracks.isEmpty else { throw TranscriptionError.noAudio }
             return TranscriptMerger.merge(tracks)
         }
+    }
+
+    /// Batch job through S3 when a bucket is set (fast, any length); otherwise streams the file.
+    static func amazonTranscribe(_ url: URL, track: String, offset: Double) async throws -> [TranscriptSegment] {
+        if !TranscribeSettings.bucket.isEmpty {
+            return try await TranscribeBatch.transcribe(fileURL: url, track: track, offset: offset)
+        }
+        return try await TranscribeStream.transcribe(fileURL: url, track: track, offset: offset)
     }
 
     static func transcribeFile(_ url: URL, speaker: String, model: String, offset: Double) async throws -> [TranscriptSegment] {
