@@ -8,9 +8,9 @@ Your personal AI-powered workspace for macOS: a native menu bar app with a float
 |---|---|---|
 | 1 | Native app, menu bar, dashboard, shortcuts, settings, Keychain | Done |
 | 2 | OpenAI + Claude streaming chat, history, prompt library | Done (plus Ollama) |
-| 3 | Microphone recording, dictation, transcription, transcript editor | Next |
-| 4 | Meeting recording, system audio, speakers, meeting intelligence | Planned |
-| 5 | Calendar, notes, tasks, reminders | Notes and tasks basics done; calendar planned |
+| 3 | Microphone recording, dictation, transcription, transcript editor | Recording, import, transcription and editor done; push-to-talk dictation next |
+| 4 | Meeting recording, system audio, speakers, meeting intelligence | Done (live transcription not yet) |
+| 5 | Calendar, notes, tasks, reminders | Done (Apple Reminders sync not yet) |
 | 6 | Clipboard manager, developer workspace | Planned |
 | 7 | Automations, local Whisper, distribution | Planned |
 
@@ -45,8 +45,8 @@ SIGN_IDENTITY="Apple Development: Your Name (TEAMID)" ./scripts/build-app.sh
 | Shortcut | Action |
 |---|---|
 | ⌥Space | Floating AI assistant |
-| ⌥D | Voice dictation (opens Voice until Phase 3) |
-| ⌥R | Recording (opens Voice until Phase 3) |
+| ⌥D | Voice dictation (opens Voice until push-to-talk ships) |
+| ⌥R | Start / stop a meeting recording (named after the current calendar event) |
 | ⌥C | Clipboard |
 | ⌥N | New note |
 | ⌥T | New task |
@@ -54,15 +54,30 @@ SIGN_IDENTITY="Apple Development: Your Name (TEAMID)" ./scripts/build-app.sh
 
 All shortcuts can be changed in **Settings → Shortcuts**. Some macOS versions refuse global shortcuts that use only ⌥ (or ⌥⇧); if that happens, Settings shows the error and you can add ⌃ or ⌘.
 
+## Recording and meetings
+
+- **Voice & Transcription** records voice notes (microphone) and imports audio files (MP3, WAV, M4A, FLAC, OGG, AAC). Pick the microphone in **Settings → Recording & Calendar**; pause, resume and a level meter are in the recording bar and the menu bar.
+- **Meetings** (⌥R, or **Record** on a calendar event) record the microphone as “Me” and, with Screen & System Audio Recording permission, system audio as “Others” in a separate track via ScreenCaptureKit. Without that permission MacPilot keeps recording the microphone and says so.
+- After you stop, the audio is transcribed with OpenAI (`/v1/audio/transcriptions`, model from **Routing**; long files go up in 2-minute pieces) and analyzed by the analysis provider: summary, decisions, action items with owner and due date, deadlines, open questions and a follow-up email. Turn the automatic run off in Settings to trigger each step yourself.
+- The transcript editor plays both tracks together; click a timestamp to seek, edit any line, rename speakers, search, and export Markdown, TXT or SRT. Action items become tasks (category “Meeting”); **Save as note** and **Ask AI** reuse the transcript.
+- Audio lives in `~/Library/Application Support/MacPilot/Recordings/`; set a retention period in **Privacy & Data**. Live transcription and local Whisper are not available yet.
+
+## Calendar
+
+- **Calendar & Meetings** reads Apple Calendar through EventKit (full access, asked once): day, week and month views, calendar filters, conflict highlighting, and tasks due each day.
+- Create, edit and delete events with an alert. **Quick add** (“Lunch with Sam Friday 1pm”) is read by the analysis provider (or by macOS date detection if no provider is available) and always opens the editor so you confirm before anything is saved.
+- Each event has **Record** (a meeting linked to the event, with its attendees) and **Prep notes** (a note linked to the event; its text is included when the meeting is analyzed). The dashboard shows upcoming meetings with a live countdown.
+
 ## Architecture
 
 ```
 Sources/MacPilot
 ├── App/          App entry, AppState, window/panel management, global hotkeys (Carbon)
 ├── AI/           Provider protocol, Anthropic / OpenAI / Ollama streaming clients, router, usage limits
-├── Models/       SwiftData models (Conversation, ChatMessage, PromptTemplate, Note, TaskItem) and the store
-├── Services/     Keychain, preferences, export/delete, notifications, helpers
-└── Views/        Dashboard, Assistant, Quick assistant, Notes, Tasks, Settings, menu bar
+├── Models/       SwiftData models (Conversation, ChatMessage, PromptTemplate, Note, TaskItem, Recording) and the store
+├── Services/     Keychain, preferences, export/delete, notifications, transcription, meeting intelligence, EventKit
+│   └── Audio/    Microphone (AVCaptureSession) and system audio (ScreenCaptureKit) recorders, RecordingManager
+└── Views/        Dashboard, Assistant, Quick assistant, Voice, Calendar & Meetings, Notes, Tasks, Settings, menu bar
 ```
 
 - **Providers are independent** (PRD section 5): chat, transcript analysis and transcription each have their own setting in **Settings → Routing**.

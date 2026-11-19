@@ -15,10 +15,16 @@ struct MenuBarContent: View {
     @Query(filter: #Predicate<TaskItem> { !$0.isCompleted }) private var openTasks: [TaskItem]
     @Environment(AppState.self) private var appState
     private let shortcuts = ShortcutManager.shared
+    private let recorder = RecordingManager.shared
 
     var body: some View {
-        if appState.isRecording {
-            Text("● Recording in progress")
+        if recorder.isActive {
+            Text(recorder.isPaused ? "⏸ Recording paused" : "● Recording: \(recorder.current?.title ?? "")")
+            Button(recorder.isPaused ? "Resume Recording" : "Pause Recording") { recorder.togglePause() }
+            Button("Stop Recording  \(shortcutLabel(.recording))") { Task { await recorder.stop() } }
+            Divider()
+        } else if let next = CalendarService.shared.upcoming(limit: 1, withinDays: 1).first {
+            Text("Next: \(next.title ?? "Event") at \(next.startDate.formatted(date: .omitted, time: .shortened))")
             Divider()
         }
 
@@ -43,8 +49,16 @@ struct MenuBarContent: View {
         Button("Tasks (\(openTasks.count) open)") {
             WindowManager.shared.showDashboard(section: .tasks)
         }
-        Button("Quick Recording (Phase 3)") {}
-            .disabled(true)
+        if !recorder.isActive {
+            Button("Record Meeting  \(shortcutLabel(.recording))") { recorder.toggleMeeting() }
+            Button("Record Voice Note") {
+                Task { await recorder.start(kind: .voiceNote, title: "Voice note \(Date().formatted(date: .abbreviated, time: .shortened))") }
+                WindowManager.shared.showDashboard(section: .voice)
+            }
+        }
+        Button("Calendar & Meetings") {
+            WindowManager.shared.showDashboard(section: .calendar)
+        }
 
         Divider()
 

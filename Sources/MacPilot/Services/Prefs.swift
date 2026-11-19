@@ -11,6 +11,12 @@ enum PrefKey {
     static let liveTranscriptionModel = "routing.liveTranscriptionModel"
     static let ollamaBaseURL = "ollama.baseURL"
     static let defaultSystemPrompt = "assistant.systemPrompt"
+    static let microphoneID = "recording.microphoneID"
+    static let includeSystemAudio = "recording.includeSystemAudio"
+    static let autoProcessRecordings = "recording.autoProcess"
+    static let audioRetentionDays = "privacy.audioRetentionDays"
+    static let hiddenCalendarIDs = "calendar.hiddenCalendarIDs"
+    static let defaultEventAlarmMinutes = "calendar.defaultAlarmMinutes"
 
     static func enabled(_ provider: AIProviderID) -> String { "provider.\(provider.rawValue).enabled" }
     static func model(_ provider: AIProviderID) -> String { "provider.\(provider.rawValue).model" }
@@ -44,6 +50,11 @@ enum Prefs {
             PrefKey.transcriptionModel: "gpt-4o-transcribe",
             PrefKey.liveTranscriptionModel: "gpt-4o-transcribe",
             PrefKey.ollamaBaseURL: "http://localhost:11434",
+            PrefKey.microphoneID: "",
+            PrefKey.includeSystemAudio: true,
+            PrefKey.autoProcessRecordings: true,
+            PrefKey.audioRetentionDays: 0,
+            PrefKey.defaultEventAlarmMinutes: 10,
             PrefKey.defaultSystemPrompt: "You are MacPilot, a concise and practical assistant for a professional working on a Mac. Prefer short, direct answers and use Markdown code blocks for code."
         ]
         for provider in AIProviderID.allCases {
@@ -56,6 +67,34 @@ enum Prefs {
 
     static var chatProvider: AIProviderID {
         AIProviderID(rawValue: defaults.string(forKey: PrefKey.chatProvider) ?? "") ?? .anthropic
+    }
+
+    static var analysisProvider: AIProviderID {
+        AIProviderID(rawValue: defaults.string(forKey: PrefKey.analysisProvider) ?? "") ?? .anthropic
+    }
+
+    static var transcriptionProvider: TranscriptionProviderID {
+        TranscriptionProviderID(rawValue: defaults.string(forKey: PrefKey.transcriptionProvider) ?? "") ?? .openAI
+    }
+
+    static var transcriptionModel: String {
+        let value = defaults.string(forKey: PrefKey.transcriptionModel) ?? ""
+        return value.isEmpty ? "gpt-4o-transcribe" : value
+    }
+
+    static var microphoneID: String? {
+        let value = defaults.string(forKey: PrefKey.microphoneID) ?? ""
+        return value.isEmpty ? nil : value
+    }
+
+    static var includeSystemAudio: Bool { defaults.bool(forKey: PrefKey.includeSystemAudio) }
+    static var autoProcessRecordings: Bool { defaults.bool(forKey: PrefKey.autoProcessRecordings) }
+    static var audioRetentionDays: Int { defaults.integer(forKey: PrefKey.audioRetentionDays) }
+    static var defaultEventAlarmMinutes: Int { defaults.integer(forKey: PrefKey.defaultEventAlarmMinutes) }
+
+    static var hiddenCalendarIDs: Set<String> {
+        get { Set(defaults.stringArray(forKey: PrefKey.hiddenCalendarIDs) ?? []) }
+        set { defaults.set(Array(newValue), forKey: PrefKey.hiddenCalendarIDs) }
     }
 
     static var defaultSystemPrompt: String {

@@ -9,6 +9,8 @@ struct SettingsView: View {
                 .tabItem { Label("Providers", systemImage: "key") }
             RoutingSettingsView()
                 .tabItem { Label("Routing", systemImage: "arrow.triangle.branch") }
+            RecordingSettingsView()
+                .tabItem { Label("Recording & Calendar", systemImage: "waveform") }
             ShortcutsSettingsView()
                 .tabItem { Label("Shortcuts", systemImage: "keyboard") }
             UsageSettingsView()
@@ -215,7 +217,7 @@ struct RoutingSettingsView: View {
             } header: {
                 Text("Audio transcription")
             } footer: {
-                Text("Claude is used for analysis, not speech-to-text. Transcription itself ships in Phase 3; local Whisper in Phase 7.")
+                Text("Claude is used for analysis, not speech-to-text. OpenAI models: gpt-4o-transcribe, gpt-4o-mini-transcribe or whisper-1 (whisper-1 returns exact segment timestamps). Long audio is uploaded in 2-minute pieces. Local Whisper arrives in Phase 7; live transcription is not available yet.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -394,6 +396,7 @@ struct PrivacySettingsView: View {
     @State private var confirmDeleteAll = false
     @State private var confirmDeleteKeys = false
     @State private var message: String?
+    @AppStorage(PrefKey.audioRetentionDays) private var retentionDays = 0
 
     var body: some View {
         Form {
@@ -415,6 +418,16 @@ struct PrivacySettingsView: View {
             Section("Recording") {
                 Text("MacPilot never records in the background. A red indicator shows in the menu bar whenever audio is captured. You are responsible for getting consent from people you record.")
                     .font(.callout)
+                Picker("Keep audio files", selection: $retentionDays) {
+                    Text("Forever").tag(0)
+                    Text("7 days").tag(7)
+                    Text("30 days").tag(30)
+                    Text("90 days").tag(90)
+                }
+                Text("Older audio is deleted when MacPilot starts. Transcripts and summaries are kept. Recordings are stored in \(RecordingStorage.root.path).")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
             }
             Section("Your data") {
                 Button("Export all data as JSON…", action: exportAll)
@@ -448,7 +461,7 @@ struct PrivacySettingsView: View {
                 run { try DataManager.deleteAllLocalData(context: context) }
             }
         } message: {
-            Text("Conversations, notes, tasks, prompts and usage stats will be removed. API keys are kept unless you delete them separately. This cannot be undone.")
+            Text("Conversations, notes, tasks, prompts, recordings (with audio) and usage stats will be removed. API keys are kept unless you delete them separately. This cannot be undone.")
         }
     }
 
@@ -467,6 +480,90 @@ struct PrivacySettingsView: View {
             message = "Done."
         } catch {
             message = error.localizedDescription
+        }
+    }
+}
+
+// MARK: - Recording and calendar
+
+struct RecordingSettingsView: View {
+    @AppStorage(PrefKey.microphoneID) private var microphoneID = ""
+    @AppStorage(PrefKey.includeSystemAudio) private var includeSystemAudio = true
+    @AppStorage(PrefKey.autoProcessRecordings) private var autoProcess = true
+    @AppStorage(PrefKey.defaultEventAlarmMinutes) private var alarmMinutes = 10
+    @State private var devices: [AudioInputDevice] = []
+    @State private var hasScreenPermission = SystemAudioRecorder.hasPermission
+    private let calendar = CalendarService.shared
+
+    var body: some View {
+        Form {
+            Section("Microphone") {
+                Picker("Input", selection: $microphoneID) {
+                    Text("System default").tag("")
+                    ForEach(devices) { Text($0.name).tag($0.id) }
+                }
+                Button("Refresh devices") { devices = MicRecorder.availableDevices() }
+            }
+            Section {
+                Toggle("Record system audio in meetings", isOn: $includeSystemAudio)
+                HStack {
+                    Image(systemName: hasScreenPermission ? "checkmark.circle.fill" : "exclamationmark.triangle")
+                        .foregroundStyle(hasScreenPermission ? .green : .orange)
+                    Text(hasScreenPermission
+                         ? "Screen & System Audio Recording permission granted."
+                         : "Needs Screen & System Audio Recording permission. Without it, meetings record the microphone only.")
+                    Spacer()
+                    if !hasScreenPermission {
+                        Button("Open Settings") {
+                            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
+                                NSWorkspace.shared.open(url)
+                            }
+                        }
+                    }
+                }
+                .font(.callout)
+            } header: {
+                Text("Meetings")
+            } footer: {
+                Text("System audio is what other apps play, such as the other side of a call. It is saved as a separate track labelled “Others”; your microphone is “Me”. Rename speakers in the transcript.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Section("After recording") {
+                Toggle("Transcribe and summarize automatically", isOn: $autoProcess)
+                Text("Uses the transcription and analysis providers from the Routing tab. Turn this off to start each step yourself.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Section("Calendar") {
+                HStack {
+                    Text("Apple Calendar")
+                    Spacer()
+                    if calendar.isAuthorized {
+                        Label("Connected", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+                    } else if calendar.isDenied {
+                        Button("Open Privacy Settings") { calendar.openPrivacySettings() }
+                    } else {
+                        Button("Connect") { Task { await calendar.requestAccess() } }
+                    }
+                }
+                Picker("Default alert for new events", selection: $alarmMinutes) {
+                    Text("None").tag(0)
+                    Text("5 minutes before").tag(5)
+                    Text("10 minutes before").tag(10)
+                    Text("15 minutes before").tag(15)
+                    Text("30 minutes before").tag(30)
+                    Text("1 hour before").tag(60)
+                }
+                Text("Quick add uses the analysis provider to read your request; you always review the event before it is saved.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+        .onAppear {
+            devices = MicRecorder.availableDevices()
+            hasScreenPermission = SystemAudioRecorder.hasPermission
         }
     }
 }

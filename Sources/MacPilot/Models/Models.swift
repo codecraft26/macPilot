@@ -84,6 +84,10 @@ final class Note {
     var isPinned: Bool = false
     var createdAt: Date = Date()
     var updatedAt: Date = Date()
+    /// Calendar event this note prepares for (EventKit `calendarItemIdentifier`).
+    var eventID: String?
+    /// Recording this note was created from.
+    var recordingID: UUID?
 
     init(title: String = "", body: String = "", folder: String = "") {
         self.title = title

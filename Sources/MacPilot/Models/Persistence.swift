@@ -8,10 +8,11 @@ enum Persistence {
         ChatMessage.self,
         PromptTemplate.self,
         Note.self,
-        TaskItem.self
+        TaskItem.self,
+        Recording.self
     ])
 
-    static let storeDirectory: URL = {
+    nonisolated static let storeDirectory: URL = {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         let dir = base.appendingPathComponent("MacPilot", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)

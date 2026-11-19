@@ -26,6 +26,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Menu bar app: no Dock icon until the dashboard is opened.
         NSApp.setActivationPolicy(.accessory)
         Seeder.seedIfNeeded(Persistence.container.mainContext)
+        RecordingStorage.applyRetention(days: Prefs.audioRetentionDays, context: Persistence.container.mainContext)
+        RecordingRecovery.markInterrupted(context: Persistence.container.mainContext)
         ShortcutManager.shared.registerAll()
 
         let defaults = UserDefaults.standard

@@ -274,7 +274,10 @@ enum ShortcutRouter {
             windows.open(.tasks, action: .newTask)
         case .clipboard:
             windows.open(.clipboard)
-        case .dictation, .recording:
+        case .recording:
+            RecordingManager.shared.toggleMeeting()
+        case .dictation:
+            // Push-to-talk dictation is not built yet; open Voice to record a voice note.
             windows.open(.voice)
         }
     }

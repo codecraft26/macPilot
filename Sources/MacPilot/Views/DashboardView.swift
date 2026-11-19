@@ -109,8 +109,7 @@ struct DashboardView: View {
 
     private var meetingsCard: some View {
         DashboardCard(title: "Upcoming meetings", systemImage: "calendar", section: .calendar) {
-            Text("Calendar integration arrives in Phase 5.")
-                .foregroundStyle(.secondary)
+            UpcomingMeetingsList()
         }
     }
 
@@ -149,7 +148,9 @@ private struct QuickActionsRow: View {
             action("Ask AI", "sparkles", .assistant) { WindowManager.shared.toggleQuickAssistant() }
             action("New note", "square.and.pencil", .newNote) { WindowManager.shared.open(.notes, action: .newNote) }
             action("New task", "plus.circle", .newTask) { WindowManager.shared.open(.tasks, action: .newTask) }
-            action("Record", "record.circle", .recording) { WindowManager.shared.open(.voice) }
+            action(RecordingManager.shared.isActive ? "Stop" : "Record", RecordingManager.shared.isActive ? "stop.circle" : "record.circle", .recording) {
+                RecordingManager.shared.toggleMeeting()
+            }
         }
     }
 
@@ -225,5 +226,75 @@ private struct ProviderStatusCard: View {
         if !Prefs.isEnabled(provider) { return "Off" }
         if provider.requiresAPIKey && configured[provider] != true { return "No key" }
         return Prefs.model(for: provider)
+    }
+}
+
+/// Next meetings from Apple Calendar with a live countdown.
+private struct UpcomingMeetingsList: View {
+    private let calendar = CalendarService.shared
+    private let recorder = RecordingManager.shared
+
+    var body: some View {
+        let _ = calendar.revision
+        if !calendar.isAuthorized {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Connect Apple Calendar to see what's next.").foregroundStyle(.secondary)
+                Button(calendar.isDenied ? "Open Privacy Settings" : "Connect Calendar") {
+                    if calendar.isDenied { calendar.openPrivacySettings() } else { Task { await calendar.requestAccess() } }
+                }
+            }
+        } else {
+            TimelineView(.periodic(from: .now, by: 30)) { context in
+                let events = calendar.upcoming(limit: 4, withinDays: 7)
+                if events.isEmpty {
+                    Text("No meetings in the next 7 days.").foregroundStyle(.secondary)
+                } else {
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(events, id: \.calendarItemIdentifier) { event in
+                            HStack {
+                                Circle()
+                                    .fill(Color(cgColor: event.calendar?.cgColor ?? CGColor(gray: 0.5, alpha: 1)))
+                                    .frame(width: 8, height: 8)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(event.title ?? "Event").lineLimit(1)
+                                    Text(event.startDate.shortRelative).font(.caption).foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Text(Countdown.text(to: event.startDate, end: event.endDate, now: context.date))
+                                    .font(.caption.monospacedDigit().weight(.medium))
+                                    .foregroundStyle(event.startDate <= context.date ? .green : .secondary)
+                                Button {
+                                    Task {
+                                        await recorder.start(
+                                            kind: .meeting,
+                                            title: event.title ?? "Meeting",
+                                            eventID: event.calendarItemIdentifier,
+                                            attendees: CalendarService.attendeeNames(event)
+                                        )
+                                    }
+                                } label: {
+                                    Image(systemName: "record.circle")
+                                }
+                                .buttonStyle(.borderless)
+                                .disabled(recorder.isActive)
+                                .help("Record this meeting")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+enum Countdown {
+    static func text(to start: Date, end: Date, now: Date) -> String {
+        if start <= now { return end > now ? "Now" : "Ended" }
+        let minutes = Int(ceil(start.timeIntervalSince(now) / 60))
+        if minutes < 60 { return "in \(minutes) min" }
+        let hours = minutes / 60
+        if hours < 24 { return minutes % 60 == 0 ? "in \(hours) h" : "in \(hours) h \(minutes % 60) min" }
+        let days = hours / 24
+        return "in \(days) day\(days == 1 ? "" : "s")"
     }
 }

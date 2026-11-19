@@ -70,9 +70,17 @@ struct NotesView: View {
     }
 
     private func handlePendingAction() {
-        guard appState.pendingAction == .newNote else { return }
-        appState.pendingAction = nil
-        createNote()
+        switch appState.pendingAction {
+        case .newNote?:
+            appState.pendingAction = nil
+            createNote()
+        case .openNote(let uid)?:
+            appState.pendingAction = nil
+            search = ""
+            selection = notes.first { $0.uid == uid }
+        default:
+            break
+        }
     }
 
     private func createNote() {
@@ -93,6 +101,16 @@ private struct NoteEditor: View {
     @Bindable var note: Note
     var onDelete: () -> Void
     @State private var showPreview = false
+    @State private var summary: String?
+    @State private var isSummarizing = false
+    @State private var summaryError: String?
+    @Environment(AppState.self) private var appState
+    @Query private var recordings: [Recording]
+
+    private var linkedRecording: Recording? {
+        guard let id = note.recordingID else { return nil }
+        return recordings.first { $0.uid == id }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -101,6 +119,13 @@ private struct NoteEditor: View {
                     .textFieldStyle(.plain)
                     .font(.title2.bold())
                 Spacer()
+                Button {
+                    summarize()
+                } label: {
+                    if isSummarizing { ProgressView().controlSize(.small) } else { Label("AI summary", systemImage: "sparkles") }
+                }
+                .disabled(isSummarizing || note.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .help("Summarize this note with \(Prefs.analysisProvider.displayName)")
                 Toggle(isOn: $showPreview) { Image(systemName: "eye") }
                     .toggleStyle(.button)
                     .help("Preview Markdown")
@@ -119,6 +144,23 @@ private struct NoteEditor: View {
                     TextField("Tags, comma separated", text: $note.tagsRaw).textFieldStyle(.roundedBorder)
                 } icon: { Image(systemName: "tag") }
             }
+            if let recording = linkedRecording {
+                Button {
+                    appState.pendingAction = .openRecording(recording.uid)
+                    appState.selectedSection = recording.kind == .meeting ? .calendar : .voice
+                } label: {
+                    Label("Linked recording: \(recording.title)", systemImage: recording.kind.systemImage)
+                }
+                .buttonStyle(.link)
+            }
+            if let eventID = note.eventID, let event = CalendarService.shared.event(withID: eventID) {
+                Label("Prep for \(event.title ?? "event") · \(event.startDate.shortRelative)", systemImage: "calendar")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            if let summaryError {
+                Label(summaryError, systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(.red)
+            }
             if showPreview {
                 ScrollView {
                     Text(MarkdownText.attributed(note.body))
@@ -135,7 +177,43 @@ private struct NoteEditor: View {
                 .foregroundStyle(.secondary)
         }
         .padding(20)
+        .sheet(isPresented: Binding(get: { summary != nil }, set: { if !$0 { summary = nil } })) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("AI summary").font(.title3.bold())
+                ScrollView {
+                    Text(MarkdownText.attributed(summary ?? ""))
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                HStack {
+                    Button("Copy") { Clipboard.copy(summary ?? "") }
+                    Spacer()
+                    Button("Close", role: .cancel) { summary = nil }
+                    Button("Insert at top of note") {
+                        note.body = "## Summary\n\n\(summary ?? "")\n\n---\n\n" + note.body
+                        summary = nil
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+            }
+            .padding(20)
+            .frame(width: 520, height: 420)
+        }
         .onChange(of: note.body) { _, _ in note.updatedAt = Date() }
         .onChange(of: note.title) { _, _ in note.updatedAt = Date() }
+    }
+
+    private func summarize() {
+        isSummarizing = true
+        summaryError = nil
+        let text = (note.title.isEmpty ? "" : "# \(note.title)\n\n") + note.body
+        Task {
+            do {
+                summary = try await MeetingIntelligence.summarize(note: text)
+            } catch {
+                summaryError = AIError.describe(error)
+            }
+            isSummarizing = false
+        }
     }
 }

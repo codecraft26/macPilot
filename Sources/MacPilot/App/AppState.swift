@@ -42,6 +42,8 @@ enum AppSection: String, CaseIterable, Identifiable, Hashable {
 enum PendingAction: Equatable {
     case newNote
     case newTask
+    case openNote(UUID)
+    case openRecording(UUID)
 }
 
 @Observable
@@ -51,7 +53,7 @@ final class AppState {
 
     var selectedSection: AppSection? = .dashboard
     var pendingAction: PendingAction?
-    /// Drives the menu bar recording indicator. Set by the recorder (Phase 3).
+    /// Drives the menu bar recording indicator. Set by `RecordingManager`.
     var isRecording = false
 
     private init() {}

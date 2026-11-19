@@ -29,7 +29,9 @@ struct RootView: View {
         case .notes: NotesView()
         case .tasks: TasksView()
         case .settings: SettingsView()
-        case .voice, .calendar, .clipboard, .developer, .automations:
+        case .voice: VoiceView()
+        case .calendar: CalendarMeetingsView()
+        case .clipboard, .developer, .automations:
             ComingSoonView(section: section)
         }
     }
@@ -37,16 +39,26 @@ struct RootView: View {
 
 private struct RecordingStatusFooter: View {
     @Environment(AppState.self) private var appState
+    private let recorder = RecordingManager.shared
 
     var body: some View {
         HStack(spacing: 6) {
             Circle()
                 .fill(appState.isRecording ? Color.red : Color.secondary.opacity(0.4))
                 .frame(width: 8, height: 8)
-            Text(appState.isRecording ? "Recording" : "Not recording")
+            Text(appState.isRecording ? (recorder.isPaused ? "Recording paused" : "Recording") : "Not recording")
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Spacer()
+            if recorder.isActive {
+                Button {
+                    Task { await recorder.stop() }
+                } label: {
+                    Image(systemName: "stop.fill")
+                }
+                .buttonStyle(.borderless)
+                .help("Stop recording")
+            }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
@@ -59,18 +71,6 @@ struct ComingSoonView: View {
 
     private var plan: (phase: String, features: [String]) {
         switch section {
-        case .voice:
-            return ("Phase 3", ["Global push-to-talk dictation (⌥D) with paste into the active app",
-                                "Microphone selection, audio level, pause and resume",
-                                "File transcription (MP3, WAV, M4A, FLAC, OGG) with OpenAI or local Whisper",
-                                "Transcript editor with timestamps, search, playback sync and export",
-                                "AI summaries, action items, decisions and follow-ups"])
-        case .calendar:
-            return ("Phases 4–5", ["Apple Calendar via EventKit, with day, week and month views",
-                                   "Meeting recording with microphone and permitted system audio",
-                                   "Live transcript, post-meeting summary, decisions and owners",
-                                   "Natural-language event creation, always confirmed before saving",
-                                   "Meeting countdown, reminders and conflict detection"])
         case .clipboard:
             return ("Phase 6", ["Clipboard history with search, favorites, pins and folders",
                                 "Sensitive-content exclusions and configurable retention",

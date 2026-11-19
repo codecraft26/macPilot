@@ -112,6 +112,19 @@ enum DataManager {
                 "dueDate": date(task.dueDate), "completed": task.isCompleted, "completedAt": date(task.completedAt)
             ]
         }
+        let recordings = try context.fetch(FetchDescriptor<Recording>()).map { recording -> [String: Any] in
+            [
+                "id": recording.uid.uuidString, "title": recording.title, "kind": recording.kindRaw,
+                "startedAt": date(recording.startedAt), "durationSeconds": recording.duration,
+                "attendees": recording.attendees, "prepNotes": recording.prepNotes,
+                "summary": recording.summary, "decisions": recording.decisions,
+                "actionItems": recording.actionItems.map { ["task": $0.task, "owner": $0.owner ?? NSNull(), "due": $0.due ?? NSNull()] as [String: Any] },
+                "deadlines": recording.deadlines, "openQuestions": recording.openQuestions,
+                "followUpEmail": recording.followUpEmail,
+                "transcript": recording.segments.map { ["start": $0.start, "end": $0.end, "speaker": $0.speaker, "text": $0.text] as [String: Any] },
+                "audioFiles": recording.audioURLs.map(\.path)
+            ]
+        }
         let prompts = try context.fetch(FetchDescriptor<PromptTemplate>()).map { prompt -> [String: Any] in
             ["title": prompt.title, "body": prompt.body, "category": prompt.category]
         }
@@ -121,6 +134,7 @@ enum DataManager {
             "conversations": conversations,
             "notes": notes,
             "tasks": tasks,
+            "recordings": recordings,
             "prompts": prompts
         ]
         let data = try JSONSerialization.data(withJSONObject: root, options: [.prettyPrinted, .sortedKeys])
@@ -139,7 +153,9 @@ enum DataManager {
         try context.delete(model: Note.self)
         try context.delete(model: TaskItem.self)
         try context.delete(model: PromptTemplate.self)
+        try context.delete(model: Recording.self)
         try context.save()
+        RecordingStorage.deleteAll()
         NotificationService.cancelAll()
         for provider in AIProviderID.allCases {
             UsageTracker.reset(provider)
