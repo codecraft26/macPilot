@@ -14,7 +14,7 @@ final class LiveTranscriber {
     private var stream: TranscribeStream?
     private let converter = PCM16()
     private let pauseLock = NSLock()
-    nonisolated private var paused = false
+    @ObservationIgnored nonisolated(unsafe) private var paused = false
 
     static var isAvailable: Bool {
         Prefs.transcriptionProvider == .amazonTranscribe && TranscribeSettings.liveEnabled && TranscribeSettings.hasAccessKeys
