@@ -56,7 +56,7 @@ struct HotKey: Codable, Equatable {
 
 /// Actions reachable from global shortcuts (PRD section 8).
 enum ShortcutAction: String, CaseIterable, Identifiable, Codable {
-    case assistant, dictation, recording, clipboard, newNote, newTask, launcher, voiceTask
+    case assistant, dictation, recording, clipboard, newNote, newTask, launcher, voiceTask, textActions
 
     var id: String { rawValue }
 
@@ -70,6 +70,7 @@ enum ShortcutAction: String, CaseIterable, Identifiable, Codable {
         case .newTask: return "New task"
         case .launcher: return "Command launcher"
         case .voiceTask: return "Voice to task"
+        case .textActions: return "AI on selected text"
         }
     }
 
@@ -88,6 +89,7 @@ enum ShortcutAction: String, CaseIterable, Identifiable, Codable {
         case .newTask: return HotKey(keyCode: UInt32(kVK_ANSI_T), carbonModifiers: option, keyLabel: "T")
         case .launcher: return HotKey(keyCode: UInt32(kVK_ANSI_K), carbonModifiers: option, keyLabel: "K")
         case .voiceTask: return HotKey(keyCode: UInt32(kVK_ANSI_T), carbonModifiers: option | UInt32(shiftKey), keyLabel: "T")
+        case .textActions: return HotKey(keyCode: UInt32(kVK_ANSI_E), carbonModifiers: option | UInt32(shiftKey), keyLabel: "E")
         }
     }
 }
@@ -301,6 +303,8 @@ enum ShortcutRouter {
             DictationController.shared.hotKeyDown(mode: Prefs.dictationDefaultMode)
         case .voiceTask:
             DictationController.shared.hotKeyDown(mode: .task)
+        case .textActions:
+            TextActionsController.shared.open()
         }
     }
 

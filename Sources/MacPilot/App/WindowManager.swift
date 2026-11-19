@@ -120,6 +120,29 @@ final class WindowManager: NSObject, NSWindowDelegate {
     func hidePanels() {
         clipboardPanel?.orderOut(nil)
         launcherPanel?.orderOut(nil)
+        textActionsPanel?.orderOut(nil)
+    }
+
+    private(set) var textActionsPanel: FloatingPanel?
+
+    /// AI actions for the selected text, shown near the top of the screen without stealing the app's focus.
+    func showTextActions() {
+        clipboardPanel?.orderOut(nil)
+        launcherPanel?.orderOut(nil)
+        if textActionsPanel == nil {
+            let view = TextActionsView().environment(AppState.shared)
+            textActionsPanel = FloatingPanel(rootView: view, size: NSSize(width: 520, height: 470), nonActivating: true)
+        }
+        guard let panel = textActionsPanel else { return }
+        if let screen = NSScreen.main {
+            let frame = screen.visibleFrame
+            panel.setFrameOrigin(NSPoint(x: frame.midX - panel.frame.width / 2, y: frame.maxY - panel.frame.height - 80))
+        }
+        panel.makeKeyAndOrderFront(nil)
+    }
+
+    func hideTextActions() {
+        textActionsPanel?.orderOut(nil)
     }
 
     func open(_ section: AppSection, action: PendingAction? = nil) {

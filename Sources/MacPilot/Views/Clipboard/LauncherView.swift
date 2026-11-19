@@ -144,6 +144,8 @@ enum LauncherCatalog {
             LauncherItem(id: "timer.cancel", title: NotchTimers.shared.current == nil ? "Timer: type “timer 25m”" : "Cancel timer",
                          icon: .system("timer"), section: "Timer",
                          primary: { if NotchTimers.shared.current != nil { NotchTimers.shared.cancel() } else { WindowManager.shared.toggleLauncher() } }),
+            LauncherItem(id: "cmd.textactions", title: "AI on selected text", subtitle: "Rewrite, shorten, fix, translate (⌥⇧E)",
+                         icon: .system("wand.and.stars"), section: "AI", primary: { TextActionsController.shared.open() }),
             LauncherItem(id: "sys.lock", title: "Lock Screen", icon: .system("lock"), section: "System", primary: { SystemCommands.lockScreen() }),
             LauncherItem(id: "sys.sleepdisplay", title: "Sleep Display", icon: .system("display"), section: "System", primary: { SystemCommands.sleepDisplay() }),
             LauncherItem(id: "sys.screensaver", title: "Start Screen Saver", icon: .system("sparkles.tv"), section: "System", primary: { SystemCommands.startScreenSaver() }),
