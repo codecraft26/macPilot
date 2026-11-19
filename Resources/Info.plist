@@ -41,6 +41,6 @@
     <key>NSCalendarsUsageDescription</key>
     <string>MacPilot shows your upcoming meetings and can create events after you confirm them.</string>
     <key>NSAppleEventsUsageDescription</key>
-    <string>MacPilot can paste dictated text into the app you are using.</string>
+    <string>MacPilot controls Music or Spotify from the notch, toggles Dark Mode and empties the Trash only when you ask it to.</string>
 </dict>
 </plist>
