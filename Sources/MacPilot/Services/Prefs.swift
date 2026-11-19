@@ -26,6 +26,7 @@ enum PrefKey {
     static let clipboardSkipSensitive = "clipboard.skipSensitive"
     static let clipboardExcludedApps = "clipboard.excludedApps"
     static let developerRepos = "developer.repositories"
+    static let snippetsEnabled = "snippets.enabled"
     static let notchEnabled = "notch.enabled"
     static let notchExpandOnHover = "notch.expandOnHover"
     static let notchMeetingCountdown = "notch.meetingCountdown"
@@ -103,6 +104,7 @@ enum Prefs {
             PrefKey.audioRetentionDays: 0,
             PrefKey.defaultEventAlarmMinutes: 10,
             PrefKey.bedrockRegion: BedrockConfig.defaultRegion,
+            PrefKey.snippetsEnabled: true,
             PrefKey.notchEnabled: true,
             PrefKey.notchExpandOnHover: true,
             PrefKey.notchMeetingCountdown: true,

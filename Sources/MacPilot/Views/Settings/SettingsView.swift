@@ -15,6 +15,8 @@ struct SettingsView: View {
                 .tabItem { Label("Recording & Calendar", systemImage: "waveform") }
             ClipboardSettingsView()
                 .tabItem { Label("Clipboard", systemImage: "doc.on.clipboard") }
+            SnippetsSettingsView()
+                .tabItem { Label("Snippets & Links", systemImage: "text.quote") }
             ShortcutsSettingsView()
                 .tabItem { Label("Shortcuts", systemImage: "keyboard") }
             UsageSettingsView()
@@ -1321,5 +1323,76 @@ private struct NotchSettingsSection: View {
             Text("A Dynamic Island–style area around the camera: recording timer, dictation, next meeting with Join and Record, and quick actions. On Macs without a notch it sits at the top centre of the main screen and only appears when something is happening.")
                 .font(.caption).foregroundStyle(.secondary)
         }
+    }
+}
+
+// MARK: - Snippets and quick links
+
+struct SnippetsSettingsView: View {
+    @AppStorage(PrefKey.snippetsEnabled) private var expansionEnabled = true
+    @State private var isTrusted = PasteService.isTrusted
+    private let library = SnippetLibrary.shared
+
+    var body: some View {
+        Form {
+            Section {
+                Toggle("Expand snippets as you type", isOn: $expansionEnabled)
+                    .onChange(of: expansionEnabled) { _, _ in SnippetExpander.shared.start() }
+                if !isTrusted {
+                    HStack {
+                        Label("Needs Accessibility permission to watch typing.", systemImage: "exclamationmark.triangle").foregroundStyle(.orange)
+                        Spacer()
+                        Button("Open Settings") { PasteService.requestTrust(); PasteService.openAccessibilitySettings() }
+                    }
+                    .font(.callout)
+                }
+                ForEach(Bindable(library).snippets) { $snippet in
+                    HStack(alignment: .top) {
+                        TextField("Keyword", text: $snippet.keyword).frame(width: 90).font(.body.monospaced())
+                        VStack(alignment: .leading, spacing: 4) {
+                            TextField("Name", text: $snippet.name)
+                            TextField("Text", text: $snippet.text, axis: .vertical).lineLimit(1...6)
+                        }
+                        Button(role: .destructive) { library.snippets.removeAll { $0.id == snippet.id } } label: {
+                            Image(systemName: "minus.circle")
+                        }
+                        .buttonStyle(.borderless)
+                        .accessibilityLabel("Delete snippet")
+                    }
+                }
+                Button("Add snippet") { library.snippets.append(Snippet(keyword: ";new", name: "New snippet", text: "")) }
+            } header: {
+                Text("Snippets")
+            } footer: {
+                Text("Type a keyword like ;sig in any app and it turns into the text. Use {date}, {time}, {datetime} and {clipboard} as placeholders. Snippets are also in ⌥K. Never active in password fields.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+
+            Section {
+                ForEach(Bindable(library).links) { $link in
+                    HStack {
+                        TextField("Keyword", text: $link.keyword).frame(width: 70).font(.body.monospaced())
+                        TextField("Name", text: $link.name).frame(width: 130)
+                        TextField("https://…{query}…", text: $link.template)
+                        Button(role: .destructive) { library.links.removeAll { $0.id == link.id } } label: {
+                            Image(systemName: "minus.circle")
+                        }
+                        .buttonStyle(.borderless)
+                        .accessibilityLabel("Delete quick link")
+                    }
+                }
+                HStack {
+                    Button("Add quick link") { library.links.append(QuickLink(keyword: "new", name: "New link", template: "https://example.com/search?q={query}")) }
+                    Button("Restore defaults") { library.links = QuickLink.defaults }
+                }
+            } header: {
+                Text("Quick links")
+            } footer: {
+                Text("In ⌥K, type the keyword, a space and your search: “yt lofi”, “gh macpilot”, “jira ABC-123”. {query} is replaced by what you type. Edit the Jira link to your company's address.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+        .onAppear { isTrusted = PasteService.isTrusted }
     }
 }

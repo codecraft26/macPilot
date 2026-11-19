@@ -38,6 +38,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ReminderSync.shared.start()
         NotchController.shared.start()
         NowPlaying.shared.start()
+        SnippetExpander.shared.start()
         AutomationEngine.shared.start()
 
         let defaults = UserDefaults.standard

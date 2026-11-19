@@ -73,6 +73,12 @@ enum LauncherCatalog {
                                         primary: { PasteService.write(text: conversion.text) },
                                         secondaryLabel: "Paste", secondary: { PasteService.paste(text: conversion.text, into: windows.previousApp) }))
         }
+        let library = SnippetLibrary.shared
+        if let (link, query) = library.matchLink(trimmed), !query.isEmpty, let url = link.url(for: query) {
+            instant.append(LauncherItem(id: "link.\(link.keyword)", title: "\(link.name): \(query)", subtitle: url.host ?? "",
+                                        icon: .system("link"), section: "Quick link", primary: { NSWorkspace.shared.open(url) },
+                                        secondaryLabel: "Copy link", secondary: { PasteService.write(text: url.absoluteString) }))
+        }
         if let timer = TimerParser.parse(trimmed) {
             let what = TimerParser.describe(timer.seconds) + (timer.label.isEmpty ? "" : " · \(timer.label)")
             instant.append(LauncherItem(id: "timer.start", title: "Start timer: \(what)", subtitle: "Shows in the notch and chimes when done",
@@ -191,6 +197,18 @@ enum LauncherCatalog {
                                 primary: { NSWorkspace.shared.openApplication(at: URL(fileURLWithPath: app.path), configuration: NSWorkspace.OpenConfiguration()) },
                                 secondaryLabel: "Show in Finder",
                                 secondary: { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: app.path)]) })
+        }
+
+        // Quick links you can start typing ("jira", "yt") and snippets to paste.
+        results += FuzzyMatcher.rank(library.links, query: trimmed) { "\($0.keyword) \($0.name)" }.prefix(3).map { link in
+            LauncherItem(id: "linkhint.\(link.keyword)", title: "\(link.name)", subtitle: "Type “\(link.keyword) …” to search",
+                         icon: .system("link"), section: "Quick link", primary: { windows.toggleLauncher() })
+        }
+        results += FuzzyMatcher.rank(library.snippets, query: trimmed) { "\($0.keyword) \($0.name) \($0.text.prefix(200))" }.prefix(4).map { snippet in
+            LauncherItem(id: "snippet.\(snippet.id)", title: snippet.name, subtitle: "\(snippet.keyword) · \(snippet.text.prefix(60))",
+                         icon: .system("text.quote"), section: "Snippet",
+                         primary: { PasteService.paste(text: Snippet.expand(snippet.text), into: windows.previousApp) },
+                         secondaryLabel: "Copy", secondary: { PasteService.write(text: Snippet.expand(snippet.text)) })
         }
 
         // Files from Spotlight (they arrive a moment after typing).
@@ -327,6 +345,8 @@ private struct LauncherRow: View {
         case "MacPilot": return DS.indigo
         case "Calculator", "Convert", "Timer": return .orange
         case "File Tools": return .indigo
+        case "Quick link": return .blue
+        case "Snippet": return .pink
         case "Web": return .blue
         case "Window": return .teal
         case "System": return .gray
