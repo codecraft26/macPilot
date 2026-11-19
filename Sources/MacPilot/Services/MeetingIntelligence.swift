@@ -161,7 +161,8 @@ enum RecordingProcessor {
             return true
         } catch {
             recording.status = .failed
-            recording.errorMessage = "Transcription failed: \(AIError.describe(error))"
+            recording.errorMessage = "Transcription failed (\(Prefs.transcriptionProvider.displayName)): \(AIError.describe(error))"
+                + (Prefs.transcriptionProvider == .openAI ? " To use AWS instead, choose Amazon Transcribe in Settings → Routing → Audio transcription." : "")
             try? context.save()
             return false
         }

@@ -68,3 +68,29 @@ final class BedrockProviderTests: XCTestCase {
         XCTAssertTrue(text.contains("bedrock-mantle:CreateInference"))
     }
 }
+
+final class ProviderAutoSetupTests: XCTestCase {
+    private let awsOnly = ProviderAutoSetup.Credentials(openAI: false, anthropic: false, awsAccessKeys: true, bedrock: true)
+
+    func testAWSOnlyUsesTranscribeAndBedrock() {
+        let choices = ProviderAutoSetup.decide(awsOnly, explicitTranscription: nil, explicitChat: nil, explicitAnalysis: nil)
+        XCTAssertEqual(choices.transcription, "aws")
+        XCTAssertEqual(choices.chat, "bedrock")
+        XCTAssertEqual(choices.analysis, "bedrock")
+    }
+
+    func testRespectsRealChoices() {
+        // Local Whisper chosen on purpose stays; OpenAI with a key stays.
+        XCTAssertNil(ProviderAutoSetup.decide(awsOnly, explicitTranscription: "whisper", explicitChat: "ollama", explicitAnalysis: nil).transcription)
+        XCTAssertNil(ProviderAutoSetup.decide(awsOnly, explicitTranscription: "whisper", explicitChat: "ollama", explicitAnalysis: nil).chat)
+        let withOpenAI = ProviderAutoSetup.Credentials(openAI: true, anthropic: true, awsAccessKeys: true, bedrock: true)
+        XCTAssertEqual(ProviderAutoSetup.decide(withOpenAI, explicitTranscription: nil, explicitChat: nil, explicitAnalysis: nil), .init())
+    }
+
+    func testBedrockAPIKeyAloneDoesNotPickTranscribe() {
+        let apiKeyOnly = ProviderAutoSetup.Credentials(openAI: false, anthropic: false, awsAccessKeys: false, bedrock: true)
+        let choices = ProviderAutoSetup.decide(apiKeyOnly, explicitTranscription: nil, explicitChat: nil, explicitAnalysis: nil)
+        XCTAssertNil(choices.transcription)
+        XCTAssertEqual(choices.chat, "bedrock")
+    }
+}

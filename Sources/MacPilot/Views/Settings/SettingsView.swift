@@ -145,6 +145,7 @@ private struct ProviderCard: View {
         let key = keyInput.trimmingCharacters(in: .whitespacesAndNewlines)
         do {
             try KeychainStore.save(key, account: provider.rawValue)
+            ProviderAutoSetup.reconcile()
             keyInput = ""
             hasKey = true
             setStatus("Key saved to Keychain.", error: false)
@@ -1011,6 +1012,7 @@ private struct BedrockCredentialsSection: View {
             apiKey = ""
             refresh()
             message = "Saved to Keychain."
+            ProviderAutoSetup.reconcile()
             onChange(BedrockConfig.isConfigured)
         } catch {
             message = error.localizedDescription

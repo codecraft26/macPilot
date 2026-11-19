@@ -205,6 +205,15 @@ struct RecordingDetailView: View {
                 .font(.callout)
                 .foregroundStyle(.red)
                 .textSelection(.enabled)
+            // Common mix-up: AWS keys are saved but transcription still points at OpenAI.
+            if error.contains("OpenAI"), Prefs.transcriptionProvider == .openAI,
+               BedrockConfig.authMethod == .accessKeys, BedrockConfig.isConfigured {
+                Button("Use Amazon Transcribe and try again") {
+                    UserDefaults.standard.set(TranscriptionProviderID.amazonTranscribe.rawValue, forKey: PrefKey.transcriptionProvider)
+                    RecordingProcessor.process(recording)
+                }
+                .controlSize(.small)
+            }
         }
         if let notice = recording.notice {
             Label(notice, systemImage: "info.circle")

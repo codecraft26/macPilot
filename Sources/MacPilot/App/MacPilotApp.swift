@@ -33,6 +33,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             await CalendarService.shared.refresh(from: Date(), to: Date().addingTimeInterval(7 * 86_400))
         }
         ShortcutManager.shared.registerAll()
+        ProviderAutoSetup.reconcile()
         ClipboardMonitor.shared.start()
         ReminderSync.shared.start()
         AutomationEngine.shared.start()
