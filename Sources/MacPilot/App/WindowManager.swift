@@ -159,6 +159,10 @@ final class FloatingPanel: NSPanel {
         setContentSize(size)
         isOpaque = false
         backgroundColor = .clear
+        // Spotlight/Raycast-style: no traffic-light buttons (Esc or the shortcut closes the panel).
+        for button in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
+            standardWindowButton(button)?.isHidden = true
+        }
     }
 
     override var canBecomeKey: Bool { true }

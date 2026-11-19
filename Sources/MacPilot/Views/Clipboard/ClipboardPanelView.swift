@@ -107,6 +107,9 @@ struct ClipboardPanelView: View {
             .onChange(of: selectedID) { _, id in
                 if let id { proxy.scrollTo(id) }
             }
+            .onChange(of: appState.panelSession) { _, _ in
+                if let first = liveVisible.first?.uid { proxy.scrollTo(first, anchor: .top) }
+            }
         }
     }
 

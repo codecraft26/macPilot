@@ -180,6 +180,13 @@ struct LauncherView: View {
                 .listStyle(.sidebar)
                 .scrollContentBackground(.hidden)
                 .onChange(of: selectedID) { _, id in if let id { proxy.scrollTo(id) } }
+                // Each time the launcher opens or the search changes, start again at the top.
+                .onChange(of: appState.panelSession) { _, _ in
+                    if let first = LauncherCatalog.items(query: "").first?.id { proxy.scrollTo(first, anchor: .top) }
+                }
+                .onChange(of: query) { _, _ in
+                    if let first = results.first?.id { proxy.scrollTo(first, anchor: .top) }
+                }
             }
             Divider()
             HStack(spacing: 12) {

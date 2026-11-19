@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 import XCTest
 @testable import MacPilot
 
@@ -52,5 +53,15 @@ final class DictationTests: XCTestCase {
         snapshot.restore(to: board)
         XCTAssertEqual(board.string(forType: .string), "original")
         board.releaseGlobally()
+    }
+}
+
+@MainActor
+final class FloatingPanelTests: XCTestCase {
+    func testPanelsHaveNoWindowButtons() {
+        let panel = FloatingPanel(rootView: Text("x"), size: NSSize(width: 200, height: 100), nonActivating: true)
+        for button in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
+            XCTAssertEqual(panel.standardWindowButton(button)?.isHidden ?? true, true)
+        }
     }
 }
