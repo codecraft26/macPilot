@@ -156,7 +156,17 @@ Turn on **Settings → Recording & Calendar → Reminders → Sync tasks with Ap
 
 ## Command launcher
 
-**⌥K** searches MacPilot commands (new note/task/event, record, open any section, pause clipboard), your notes, open tasks, clipboard items and installed apps. Typing text offers “Ask AI”, “Add task: …” and “Add event: …” (the event still opens the editor for confirmation). Return runs, ⌘Return runs the secondary action.
+**⌥K** opens a Raycast-style launcher. Type to search, ↑/↓ to move, Return runs, ⌘Return runs the second action, Esc closes.
+
+- **Commands:** new note, task or event, start/stop recording, voice note, clipboard history, open any section.
+- **Calculator and conversions:** `12*(3+4)`, `2^10`, `10 km to mi`, `72 f in c`, `5 kg -> lb`. Return copies the result, ⌘Return pastes it into your app.
+- **Apps:** open installed apps; running ones show “Running” and ⌘Return quits them.
+- **Files:** Spotlight search of your home folder; ⌘Return shows the file in Finder.
+- **Notes, tasks and clipboard:** jump to a note, complete a task, paste a clip.
+- **Window management** (needs Accessibility): Window: Left/Right/Top/Bottom half, Left/Center/Right third, two thirds, Maximize, Center — applied to the window you were using.
+- **System:** Lock Screen, Sleep Display, Start Screen Saver, Toggle Dark Mode (macOS asks once to allow controlling System Events), Empty Trash (always asks first).
+- **Web:** typing a domain or URL opens it; “Search Google / YouTube / GitHub for …” is always at the bottom; “Ask AI” sends the text to the quick assistant.
+- The launcher learns what you use: frequent and recent items move up (stored only on this Mac).
 
 ## Developer workspace
 

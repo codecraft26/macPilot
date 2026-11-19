@@ -60,6 +60,24 @@ enum LauncherCatalog {
         let context = Persistence.container.mainContext
         var results: [LauncherItem] = []
 
+        // Instant answers (calculator, conversions, URLs) go above everything else.
+        var instant: [LauncherItem] = []
+        if let value = Calculator.evaluate(trimmed) {
+            let text = Calculator.format(value)
+            instant.append(LauncherItem(id: "calc:\(text)", title: "= \(text)", subtitle: "Copy result · ⌘↩ paste into your app", icon: .system("plus.forwardslash.minus"), section: "Calculator",
+                                        primary: { PasteService.write(text: text) },
+                                        secondaryLabel: "Paste", secondary: { PasteService.paste(text: text, into: windows.previousApp) }))
+        }
+        if let conversion = UnitConversion.convert(trimmed) {
+            instant.append(LauncherItem(id: "calc:\(conversion.text)", title: "= \(conversion.text)", subtitle: "Copy result · ⌘↩ paste into your app", icon: .system("arrow.left.arrow.right"), section: "Convert",
+                                        primary: { PasteService.write(text: conversion.text) },
+                                        secondaryLabel: "Paste", secondary: { PasteService.paste(text: conversion.text, into: windows.previousApp) }))
+        }
+        if let url = WebLinks.url(from: trimmed) {
+            instant.append(LauncherItem(id: "url:\(url.absoluteString)", title: "Open \(url.absoluteString)", icon: .system("safari"), section: "Web",
+                                        primary: { NSWorkspace.shared.open(url) }))
+        }
+
         // Typed-text actions first.
         if !trimmed.isEmpty {
             results.append(LauncherItem(id: "ask", title: "Ask AI: \(trimmed)", icon: .system("sparkles"), section: "AI",
@@ -103,13 +121,28 @@ enum LauncherCatalog {
             LauncherItem(id: "cmd.pauseclip", title: ClipboardMonitor.shared.isPaused ? "Resume clipboard capture" : "Pause clipboard capture", icon: .system("pause.circle"), section: "Commands",
                          primary: { ClipboardMonitor.shared.isPaused.toggle() })
         ]
+        commands += WindowLayout.allCases.map { layout in
+            LauncherItem(id: "win.\(layout.rawValue)", title: "Window: \(layout.rawValue)", subtitle: windows.previousApp?.localizedName ?? "",
+                         icon: .system(layout.systemImage), section: "Window",
+                         primary: {
+                             if let problem = layout.apply(to: windows.previousApp) { LauncherAlert.show(problem) }
+                         })
+        }
+        commands += [
+            LauncherItem(id: "sys.lock", title: "Lock Screen", icon: .system("lock"), section: "System", primary: { SystemCommands.lockScreen() }),
+            LauncherItem(id: "sys.sleepdisplay", title: "Sleep Display", icon: .system("display"), section: "System", primary: { SystemCommands.sleepDisplay() }),
+            LauncherItem(id: "sys.screensaver", title: "Start Screen Saver", icon: .system("sparkles.tv"), section: "System", primary: { SystemCommands.startScreenSaver() }),
+            LauncherItem(id: "sys.darkmode", title: "Toggle Dark Mode", icon: .system("circle.lefthalf.filled"), section: "System", primary: { SystemCommands.toggleDarkMode() }),
+            LauncherItem(id: "sys.emptytrash", title: "Empty Trash…", subtitle: "Asks first", icon: .system("trash"), section: "System", primary: { SystemCommands.emptyTrash() })
+        ]
         commands += AppSection.allCases.map { section in
             LauncherItem(id: "open.\(section.rawValue)", title: "Open \(section.title)", icon: .system(section.systemImage), section: "MacPilot",
                          primary: { windows.showDashboard(section: section) })
         }
         results += FuzzyMatcher.rank(commands, query: trimmed) { $0.title }
 
-        guard !trimmed.isEmpty else { return results }
+        // With no query, the things you use most come first.
+        guard !trimmed.isEmpty else { return LauncherUsage.rerank(results) }
 
         let notes = (try? context.fetch(FetchDescriptor<Note>(sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]))) ?? []
         results += FuzzyMatcher.rank(Array(notes.prefix(300)), query: trimmed) { "\($0.displayTitle) \($0.tagsRaw)" }.prefix(5).map { note in
@@ -133,17 +166,41 @@ enum LauncherCatalog {
                          secondary: { PasteService.write(clip) })
         }
 
+        let running = Dictionary(NSWorkspace.shared.runningApplications.compactMap { app in app.bundleURL.map { ($0.path, app) } },
+                                 uniquingKeysWith: { first, _ in first })
         results += FuzzyMatcher.rank(AppCatalog.apps, query: trimmed) { $0.name }.prefix(8).map { app in
-            LauncherItem(id: "app.\(app.path)", title: app.name, icon: .file(app.path), section: "Applications",
-                         primary: { NSWorkspace.shared.openApplication(at: URL(fileURLWithPath: app.path), configuration: NSWorkspace.OpenConfiguration()) },
-                         secondaryLabel: "Show in Finder",
-                         secondary: { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: app.path)]) })
+            if let process = running[app.path] {
+                return LauncherItem(id: "app.\(app.path)", title: app.name, subtitle: "Running", icon: .file(app.path), section: "Applications",
+                                    primary: { process.activate() },
+                                    secondaryLabel: "Quit", secondary: { process.terminate() })
+            }
+            return LauncherItem(id: "app.\(app.path)", title: app.name, icon: .file(app.path), section: "Applications",
+                                primary: { NSWorkspace.shared.openApplication(at: URL(fileURLWithPath: app.path), configuration: NSWorkspace.OpenConfiguration()) },
+                                secondaryLabel: "Show in Finder",
+                                secondary: { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: app.path)]) })
         }
 
-        // Prefer the strongest matches across sections, keeping "Ask AI" first.
+        // Files from Spotlight (they arrive a moment after typing).
+        if FileSearch.shared.query == trimmed {
+            results += FileSearch.shared.results.map { file in
+                LauncherItem(id: "file.\(file.path)", title: file.name, subtitle: (file.path as NSString).deletingLastPathComponent.replacingOccurrences(of: NSHomeDirectory(), with: "~"),
+                             icon: .file(file.path), section: "Files",
+                             primary: { NSWorkspace.shared.open(URL(fileURLWithPath: file.path)) },
+                             secondaryLabel: "Show in Finder",
+                             secondary: { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: file.path)]) })
+            }
+        }
+
+        // Prefer the strongest matches across sections (nudged by what you use), keeping "Ask AI" second.
         let ask = results.filter { $0.id == "ask" }
-        let rest = FuzzyMatcher.rank(results.filter { $0.id != "ask" }, query: trimmed) { $0.title }
-        return rest.isEmpty ? ask : Array(rest.prefix(1)) + ask + Array(rest.dropFirst())
+        let rest = LauncherUsage.rerank(FuzzyMatcher.rank(results.filter { $0.id != "ask" }, query: trimmed) { "\($0.title) \($0.subtitle)" })
+        let web = ["Google", "YouTube", "GitHub"].compactMap { engine -> LauncherItem? in
+            guard let url = WebLinks.search(engine, trimmed) else { return nil }
+            return LauncherItem(id: "web.\(engine):\(trimmed)", title: "Search \(engine) for “\(trimmed)”", icon: .system("magnifyingglass"), section: "Web",
+                                primary: { NSWorkspace.shared.open(url) })
+        }
+        let ranked = rest.isEmpty ? ask : Array(rest.prefix(1)) + ask + Array(rest.dropFirst())
+        return instant + ranked + web
     }
 }
 
@@ -209,7 +266,10 @@ struct LauncherView: View {
             selectedID = nil
             searchFocused = true
         }
-        .onChange(of: query) { _, _ in selectedID = nil }
+        .onChange(of: query) { _, newValue in
+            selectedID = nil
+            FileSearch.shared.search(newValue)
+        }
     }
 
     private func handle(_ event: PanelKey.Event) -> Bool {
@@ -231,6 +291,7 @@ struct LauncherView: View {
     }
 
     private func run(_ item: LauncherItem, secondary: Bool) {
+        LauncherUsage.record(item.id)
         WindowManager.shared.hidePanels()
         if secondary, let action = item.secondary {
             action()
@@ -251,6 +312,10 @@ private struct LauncherRow: View {
         case "Tasks": return AppSection.tasks.tint
         case "Clipboard": return AppSection.clipboard.tint
         case "MacPilot": return DS.indigo
+        case "Calculator", "Convert": return .orange
+        case "Web": return .blue
+        case "Window": return .teal
+        case "System": return .gray
         case "Commands": return DS.accent
         default: return .gray
         }
@@ -284,5 +349,15 @@ private struct LauncherRow: View {
         case .file(let path):
             Image(nsImage: NSWorkspace.shared.icon(forFile: path)).resizable()
         }
+    }
+}
+
+@MainActor
+enum LauncherAlert {
+    static func show(_ message: String) {
+        let alert = NSAlert()
+        alert.messageText = message
+        NSApp.activate(ignoringOtherApps: true)
+        alert.runModal()
     }
 }
