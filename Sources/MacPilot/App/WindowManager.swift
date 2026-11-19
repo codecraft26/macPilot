@@ -157,6 +157,8 @@ final class FloatingPanel: NSPanel {
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         contentViewController = NSHostingController(rootView: rootView)
         setContentSize(size)
+        isOpaque = false
+        backgroundColor = .clear
     }
 
     override var canBecomeKey: Bool { true }

@@ -293,53 +293,60 @@ struct CalendarPane: View {
 
     // Day
 
+    private var eventActions: EventActions {
+        EventActions(
+            edit: { editor = EventEditorRequest(draft: EventDraft($0)) },
+            record: { record($0) },
+            prep: { openPrepNote(for: $0) },
+            delete: { deleting = $0 }
+        )
+    }
+
     private var dayView: some View {
         let events = calendar.events(on: anchor)
         let conflicts = calendar.conflictingIDs(in: events)
         let tasks = tasksDue(on: anchor)
-        return List {
-            Section("Events") {
-                if events.isEmpty {
-                    Text("No events.").foregroundStyle(.secondary)
+        return HStack(spacing: 0) {
+            TimeGrid(days: [anchor], events: events, conflicts: conflicts, actions: eventActions, onDayTap: nil)
+            Divider()
+            List {
+                Section("Agenda") {
+                    if events.isEmpty {
+                        Text("No events.").foregroundStyle(.secondary)
+                    }
+                    ForEach(events, id: \.id) { event in
+                        DayEventRow(
+                            event: event,
+                            isConflict: conflicts.contains(event.id),
+                            hasPrepNote: prepNote(for: event) != nil,
+                            onRecord: { record(event) },
+                            onPrep: { openPrepNote(for: event) },
+                            onEdit: { editor = EventEditorRequest(draft: EventDraft(event)) }
+                        )
+                        .contextMenu { eventActions.menu(for: event) }
+                    }
                 }
-                ForEach(events, id: \.id) { event in
-                    DayEventRow(
-                        event: event,
-                        isConflict: conflicts.contains(event.id),
-                        hasPrepNote: prepNote(for: event) != nil,
-                        onRecord: { record(event) },
-                        onPrep: { openPrepNote(for: event) },
-                        onEdit: { editor = EventEditorRequest(draft: EventDraft(event)) }
-                    )
-                    .contextMenu {
-                        Button("Edit…") { editor = EventEditorRequest(draft: EventDraft(event)) }
-                        Button("Prep notes") { openPrepNote(for: event) }
-                        Button("Record meeting") { record(event) }
-                        if event.isEditable {
-                            Divider()
-                            Button("Delete…", role: .destructive) { deleting = event }
+                Section("Tasks due") {
+                    if tasks.isEmpty {
+                        Text("No tasks due.").foregroundStyle(.secondary)
+                    }
+                    ForEach(tasks) { task in
+                        HStack {
+                            Button { TaskActions.toggle(task, context: context) } label: { Image(systemName: "circle") }
+                                .buttonStyle(.borderless)
+                                .accessibilityLabel("Complete \(task.title)")
+                            Text(task.title)
+                            Spacer()
+                            if let due = task.dueDate {
+                                Text(due.formatted(date: .omitted, time: .shortened))
+                                    .font(.caption)
+                                    .foregroundStyle(task.isOverdue ? .red : .secondary)
+                            }
                         }
                     }
                 }
             }
-            Section("Tasks due") {
-                if tasks.isEmpty {
-                    Text("No tasks due.").foregroundStyle(.secondary)
-                }
-                ForEach(tasks) { task in
-                    HStack {
-                        Button { TaskActions.toggle(task, context: context) } label: { Image(systemName: "circle") }
-                            .buttonStyle(.borderless)
-                        Text(task.title)
-                        Spacer()
-                        if let due = task.dueDate {
-                            Text(due.formatted(date: .omitted, time: .shortened))
-                                .font(.caption)
-                                .foregroundStyle(task.isOverdue ? .red : .secondary)
-                        }
-                    }
-                }
-            }
+            .frame(width: 340)
         }
     }
 
@@ -348,41 +355,9 @@ struct CalendarPane: View {
     private var weekView: some View {
         let days = weekDays
         let all = calendar.events(from: days.first ?? anchor, to: cal.date(byAdding: .day, value: 1, to: days.last ?? anchor) ?? anchor)
-        let conflicts = calendar.conflictingIDs(in: all)
-        return ScrollView {
-            HStack(alignment: .top, spacing: 8) {
-                ForEach(days, id: \.self) { day in
-                    VStack(alignment: .leading, spacing: 6) {
-                        Button {
-                            anchor = day
-                            mode = .day
-                        } label: {
-                            VStack(alignment: .leading, spacing: 0) {
-                                Text(day.formatted(.dateTime.weekday(.abbreviated))).font(.caption).foregroundStyle(.secondary)
-                                Text(day.formatted(.dateTime.day()))
-                                    .font(.title3.bold())
-                                    .foregroundStyle(cal.isDateInToday(day) ? Color.accentColor : .primary)
-                            }
-                        }
-                        .buttonStyle(.plain)
-                        let events = all.filter { cal.isDate($0.start, inSameDayAs: day) || ($0.isAllDay && $0.start <= day && $0.end > day) }
-                        ForEach(events, id: \.id) { event in
-                            EventChip(event: event, isConflict: conflicts.contains(event.id))
-                                .onTapGesture { editor = EventEditorRequest(draft: EventDraft(event)) }
-                        }
-                        let due = tasksDue(on: day)
-                        if !due.isEmpty {
-                            Label("\(due.count) task\(due.count == 1 ? "" : "s") due", systemImage: "checklist")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .topLeading)
-                    .padding(8)
-                    .background(RoundedRectangle(cornerRadius: 8).fill(cal.isDateInToday(day) ? Color.accentColor.opacity(0.06) : Color.clear))
-                }
-            }
-            .padding(12)
+        return TimeGrid(days: days, events: all, conflicts: calendar.conflictingIDs(in: all), actions: eventActions) { day in
+            anchor = day
+            mode = .day
         }
     }
 
@@ -544,23 +519,32 @@ private struct MonthCell: View {
     let inMonth: Bool
     let events: [CalendarEvent]
     let taskCount: Int
+    @State private var hovering = false
+
+    private var isToday: Bool { Calendar.current.isDateInToday(day) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 3) {
             HStack {
                 Text(day.formatted(.dateTime.day()))
-                    .font(.caption.bold())
-                    .foregroundStyle(Calendar.current.isDateInToday(day) ? Color.accentColor : (inMonth ? .primary : .secondary))
+                    .font(.callout.weight(isToday ? .bold : .medium).monospacedDigit())
+                    .foregroundStyle(isToday ? Color.white : (inMonth ? Color.primary : Color.secondary.opacity(0.5)))
+                    .frame(width: 24, height: 24)
+                    .background(Circle().fill(isToday ? Color.red : .clear))
                 Spacer()
                 if taskCount > 0 {
-                    Text("\(taskCount)✓").font(.caption2).foregroundStyle(.secondary)
+                    Label("\(taskCount)", systemImage: "checklist").font(.caption2).foregroundStyle(.secondary).labelStyle(.titleAndIcon)
                 }
             }
             ForEach(events.prefix(3), id: \.id) { event in
-                HStack(spacing: 3) {
-                    Circle().fill(event.calendar.color.color).frame(width: 5, height: 5)
-                    Text(event.title).font(.caption2).lineLimit(1)
-                }
+                Text(event.isAllDay ? event.title : "\(event.start.formatted(.dateTime.hour().minute())) \(event.title)")
+                    .font(.caption2.weight(.medium))
+                    .lineLimit(1)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(event.calendar.color.color.opacity(0.22)))
+                    .foregroundStyle(.primary)
             }
             if events.count > 3 {
                 Text("+\(events.count - 3) more").font(.caption2).foregroundStyle(.secondary)
@@ -568,20 +552,13 @@ private struct MonthCell: View {
             Spacer(minLength: 0)
         }
         .padding(5)
-        .frame(maxWidth: .infinity, minHeight: 78, alignment: .topLeading)
-        .background(RoundedRectangle(cornerRadius: 6).fill(Color(nsColor: .controlBackgroundColor).opacity(inMonth ? 1 : 0.4)))
+        .frame(maxWidth: .infinity, minHeight: 86, alignment: .topLeading)
+        .background(RoundedRectangle(cornerRadius: DS.Radius.small, style: .continuous)
+            .fill(hovering ? DS.subtleFill : (inMonth ? DS.cardBackground : Color.clear)))
+        .overlay(RoundedRectangle(cornerRadius: DS.Radius.small, style: .continuous).strokeBorder(DS.hairline))
         .contentShape(Rectangle())
-    }
-}
-
-/// Marks events that come from Google Calendar.
-struct GoogleBadge: View {
-    var body: some View {
-        Text("G")
-            .font(.system(size: 9, weight: .bold))
-            .foregroundStyle(.white)
-            .frame(width: 13, height: 13)
-            .background(Circle().fill(Color.blue))
-            .help("Google Calendar")
+        .onHover { hovering = $0 }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(day.formatted(date: .complete, time: .omitted)), \(events.count) events")
     }
 }

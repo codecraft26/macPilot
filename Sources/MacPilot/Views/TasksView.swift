@@ -97,9 +97,9 @@ struct TasksView: View {
             Divider()
 
             if filtered.isEmpty {
-                Text(filter == .completed ? "No completed tasks yet." : "Nothing here. Add a task above.")
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                EmptyStateView(systemImage: filter == .completed ? "checkmark.seal" : "checklist",
+                               title: filter == .completed ? "No completed tasks yet" : "Nothing here",
+                               message: filter == .completed ? "Finished tasks show up here." : "Add a task above, or press ⌥T from any app.")
             } else {
                 List {
                     ForEach(filtered) { task in

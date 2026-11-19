@@ -51,7 +51,8 @@ struct ClipboardPanelView: View {
             Divider()
             footer
         }
-        .background(.regularMaterial)
+        .background(VisualEffectBackground(material: .hudWindow))
+        .tint(DS.accent)
         .onAppear {
             searchFocused = true
             keyMonitor.install(window: { WindowManager.shared.clipboardPanel }, handler: handle)
@@ -90,6 +91,11 @@ struct ClipboardPanelView: View {
                 }
                 ForEach(Array(rows.prefix(300).enumerated()), id: \.element.uid) { index, item in
                     ClipRow(item: item, shortcut: index < 9 ? index + 1 : nil)
+                        .listRowBackground(
+                            RoundedRectangle(cornerRadius: DS.Radius.small, style: .continuous)
+                                .fill(item.uid == (selectedID ?? rows.first?.uid) ? DS.accent.opacity(0.22) : Color.clear)
+                                .padding(.horizontal, 6)
+                        )
                         .tag(item.uid)
                         .id(item.uid)
                         .onTapGesture(count: 2) { paste(item, plain: false) }
@@ -97,6 +103,7 @@ struct ClipboardPanelView: View {
                 }
             }
             .listStyle(.sidebar)
+            .scrollContentBackground(.hidden)
             .onChange(of: selectedID) { _, id in
                 if let id { proxy.scrollTo(id) }
             }
@@ -268,8 +275,9 @@ struct ClipRow: View {
                 Image(systemName: "photo")
             }
         default:
-            Image(systemName: item.looksLikeCode ? "chevron.left.forwardslash.chevron.right" : item.kind.systemImage)
-                .foregroundStyle(.secondary)
+            IconTile(systemImage: item.looksLikeCode ? "chevron.left.forwardslash.chevron.right" : item.kind.systemImage,
+                     color: item.looksLikeCode ? .gray : (item.kind == .link ? .blue : (item.kind == .file ? .orange : AppSection.clipboard.tint)),
+                     size: 20)
         }
     }
 }

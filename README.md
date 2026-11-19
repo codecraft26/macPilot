@@ -14,6 +14,18 @@ Your personal AI-powered workspace for macOS: a native menu bar app with a float
 | 6 | Clipboard manager, developer workspace | Done (plus ⌥K command launcher) |
 | 7 | Automations, local Whisper, distribution | Planned |
 
+## Screenshots
+
+| Dashboard | Assistant |
+|---|---|
+| ![Dashboard](docs/screenshots/after/dashboard.png) | ![Assistant](docs/screenshots/after/assistant.png) |
+| **Calendar (week)** | **⌥C clipboard panel** |
+| ![Calendar week](docs/screenshots/after/calendar-week.png) | ![Clipboard panel](docs/screenshots/after/clipboard-panel.png) |
+| **Recordings** | **Dark mode** |
+| ![Recordings](docs/screenshots/after/recordings.png) | ![Dashboard dark](docs/screenshots/after/dashboard-dark.png) |
+
+Rendered offscreen with sample data (`SNAPSHOT_DIR=docs/screenshots/new swift test --filter UISnapshots`), so window chrome and blur are not shown. Earlier versions are in `docs/screenshots/before/`.
+
 ## Requirements
 
 - macOS 14 Sonoma or later (Apple silicon or Intel)

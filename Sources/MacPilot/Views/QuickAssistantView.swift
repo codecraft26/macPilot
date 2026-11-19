@@ -45,7 +45,7 @@ struct QuickAssistantView: View {
                         MessageBubble(role: turn.role, content: turn.content)
                     }
                     if isStreaming {
-                        MessageBubble(role: .assistant, content: streamingText.isEmpty ? "…" : streamingText, isStreaming: true)
+                        MessageBubble(role: .assistant, content: streamingText, isStreaming: true)
                     }
                     if let errorMessage {
                         Label(errorMessage, systemImage: "exclamationmark.triangle")
@@ -82,7 +82,8 @@ struct QuickAssistantView: View {
             .padding(10)
         }
         .frame(minWidth: 520, minHeight: 320)
-        .background(.regularMaterial)
+        .background(VisualEffectBackground(material: .hudWindow))
+        .tint(DS.accent)
         .onAppear {
             promptFocused = true
             takePendingPrompt()

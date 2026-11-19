@@ -228,7 +228,7 @@ private struct SummaryTab: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: DS.Space.s) {
                 if !recording.hasAnalysis {
                     Text(recording.segments.isEmpty
                          ? "Transcribe this recording first, then MacPilot can summarize it, list decisions and action items, and draft a follow-up email."
@@ -289,10 +289,12 @@ private struct SummaryTab: View {
     }
 
     private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: DS.Space.xs) {
             Text(title).font(.headline)
             content()
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .card(padding: DS.Space.s)
     }
 
     @ViewBuilder

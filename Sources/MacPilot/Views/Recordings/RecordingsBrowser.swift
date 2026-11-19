@@ -58,14 +58,14 @@ struct RecordingsBrowser: View {
                 RecordingDetailView(recording: selected, onDelete: { delete(selected) })
                     .id(selected.uid)
             } else {
-                VStack(spacing: 10) {
-                    Image(systemName: "waveform").font(.system(size: 40)).foregroundStyle(.secondary)
-                    Text("Select a recording").foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                EmptyStateView(systemImage: "waveform", title: visible.isEmpty ? "No recordings yet" : "Select a recording",
+                               message: visible.isEmpty ? "Record a meeting or voice note, or import an audio file." : "Its summary, action items and transcript appear here.")
             }
         }
-        .onAppear(perform: handlePendingAction)
+        .onAppear {
+            handlePendingAction()
+            if selectedID == nil { selectedID = visible.first?.uid }
+        }
         .onChange(of: appState.pendingAction) { _, _ in handlePendingAction() }
         .onChange(of: RecordingManager.shared.current?.uid) { _, newValue in
             if let newValue { selectedID = newValue }
@@ -91,11 +91,19 @@ struct RecordingsBrowser: View {
 private struct RecordingRow: View {
     let recording: Recording
 
+    private var tint: Color {
+        switch recording.kind {
+        case .meeting: return AppSection.calendar.tint
+        case .voiceNote: return AppSection.voice.tint
+        case .imported: return .gray
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
-            HStack(spacing: 6) {
-                Image(systemName: recording.kind.systemImage).foregroundStyle(.secondary)
-                Text(recording.title).lineLimit(1)
+            HStack(spacing: DS.Space.xs) {
+                IconTile(systemImage: recording.kind.systemImage, color: tint, size: 20)
+                Text(recording.title).font(.body.weight(.medium)).lineLimit(1)
             }
             HStack(spacing: 6) {
                 Text(recording.startedAt.formatted(date: .abbreviated, time: .shortened))

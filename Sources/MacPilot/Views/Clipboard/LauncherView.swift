@@ -178,6 +178,7 @@ struct LauncherView: View {
                     }
                 }
                 .listStyle(.sidebar)
+                .scrollContentBackground(.hidden)
                 .onChange(of: selectedID) { _, id in if let id { proxy.scrollTo(id) } }
             }
             Divider()
@@ -190,7 +191,8 @@ struct LauncherView: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
         }
-        .background(.regularMaterial)
+        .background(VisualEffectBackground(material: .hudWindow))
+        .tint(DS.accent)
         .onAppear {
             searchFocused = true
             keyMonitor.install(window: { WindowManager.shared.launcherPanel }, handler: handle)
@@ -235,6 +237,18 @@ private struct LauncherRow: View {
     let item: LauncherItem
     let isSelected: Bool
 
+    private var tint: Color {
+        switch item.section {
+        case "AI": return DS.violet
+        case "Notes": return AppSection.notes.tint
+        case "Tasks": return AppSection.tasks.tint
+        case "Clipboard": return AppSection.clipboard.tint
+        case "MacPilot": return DS.indigo
+        case "Commands": return DS.accent
+        default: return .gray
+        }
+    }
+
     var body: some View {
         HStack(spacing: 10) {
             icon.frame(width: 22, height: 22)
@@ -248,14 +262,18 @@ private struct LauncherRow: View {
             Text(item.section).font(.caption).foregroundStyle(.tertiary)
         }
         .padding(.vertical, 2)
-        .listRowBackground(isSelected ? Color.accentColor.opacity(0.15) : Color.clear)
+        .listRowBackground(
+            RoundedRectangle(cornerRadius: DS.Radius.small, style: .continuous)
+                .fill(isSelected ? DS.accent.opacity(0.22) : Color.clear)
+                .padding(.horizontal, 6)
+        )
     }
 
     @ViewBuilder
     private var icon: some View {
         switch item.icon {
         case .system(let name):
-            Image(systemName: name).foregroundStyle(.secondary)
+            IconTile(systemImage: name, color: tint, size: 22)
         case .file(let path):
             Image(nsImage: NSWorkspace.shared.icon(forFile: path)).resizable()
         }

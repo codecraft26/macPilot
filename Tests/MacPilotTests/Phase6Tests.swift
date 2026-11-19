@@ -146,3 +146,25 @@ final class JSONToolTests: XCTestCase {
         XCTAssertEqual(DeveloperStore.sanitizedHeaders(headers), "Accept: application/json\nAuthorization: <not saved>\n# comment: x\nbad line")
     }
 }
+
+final class UILogicTests: XCTestCase {
+    private func event(_ id: String, _ start: Double, _ end: Double) -> CalendarEvent {
+        CalendarEvent(id: id, title: id, start: Date(timeIntervalSince1970: start * 3600), end: Date(timeIntervalSince1970: end * 3600),
+                      isAllDay: false, location: "", notes: "", attendees: [],
+                      calendar: CalendarInfo(rawID: "c", source: .apple, title: "C", color: RGBColor(red: 0, green: 0, blue: 0), isWritable: true))
+    }
+
+    func testTimeGridLayoutUsesFullWidthOutsideClusters() {
+        let layout = TimeGrid.layout([event("a", 9, 9.25), event("b", 11, 12), event("c", 11.5, 12.5), event("d", 13, 14)])
+        XCTAssertEqual(layout["a"]?.count, 1)
+        XCTAssertEqual(layout["b"]?.count, 2)
+        XCTAssertEqual(layout["c"]?.lane, 1)
+        XCTAssertEqual(layout["d"]?.count, 1)
+    }
+
+    func testMessageBlocksSplitCode() {
+        let blocks = MessageBlocks.parse("Intro\n```swift\nlet a = 1\n```\nOutro")
+        XCTAssertEqual(blocks, [.text("Intro"), .code(language: "swift", code: "let a = 1"), .text("Outro")])
+        XCTAssertEqual(MessageBlocks.parse("```\nstreaming"), [.code(language: "", code: "streaming")])
+    }
+}

@@ -57,11 +57,9 @@ struct NotesView: View {
                 NoteEditor(note: selection, onDelete: { delete(selection) })
                     .id(selection.persistentModelID)
             } else {
-                VStack(spacing: 12) {
-                    Image(systemName: "note.text").font(.system(size: 40)).foregroundStyle(.secondary)
-                    Button("New note", action: createNote).buttonStyle(.borderedProminent)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                EmptyStateView(systemImage: "note.text", title: notes.isEmpty ? "No notes yet" : "Select a note",
+                               message: "Markdown, folders, tags and AI summaries. ⌥N creates a note from anywhere.",
+                               actionTitle: "New note", action: createNote)
             }
         }
         .navigationTitle("Notes & Knowledge")
