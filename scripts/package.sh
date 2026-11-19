@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds MacPilot and packages it for another Mac as build/MacPilot.zip (and build/MacPilot.dmg).
+# Builds MacPilot and packages it as MacPilot-<version>.zip and .dmg under build/ or BUILD_DIR.
 #
 #   scripts/package.sh                      # universal, ad-hoc signed (recipient must allow it once, see README)
 #   SIGN_IDENTITY="Developer ID Application: Name (TEAMID)" NOTARY_PROFILE=macpilot scripts/package.sh
@@ -14,10 +14,11 @@ cd "$ROOT"
 
 "$ROOT/scripts/build-app.sh" release
 
-APP="$ROOT/build/MacPilot.app"
+OUTPUT_DIR="${BUILD_DIR:-$ROOT/build}"
+APP="$OUTPUT_DIR/MacPilot.app"
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$ROOT/Resources/Info.plist")"
-ZIP="$ROOT/build/MacPilot-$VERSION.zip"
-DMG="$ROOT/build/MacPilot-$VERSION.dmg"
+ZIP="$OUTPUT_DIR/MacPilot-$VERSION.zip"
+DMG="$OUTPUT_DIR/MacPilot-$VERSION.dmg"
 rm -f "$ZIP" "$DMG"
 
 codesign --verify --deep --strict "$APP"

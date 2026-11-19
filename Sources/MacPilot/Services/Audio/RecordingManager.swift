@@ -21,9 +21,11 @@ final class RecordingManager {
     /// Non-fatal information about the current recording (e.g. system audio unavailable).
     var notice: String?
     var errorMessage: String?
+    private(set) var liveTranscriber: LiveTranscriber?
 
     private var mic: MicRecorder?
     private var system: SystemAudioRecorder?
+    private var systemStartTask: Task<Void, Never>?
     private var activeSince: Date?
     private var accumulated: TimeInterval = 0
     private var meterTimer: Timer?
@@ -80,14 +82,25 @@ final class RecordingManager {
         try? context.save()
 
         let mic = MicRecorder()
+        if LiveTranscriber.isEnabled {
+            let live = LiveTranscriber()
+            live.start()
+            if live.errorMessage == nil { mic.onAudio = live.audioSink }
+            liveTranscriber = live
+        }
         do {
             try mic.start(deviceID: Prefs.microphoneID, url: recording.folderURL.appendingPathComponent("microphone.m4a"))
         } catch {
+            liveTranscriber?.fail("The microphone could not start.")
+            liveTranscriber = nil
             context.delete(recording)
             RecordingStorage.deleteFiles(for: recording.uid)
             try? context.save()
             fail(error)
             return
+        }
+        if mic.onAudio != nil && !mic.capturesLiveAudio {
+            liveTranscriber?.fail("Live captions are unavailable for this microphone.")
         }
         self.mic = mic
         current = recording
@@ -98,7 +111,7 @@ final class RecordingManager {
         startMeter()
 
         if kind == .meeting && Prefs.includeSystemAudio {
-            await startSystemAudio(for: recording)
+            systemStartTask = Task { await startSystemAudio(for: recording) }
         }
     }
 
@@ -121,6 +134,7 @@ final class RecordingManager {
             try await recorder.start(url: recording.folderURL.appendingPathComponent("system.m4a"))
             system = recorder
             recording.systemFileName = "system.m4a"
+            if state == .paused { recorder.pause() }
         } catch {
             let message = "System audio could not be captured (\(error.localizedDescription)). Recording continues with the microphone only."
             notice = message
@@ -132,6 +146,7 @@ final class RecordingManager {
 
     func pause() {
         guard state == .recording else { return }
+        liveTranscriber?.setPaused(true)
         mic?.pause()
         system?.pause()
         if let since = activeSince { accumulated += Date().timeIntervalSince(since) }
@@ -143,6 +158,7 @@ final class RecordingManager {
         guard state == .paused else { return }
         mic?.resume()
         system?.resume()
+        liveTranscriber?.setPaused(false)
         activeSince = Date()
         state = .recording
     }
@@ -159,6 +175,8 @@ final class RecordingManager {
 
         await mic?.stop()
         let micStart = mic?.startedAt
+        await systemStartTask?.value
+        systemStartTask = nil
         if let system {
             let systemStart = await system.startDate()
             if await system.stop() {
@@ -169,6 +187,11 @@ final class RecordingManager {
                 recording.systemFileName = nil
             }
         }
+
+        let autoProcess = Prefs.autoProcessRecordings
+        let reuseLive = autoProcess && Prefs.transcriptionProvider == .amazonTranscribe && TranscribeSettings.useLiveTranscript
+        let liveMicrophone = await liveTranscriber?.finish(reuse: reuseLive) ?? []
+        liveTranscriber = nil
 
         recording.duration = total
         recording.status = .recorded
@@ -183,9 +206,10 @@ final class RecordingManager {
         state = .idle
         AppState.shared.isRecording = false
 
-        if Prefs.autoProcessRecordings {
-            RecordingProcessor.process(recording)
+        if autoProcess {
+            RecordingProcessor.process(recording, liveMicrophone: liveMicrophone)
         }
+        AutomationEngine.shared.recordingFinished(recording)
     }
 
     // MARK: Import

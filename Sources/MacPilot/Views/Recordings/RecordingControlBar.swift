@@ -10,6 +10,7 @@ struct RecordingControlBar: View {
         VStack(alignment: .leading, spacing: 8) {
             if manager.isActive {
                 activeBar
+                if let live = manager.liveTranscriber { captions(live) }
             } else {
                 idleBar
             }
@@ -54,11 +55,31 @@ struct RecordingControlBar: View {
                 }
             }
             Spacer()
-            Text("Transcripts are created after you stop. Live transcription is not available yet.")
+            Text(LiveTranscriber.isEnabled ? "Live microphone captions are on." : "Transcripts are created after you stop.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.trailing)
         }
+    }
+
+    private func captions(_ live: LiveTranscriber) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Label("Live microphone captions", systemImage: "captions.bubble")
+                .font(.caption.weight(.semibold))
+            if let error = live.errorMessage {
+                Text(error).foregroundStyle(.orange)
+            } else if manager.isPaused {
+                Text("Paused").foregroundStyle(.secondary)
+            } else if live.segments.isEmpty && live.partial.isEmpty {
+                Text("Waiting for speech…").foregroundStyle(.secondary)
+            } else {
+                Text((live.segments.suffix(2).map(\.text) + [live.partial]).joined(separator: " "))
+                    .lineLimit(4)
+                    .textSelection(.enabled)
+            }
+        }
+        .font(.callout)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var activeBar: some View {

@@ -2,15 +2,12 @@ import AVFoundation
 import Foundation
 
 enum TranscriptionError: LocalizedError {
-    case localWhisperUnavailable
     case noAudio
     case fileTooLarge(String)
     case exportFailed(String)
 
     var errorDescription: String? {
         switch self {
-        case .localWhisperUnavailable:
-            return "Local Whisper is coming in Phase 7. Choose OpenAI in Settings → Routing to transcribe now."
         case .noAudio:
             return "This recording has no audio file left to transcribe."
         case .fileTooLarge(let name):
@@ -28,40 +25,53 @@ enum TranscriptionService {
     static let chunkSeconds: Double = 120
     static let uploadLimit = 25 * 1024 * 1024
 
-    static func transcribe(_ recording: RecordingSnapshot) async throws -> [TranscriptSegment] {
-        switch Prefs.transcriptionProvider {
+    static func transcribe(_ recording: RecordingSnapshot, liveMicrophone: [TranscriptSegment] = []) async throws -> [TranscriptSegment] {
+        let provider = Prefs.transcriptionProvider
+        var tracks: [[TranscriptSegment]] = []
+        if provider == .amazonTranscribe, !liveMicrophone.isEmpty {
+            tracks.append(liveMicrophone)
+        } else if let mic = recording.micURL {
+            tracks.append(try await transcribe(mic, speaker: recording.micSpeaker, offset: 0, provider: provider))
+        }
+        if let system = recording.systemURL {
+            tracks.append(try await transcribe(system, speaker: "Others", offset: recording.systemOffset, provider: provider))
+        }
+        guard !tracks.isEmpty else { throw TranscriptionError.noAudio }
+        return TranscriptMerger.merge(tracks)
+    }
+
+    private static func transcribe(
+        _ url: URL, speaker: String, offset: Double, provider: TranscriptionProviderID
+    ) async throws -> [TranscriptSegment] {
+        switch provider {
         case .localWhisper:
-            throw TranscriptionError.localWhisperUnavailable
+            return try await LocalWhisper.transcribe(url, speaker: speaker, offset: offset)
         case .amazonTranscribe:
-            var tracks: [[TranscriptSegment]] = []
-            if let mic = recording.micURL {
-                tracks.append(try await amazonTranscribe(mic, track: recording.micSpeaker == "Me" ? "Me" : "Speaker", offset: 0))
+            if TranscribeSettings.bucket.isEmpty {
+                return try await TranscribeStream.transcribe(fileURL: url, track: speaker, offset: offset)
             }
-            if let system = recording.systemURL {
-                tracks.append(try await amazonTranscribe(system, track: "Others", offset: recording.systemOffset))
+            return try await withCompatibleAudio(url, needsConversion: TranscribeAPI.mediaFormat(for: url) == nil) {
+                try await TranscribeBatch.transcribe(fileURL: $0, track: speaker, offset: offset)
             }
-            guard !tracks.isEmpty else { throw TranscriptionError.noAudio }
-            return TranscriptMerger.merge(tracks)
+        case .bedrock:
+            return try await withCompatibleAudio(url, needsConversion: !BedrockTranscription.supports(url)) {
+                try await BedrockTranscription.transcribe(fileURL: $0, track: speaker, offset: offset)
+            }
         case .openAI:
-            let model = Prefs.transcriptionModel
-            var tracks: [[TranscriptSegment]] = []
-            if let mic = recording.micURL {
-                tracks.append(try await transcribeFile(mic, speaker: recording.micSpeaker, model: model, offset: 0))
-            }
-            if let system = recording.systemURL {
-                tracks.append(try await transcribeFile(system, speaker: "Others", model: model, offset: recording.systemOffset))
-            }
-            guard !tracks.isEmpty else { throw TranscriptionError.noAudio }
-            return TranscriptMerger.merge(tracks)
+            return try await transcribeFile(url, speaker: speaker, model: Prefs.transcriptionModel, offset: offset)
         }
     }
 
-    /// Batch job through S3 when a bucket is set (fast, any length); otherwise streams the file.
-    static func amazonTranscribe(_ url: URL, track: String, offset: Double) async throws -> [TranscriptSegment] {
-        if !TranscribeSettings.bucket.isEmpty {
-            return try await TranscribeBatch.transcribe(fileURL: url, track: track, offset: offset)
-        }
-        return try await TranscribeStream.transcribe(fileURL: url, track: track, offset: offset)
+    private static func withCompatibleAudio(
+        _ source: URL, needsConversion: Bool, transcribe: (URL) async throws -> [TranscriptSegment]
+    ) async throws -> [TranscriptSegment] {
+        guard needsConversion else { return try await transcribe(source) }
+        let temporary = FileManager.default.temporaryDirectory.appendingPathComponent("MacPilot-Audio-\(UUID())")
+        try FileManager.default.createDirectory(at: temporary, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        let wave = temporary.appendingPathComponent("audio.wav")
+        guard await AudioTools.convertToWave(source, output: wave) else { throw TranscribeError.unreadableAudio }
+        return try await transcribe(wave)
     }
 
     static func transcribeFile(_ url: URL, speaker: String, model: String, offset: Double) async throws -> [TranscriptSegment] {
@@ -251,6 +261,12 @@ enum TranscriptMerger {
 }
 
 extension AudioTools {
+    static func convertToWave(_ source: URL, output: URL) async -> Bool {
+        await Shell.run("/usr/bin/afconvert", [
+            "-f", "WAVE", "-d", "LEI16@16000", "-c", "1", "--mix", source.path, output.path
+        ], timeout: 600).ok
+    }
+
     /// Writes `duration` seconds of `url` starting at `start` to an .m4a file.
     static func export(_ url: URL, to output: URL, start: Double, duration: Double) async throws {
         let asset = AVURLAsset(url: url)

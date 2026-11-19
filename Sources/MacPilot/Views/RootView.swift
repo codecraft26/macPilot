@@ -29,7 +29,7 @@ struct RootView: View {
         case .calendar: CalendarMeetingsView()
         case .clipboard: ClipboardView()
         case .developer: DeveloperView()
-        case .automations: ComingSoonView(section: section)
+        case .automations: AutomationsView()
         }
     }
 }
@@ -133,37 +133,3 @@ private struct RecordingStatusFooter: View {
     }
 }
 
-/// Planned modules from the PRD, shown with what is coming and in which phase.
-struct ComingSoonView: View {
-    let section: AppSection
-
-    private var plan: (phase: String, features: [String]) {
-        switch section {
-        case .automations:
-            return ("Phase 7", ["Triggers: recording finished, meeting ended, transcript ready, daily summary",
-                                "Conditional workflows with run history",
-                                "Manual approval for sensitive actions"])
-        default:
-            return ("", [])
-        }
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Label(section.title, systemImage: section.systemImage)
-                .font(.largeTitle.bold())
-            Text("Coming in \(plan.phase)")
-                .font(.headline)
-                .foregroundStyle(.secondary)
-            VStack(alignment: .leading, spacing: 8) {
-                ForEach(plan.features, id: \.self) { feature in
-                    Label(feature, systemImage: "circle.dashed")
-                }
-            }
-            Spacer()
-        }
-        .padding(32)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .navigationTitle(section.title)
-    }
-}

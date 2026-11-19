@@ -11,7 +11,7 @@ enum TranscribeSettings {
         ("it-IT", "Italian"), ("pt-BR", "Portuguese (Brazil)"), ("ja-JP", "Japanese"), ("ko-KR", "Korean"), ("zh-CN", "Chinese (Mandarin)")
     ]
     /// Candidates for automatic language identification in streaming (it needs an explicit list).
-    static let streamingLanguageOptions = ["en-US", "en-GB", "en-IN", "hi-IN", "es-US", "fr-FR", "de-DE"]
+    static let streamingLanguageOptions = ["en-US", "hi-IN", "es-US", "fr-FR", "de-DE", "ja-JP"]
 
     private static var defaults: UserDefaults { .standard }
 
@@ -31,12 +31,19 @@ enum TranscribeSettings {
     static var deleteAfter: Bool { defaults.bool(forKey: PrefKey.transcribeDeleteAfter) }
     static var liveEnabled: Bool { defaults.bool(forKey: PrefKey.transcribeLive) }
     static var useLiveTranscript: Bool { defaults.bool(forKey: PrefKey.transcribeUseLive) }
+    static var dataProfile: String { (defaults.string(forKey: PrefKey.bedrockDataProfile) ?? "").trimmingCharacters(in: .whitespacesAndNewlines) }
+    static var dataProject: String { (defaults.string(forKey: PrefKey.bedrockDataProject) ?? "").trimmingCharacters(in: .whitespacesAndNewlines) }
 
-    /// Transcribe needs signed requests, so a Bedrock API key (bearer token) is not enough.
-    static var hasAccessKeys: Bool {
-        KeychainStore.exists(account: BedrockConfig.Account.accessKeyID) && KeychainStore.exists(account: BedrockConfig.Account.secretAccessKey)
+    static func validate(region: String, bucket: String = "") throws {
+        guard region.range(of: #"^[a-z]{2}(?:-[a-z0-9]+)+-[0-9]+$"#, options: .regularExpression) != nil else {
+            throw TranscribeError.configuration("Enter a valid AWS region in Settings → Routing.")
+        }
+        guard bucket.isEmpty || bucket.range(of: #"^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$"#, options: .regularExpression) != nil else {
+            throw TranscribeError.configuration("Enter the S3 bucket name in Settings → Routing.")
+        }
     }
 
+    /// Transcribe needs signed requests, so a Bedrock API key (bearer token) is not enough.
     static func signer(service: String, region: String? = nil) throws -> AWSSigV4Signer {
         guard let keyID = KeychainStore.read(account: BedrockConfig.Account.accessKeyID), !keyID.isEmpty,
               let secret = KeychainStore.read(account: BedrockConfig.Account.secretAccessKey), !secret.isEmpty else {
@@ -50,6 +57,7 @@ enum TranscribeSettings {
 
 enum TranscribeError: LocalizedError {
     case missingAccessKeys
+    case configuration(String)
     case aws(service: String, status: Int, message: String)
     case jobFailed(String)
     case timedOut
@@ -59,16 +67,17 @@ enum TranscribeError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .missingAccessKeys:
-            return "Amazon Transcribe needs an AWS access key ID and secret. Add them under Settings → Providers → Claude via Amazon Bedrock (a Bedrock API key alone can't sign Transcribe or S3 requests)."
+            return "Save an AWS access key ID and secret under Settings → Providers → Claude via Amazon Bedrock. AWS transcription uses Signature V4."
+        case .configuration(let message): return message
         case let .aws(service, status, message):
             var text = "\(service) returned \(status): \(Redactor.redact(message))"
             if status == 403 || message.localizedCaseInsensitiveContains("AccessDenied") {
                 text += " — check the IAM permissions listed in Settings → Routing → Audio transcription."
             }
             return text
-        case .jobFailed(let reason): return "Amazon Transcribe could not transcribe the audio: \(Redactor.redact(reason))"
-        case .timedOut: return "Amazon Transcribe took too long. Try again later."
-        case .unreadableAudio: return "This audio format can't be streamed. Set an S3 bucket in Settings → Routing to transcribe it with a batch job."
+        case .jobFailed(let reason): return Redactor.redact(reason)
+        case .timedOut: return "The AWS transcription job timed out."
+        case .unreadableAudio: return "This audio format could not be read. Try importing the audio as M4A, MP3, or WAV."
         case .stream(let message): return "Amazon Transcribe streaming: \(Redactor.redact(message))"
         }
     }
@@ -98,15 +107,37 @@ enum AWSHTTP {
         guard (200..<300).contains(status) else { throw TranscribeError.aws(service: service, status: status, message: errorMessage(data)) }
         return data
     }
+
+    static func jsonCall(
+        url: URL, target: String, body: [String: Any], signer: AWSSigV4Signer, service: String
+    ) async throws -> [String: Any] {
+        let data = try JSONSerialization.data(withJSONObject: body)
+        let headers = ["content-type": "application/x-amz-json-1.1", "x-amz-target": target]
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.httpBody = data
+        for (name, value) in headers.merging(signer.signedHeaders(method: "POST", url: url, headers: headers, body: data), uniquingKeysWith: { $1 }) {
+            request.setValue(value, forHTTPHeaderField: name)
+        }
+        let response = try await send(request, service: service)
+        return try jsonObject(response, service: service)
+    }
+
+    static func jsonObject(_ data: Data, service: String) throws -> [String: Any] {
+        guard let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
+            throw TranscribeError.configuration("\(service) returned an unreadable response.")
+        }
+        return object
+    }
 }
 
 enum S3Client {
-    /// Virtual-hosted style URL; each key segment is percent-encoded once (S3 does not double-encode).
+    /// Path-style addressing also supports bucket names containing dots over TLS.
     static func objectURL(bucket: String, region: String, key: String) -> URL {
         let path = key.split(separator: "/", omittingEmptySubsequences: false)
             .map { AWSSigV4Signer.encode(String($0)) }
             .joined(separator: "/")
-        return URL(string: "https://\(bucket).s3.\(region).amazonaws.com/\(path)")!
+        return URL(string: "https://s3.\(region).amazonaws.com/\(bucket)/\(path)")!
     }
 
     static func put(fileURL: URL, bucket: String, key: String, region: String) async throws {
@@ -128,15 +159,23 @@ enum S3Client {
     }
 
     static func delete(bucket: String, key: String, region: String) async {
+        _ = try? await readOrDelete(method: "DELETE", bucket: bucket, key: key, region: region)
+    }
+
+    static func get(bucket: String, key: String, region: String) async throws -> Data {
+        try await readOrDelete(method: "GET", bucket: bucket, key: key, region: region)
+    }
+
+    private static func readOrDelete(method: String, bucket: String, key: String, region: String) async throws -> Data {
         let url = objectURL(bucket: bucket, region: region, key: key)
         var request = URLRequest(url: url)
-        request.httpMethod = "DELETE"
+        request.httpMethod = method
         let headers = ["x-amz-content-sha256": AWSSigV4Signer.hex(SHA256Digest.of(Data()))]
-        guard let signer = try? TranscribeSettings.signer(service: "s3", region: region) else { return }
-        for (name, value) in headers.merging(signer.signedHeaders(method: "DELETE", url: url, headers: headers, body: Data()), uniquingKeysWith: { $1 }) {
+        let signer = try TranscribeSettings.signer(service: "s3", region: region)
+        for (name, value) in headers.merging(signer.signedHeaders(method: method, url: url, headers: headers, body: Data()), uniquingKeysWith: { $1 }) {
             request.setValue(value, forHTTPHeaderField: name)
         }
-        _ = try? await AWSHTTP.send(request, service: "Amazon S3")
+        return try await AWSHTTP.send(request, service: "Amazon S3")
     }
 }
 
@@ -150,24 +189,15 @@ enum SHA256Digest {
 enum TranscribeAPI {
     static func call(_ action: String, _ body: [String: Any], region: String) async throws -> [String: Any] {
         let url = URL(string: "https://transcribe.\(region).amazonaws.com/")!
-        let data = try JSONSerialization.data(withJSONObject: body)
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.timeoutInterval = 60
-        let headers = ["content-type": "application/x-amz-json-1.1", "x-amz-target": "Transcribe.\(action)"]
         let signer = try TranscribeSettings.signer(service: "transcribe", region: region)
-        for (name, value) in headers.merging(signer.signedHeaders(method: "POST", url: url, headers: headers, body: data), uniquingKeysWith: { $1 }) {
-            request.setValue(value, forHTTPHeaderField: name)
-        }
-        request.httpBody = data
-        let response = try await AWSHTTP.send(request, service: "Amazon Transcribe")
-        return (try? JSONSerialization.jsonObject(with: response)) as? [String: Any] ?? [:]
+        return try await AWSHTTP.jsonCall(url: url, target: "Transcribe.\(action)", body: body, signer: signer, service: "Amazon Transcribe")
     }
 
     static func mediaFormat(for url: URL) -> String? {
         switch url.pathExtension.lowercased() {
         case "mp3": return "mp3"
-        case "mp4", "m4a", "aac": return "mp4"
+        case "mp4": return "mp4"
+        case "m4a": return "m4a"
         case "wav": return "wav"
         case "flac": return "flac"
         case "ogg": return "ogg"
@@ -233,15 +263,18 @@ enum TranscribeParsing {
     /// Final streaming results → segments (one per result, split where the speaker changes).
     static func streamingSegments(_ results: [[String: Any]], offset: Double, track: String) -> [TranscriptSegment] {
         var output: [TranscriptSegment] = []
+        let speakers = Set(results.flatMap { result -> [String] in
+            let alternative = (result["Alternatives"] as? [[String: Any]])?.first
+            return (alternative?["Items"] as? [[String: Any]] ?? []).compactMap { $0["Speaker"] as? String }
+        })
         for result in results where result["IsPartial"] as? Bool != true {
             guard let alternative = (result["Alternatives"] as? [[String: Any]])?.first else { continue }
             let items = alternative["Items"] as? [[String: Any]] ?? []
-            let speakers = Set(items.compactMap { $0["Speaker"] as? String })
-            if items.isEmpty || speakers.isEmpty {
+            if !items.contains(where: { $0["Speaker"] is String }) {
                 let text = (alternative["Transcript"] as? String ?? "").trimmingCharacters(in: .whitespaces)
                 guard !text.isEmpty else { continue }
                 output.append(TranscriptSegment(start: offset + (number(result["StartTime"]) ?? 0), end: offset + (number(result["EndTime"]) ?? 0),
-                                                speaker: track == "Me" ? "Me" : (track == "Others" ? "Others" : track), text: text))
+                                                speaker: track, text: text))
                 continue
             }
             let words = items.map { item in
@@ -312,24 +345,22 @@ enum TranscribeParsing {
 // MARK: - Batch transcription (S3 + StartTranscriptionJob)
 
 enum TranscribeBatch {
-    static func s3Key(prefix: String, fileURL: URL, id: UUID = UUID()) -> String {
-        "\(prefix)\(id.uuidString.lowercased())/\(fileURL.lastPathComponent)"
-    }
-
     static func transcribe(fileURL: URL, track: String, offset: Double) async throws -> [TranscriptSegment] {
         let region = TranscribeSettings.region
         let bucket = TranscribeSettings.bucket
-        let key = s3Key(prefix: TranscribeSettings.keyPrefix, fileURL: fileURL)
+        try TranscribeSettings.validate(region: region, bucket: bucket)
         let jobName = "macpilot-\(UUID().uuidString.lowercased())"
         guard let format = TranscribeAPI.mediaFormat(for: fileURL) else { throw TranscribeError.unreadableAudio }
+        let key = "\(TranscribeSettings.keyPrefix)\(jobName)/audio.\(fileURL.pathExtension.lowercased())"
 
         try await S3Client.put(fileURL: fileURL, bucket: bucket, key: key, region: region)
-        var jobStarted = false
+        var terminal = false
+        let deleteAfter = TranscribeSettings.deleteAfter
         defer {
-            if TranscribeSettings.deleteAfter {
+            if deleteAfter && terminal {
                 Task {
                     await S3Client.delete(bucket: bucket, key: key, region: region)
-                    if jobStarted { _ = try? await TranscribeAPI.call("DeleteTranscriptionJob", ["TranscriptionJobName": jobName], region: region) }
+                    _ = try? await TranscribeAPI.call("DeleteTranscriptionJob", ["TranscriptionJobName": jobName], region: region)
                 }
             }
         }
@@ -348,7 +379,6 @@ enum TranscribeBatch {
             body["Settings"] = ["ShowSpeakerLabels": true, "MaxSpeakerLabels": TranscribeSettings.maxSpeakers]
         }
         _ = try await TranscribeAPI.call("StartTranscriptionJob", body, region: region)
-        jobStarted = true
 
         // Poll with backoff: 2 s, growing to 15 s, for up to two hours.
         var delay: Double = 2
@@ -360,14 +390,25 @@ enum TranscribeBatch {
             let job = response["TranscriptionJob"] as? [String: Any] ?? [:]
             switch job["TranscriptionJobStatus"] as? String {
             case "COMPLETED":
+                terminal = true
                 guard let uri = (job["Transcript"] as? [String: Any])?["TranscriptFileUri"] as? String, let url = URL(string: uri) else {
                     throw TranscribeError.jobFailed("no transcript file")
                 }
-                let (data, _) = try await HTTPSupport.session.data(from: url) // pre-signed URL; never logged
-                let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
+                let json: [String: Any]
+                do {
+                    let data = try await AWSHTTP.send(URLRequest(url: url), service: "Amazon Transcribe")
+                    json = try AWSHTTP.jsonObject(data, service: "Amazon Transcribe")
+                } catch {
+                    // A transport error may contain the presigned download URL.
+                    throw TranscribeError.jobFailed("The transcript download failed.")
+                }
+                guard json["results"] is [String: Any] else {
+                    throw TranscribeError.jobFailed("Amazon Transcribe returned no transcript results.")
+                }
                 return TranscribeParsing.batchSegments(json, offset: offset, track: track, duration: await AudioTools.duration(of: fileURL))
             case "FAILED":
-                throw TranscribeError.jobFailed(job["FailureReason"] as? String ?? "unknown reason")
+                terminal = true
+                throw TranscribeError.jobFailed(job["FailureReason"] as? String ?? "The Amazon Transcribe batch job failed.")
             default:
                 continue
             }
@@ -386,11 +427,13 @@ final class TranscribeStream: @unchecked Sendable {
     }
 
     private let onUpdate: @Sendable (Update) -> Void
-    private var audio: AsyncStream<Data>.Continuation?
+    private let audio: AsyncStream<Data>.Continuation
+    private let chunks: AsyncStream<Data>
     private var task: Task<Void, Error>?
 
     init(onUpdate: @escaping @Sendable (Update) -> Void) {
         self.onUpdate = onUpdate
+        (chunks, audio) = AsyncStream<Data>.makeStream(bufferingPolicy: .bufferingNewest(400))
     }
 
     static func url(region: String, language: String, speakers: Bool) -> URL {
@@ -413,81 +456,122 @@ final class TranscribeStream: @unchecked Sendable {
 
     /// Starts the WebSocket. Completes (or throws) when the service closes the stream after `finish()`.
     func start() throws {
-        let signer = try TranscribeSettings.signer(service: "transcribe")
-        let url = signer.presignedURL(Self.url(region: TranscribeSettings.region, language: TranscribeSettings.language,
+        let region = TranscribeSettings.region
+        try TranscribeSettings.validate(region: region)
+        let signer = try TranscribeSettings.signer(service: "transcribe", region: region)
+        let url = signer.presignedURL(Self.url(region: region, language: TranscribeSettings.language,
                                                speakers: TranscribeSettings.identifySpeakers), expires: 300)
-        let (stream, continuation) = AsyncStream<Data>.makeStream(bufferingPolicy: .bufferingNewest(400))
-        audio = continuation
         let socket = URLSession.shared.webSocketTask(with: url)
         socket.maximumMessageSize = 4 * 1024 * 1024
         socket.resume()
         let onUpdate = onUpdate
+        let chunks = chunks
+        let audio = audio
         task = Task {
-            try await withThrowingTaskGroup(of: Void.self) { group in
-                group.addTask {
-                    for await chunk in stream {
-                        try await socket.send(.data(EventStream.audioEvent(chunk)))
-                    }
-                    try await socket.send(.data(EventStream.audioEvent(Data()))) // end of audio
-                }
-                group.addTask {
-                    var buffer = Data()
-                    while true {
-                        let message: URLSessionWebSocketTask.Message
-                        do {
-                            message = try await socket.receive()
-                        } catch {
-                            if socket.closeCode == .normalClosure || buffer.isEmpty && socket.state != .running { return }
-                            throw TranscribeError.stream(error.localizedDescription)
-                        }
-                        guard case .data(let data) = message else { continue }
-                        buffer.append(data)
-                        for event in try EventStream.decode(&buffer) {
-                            let json = (try? JSONSerialization.jsonObject(with: event.payload)) as? [String: Any] ?? [:]
-                            if event.headers[":message-type"] == "exception" {
-                                throw TranscribeError.stream((json["Message"] ?? json["message"]) as? String ?? event.headers[":exception-type"] ?? "error")
-                            }
-                            guard event.headers[":event-type"] == "TranscriptEvent",
-                                  let results = (json["Transcript"] as? [String: Any])?["Results"] as? [[String: Any]] else { continue }
-                            let partial = results.first { $0["IsPartial"] as? Bool == true }
-                                .flatMap { (($0["Alternatives"] as? [[String: Any]])?.first?["Transcript"] as? String) }
-                            onUpdate(Update(partial: partial, finals: results.filter { $0["IsPartial"] as? Bool != true }))
-                        }
-                    }
-                }
-                try await group.waitForAll()
+            defer {
+                audio.finish()
+                socket.cancel(with: .normalClosure, reason: nil)
             }
-            socket.cancel(with: .normalClosure, reason: nil)
+            try await withTaskCancellationHandler {
+                try await withThrowingTaskGroup(of: Void.self) { group in
+                    group.addTask {
+                        for await chunk in chunks {
+                            try await socket.send(.data(EventStream.audioEvent(chunk)))
+                        }
+                        try Task.checkCancellation()
+                        try await socket.send(.data(EventStream.audioEvent(Data()))) // end of audio
+                    }
+                    group.addTask {
+                        var buffer = Data()
+                        while true {
+                            let message: URLSessionWebSocketTask.Message
+                            do {
+                                message = try await socket.receive()
+                            } catch {
+                                if socket.closeCode == .normalClosure && buffer.isEmpty { return }
+                                throw Self.connectionError(error)
+                            }
+                            guard case .data(let data) = message else { continue }
+                            buffer.append(data)
+                            for event in try EventStream.decode(&buffer) {
+                                let json = (try? JSONSerialization.jsonObject(with: event.payload)) as? [String: Any] ?? [:]
+                                if ["exception", "error"].contains(event.headers[":message-type"] ?? "") {
+                                    throw TranscribeError.stream(Redactor.redact((json["Message"] ?? json["message"]) as? String ?? event.headers[":exception-type"] ?? "AWS rejected the audio stream."))
+                                }
+                                guard event.headers[":event-type"] == "TranscriptEvent",
+                                      let results = (json["Transcript"] as? [String: Any])?["Results"] as? [[String: Any]] else { continue }
+                                let partial = results.first { $0["IsPartial"] as? Bool == true }
+                                    .flatMap { (($0["Alternatives"] as? [[String: Any]])?.first?["Transcript"] as? String) }
+                                onUpdate(Update(partial: partial, finals: results.filter { $0["IsPartial"] as? Bool != true }))
+                            }
+                        }
+                    }
+                    do {
+                        while try await group.next() != nil {}
+                    } catch {
+                        audio.finish()
+                        socket.cancel(with: .goingAway, reason: nil)
+                        group.cancelAll()
+                        throw Self.connectionError(error)
+                    }
+                }
+            } onCancel: {
+                audio.finish()
+                socket.cancel(with: .goingAway, reason: nil)
+            }
         }
     }
 
-    func send(_ pcm: Data) { audio?.yield(pcm) }
+    private static func connectionError(_ error: Error) -> Error {
+        // URLSession errors can contain the signed WebSocket URL.
+        if error is TranscribeError || error is CancellationError { return error }
+        return TranscribeError.stream("The connection to Amazon Transcribe ended (code \((error as NSError).code)). Check the AWS region, credentials, and WebSocket permission.")
+    }
+
+    @discardableResult
+    func send(_ pcm: Data) -> Bool {
+        if case .enqueued = audio.yield(pcm) { return true }
+        return false
+    }
+
+    func wait() async throws { try await task?.value }
 
     /// Ends the audio and waits for the remaining results.
     func finish() async throws {
-        audio?.finish()
-        audio = nil
-        try await task?.value
+        audio.finish()
+        let timeout = Task {
+            try await Task.sleep(for: .seconds(15))
+            cancel()
+        }
+        defer { timeout.cancel() }
+        try await withTaskCancellationHandler {
+            try await wait()
+        } onCancel: {
+            cancel()
+        }
     }
 
     func cancel() {
-        audio?.finish()
+        audio.finish()
         task?.cancel()
     }
 
-    /// Streams a whole file (no S3 bucket needed), paced at about four times real time.
+    /// Streams a saved file at its recorded sample rate.
     static func transcribe(fileURL: URL, track: String, offset: Double) async throws -> [TranscriptSegment] {
         let collector = ResultCollector()
         let stream = TranscribeStream { update in collector.add(update.finals) }
         try stream.start()
-        do {
-            try PCM16.readFile(fileURL) { chunk in
-                stream.send(chunk)
-                Thread.sleep(forTimeInterval: 0.025) // 100 ms of audio per 25 ms
+        defer { stream.cancel() }
+        let clock = ContinuousClock()
+        var nextFrame = clock.now
+        try await PCM16.readFile(fileURL) { chunk in
+            guard stream.send(chunk) else {
+                try await stream.finish()
+                throw TranscribeError.stream("The audio stream stopped accepting data.")
             }
-        } catch {
-            stream.cancel()
-            throw error
+            let duration = Double(chunk.count) / 32_000
+            nextFrame = nextFrame.advanced(by: .seconds(duration))
+            try await clock.sleep(until: nextFrame)
         }
         try await stream.finish()
         return TranscribeParsing.streamingSegments(collector.results, offset: offset, track: track)
@@ -497,7 +581,16 @@ final class TranscribeStream: @unchecked Sendable {
 final class ResultCollector: @unchecked Sendable {
     private let lock = NSLock()
     private var stored: [[String: Any]] = []
-    func add(_ results: [[String: Any]]) { lock.lock(); stored += results; lock.unlock() }
+    private var resultIDs = Set<String>()
+
+    func add(_ results: [[String: Any]]) {
+        lock.lock()
+        defer { lock.unlock() }
+        for result in results {
+            if let id = result["ResultId"] as? String, !resultIDs.insert(id).inserted { continue }
+            stored.append(result)
+        }
+    }
     var results: [[String: Any]] { lock.lock(); defer { lock.unlock() }; return stored }
 }
 
@@ -529,7 +622,7 @@ final class PCM16: @unchecked Sendable {
     }
 
     /// Reads a whole file and delivers ~100 ms chunks.
-    static func readFile(_ url: URL, chunk: (Data) -> Void) throws {
+    static func readFile(_ url: URL, chunk: (Data) async throws -> Void) async throws {
         let file: AVAudioFile
         do { file = try AVAudioFile(forReading: url) } catch { throw TranscribeError.unreadableAudio }
         let converter = PCM16()
@@ -539,7 +632,7 @@ final class PCM16: @unchecked Sendable {
             try Task.checkCancellation()
             try file.read(into: buffer, frameCount: frames)
             if buffer.frameLength == 0 { break }
-            if let data = converter.convert(buffer) { chunk(data) }
+            if let data = converter.convert(buffer) { try await chunk(data) }
         }
     }
 }

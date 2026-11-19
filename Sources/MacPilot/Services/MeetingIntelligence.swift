@@ -115,13 +115,13 @@ enum RecordingProcessor {
     static func isRunning(_ recording: Recording) -> Bool { running.contains(recording.uid) }
 
     /// Transcribes (if needed) and then analyzes.
-    static func process(_ recording: Recording) {
+    static func process(_ recording: Recording, liveMicrophone: [TranscriptSegment] = []) {
         guard !running.contains(recording.uid) else { return }
         running.insert(recording.uid)
         Task {
             defer { running.remove(recording.uid) }
             if recording.segments.isEmpty {
-                guard await transcribeNow(recording) else { return }
+                guard await transcribeNow(recording, liveMicrophone: liveMicrophone) else { return }
             }
             await analyzeNow(recording)
         }
@@ -146,17 +146,18 @@ enum RecordingProcessor {
     }
 
     @discardableResult
-    private static func transcribeNow(_ recording: Recording) async -> Bool {
+    private static func transcribeNow(_ recording: Recording, liveMicrophone: [TranscriptSegment] = []) async -> Bool {
         let context = Persistence.container.mainContext
         recording.status = .transcribing
         recording.errorMessage = nil
         try? context.save()
         do {
-            let segments = try await TranscriptionService.transcribe(RecordingSnapshot(recording))
+            let segments = try await TranscriptionService.transcribe(RecordingSnapshot(recording), liveMicrophone: liveMicrophone)
             recording.segments = segments
             recording.status = .transcribed
             if segments.isEmpty { recording.notice = "No speech was detected." }
             try? context.save()
+            if !segments.isEmpty { AutomationEngine.shared.transcriptReady(recording) }
             return true
         } catch {
             recording.status = .failed
@@ -215,6 +216,7 @@ enum RecordingActions {
 
     static func delete(_ recording: Recording, context: ModelContext) {
         RecordingStorage.deleteFiles(for: recording.uid)
+        AutomationEngine.discardPending(for: recording.uid, context: context)
         context.delete(recording)
         try? context.save()
     }

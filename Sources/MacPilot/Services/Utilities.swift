@@ -128,6 +128,15 @@ enum DataManager {
         let prompts = try context.fetch(FetchDescriptor<PromptTemplate>()).map { prompt -> [String: Any] in
             ["title": prompt.title, "body": prompt.body, "category": prompt.category]
         }
+        let workflows = try context.fetch(FetchDescriptor<AutomationWorkflow>()).map { workflow -> [String: Any] in
+            ["id": workflow.uid.uuidString, "name": workflow.name, "trigger": workflow.triggerRaw, "action": workflow.actionRaw,
+             "enabledSince": date(workflow.enabledSince), "titleContains": workflow.titleContains, "minimumMinutes": workflow.minimumMinutes,
+             "dailyHour": workflow.dailyHour, "dailyMinute": workflow.dailyMinute, "requiresApproval": workflow.requiresApproval]
+        }
+        let automationRuns = try context.fetch(FetchDescriptor<AutomationRun>()).map { run -> [String: Any] in
+            ["id": run.uid.uuidString, "workflow": run.workflowName, "title": run.title, "action": run.actionRaw,
+             "date": date(run.date), "status": run.statusRaw, "detail": run.detail, "pendingContent": run.payload]
+        }
         let root: [String: Any] = [
             "exportedAt": iso.string(from: Date()),
             "app": "MacPilot",
@@ -135,7 +144,9 @@ enum DataManager {
             "notes": notes,
             "tasks": tasks,
             "recordings": recordings,
-            "prompts": prompts
+            "prompts": prompts,
+            "automationWorkflows": workflows,
+            "automationRuns": automationRuns
         ]
         let data = try JSONSerialization.data(withJSONObject: root, options: [.prettyPrinted, .sortedKeys])
         return String(decoding: data, as: UTF8.self)
@@ -155,6 +166,8 @@ enum DataManager {
         try context.delete(model: PromptTemplate.self)
         try context.delete(model: Recording.self)
         try context.delete(model: ClipboardItem.self)
+        try context.delete(model: AutomationWorkflow.self)
+        try context.delete(model: AutomationRun.self)
         try context.save()
         RecordingStorage.deleteAll()
         ClipboardStorage.deleteAll()

@@ -8,7 +8,8 @@ enum PrefKey {
     static let analysisProvider = "routing.analysisProvider"
     static let transcriptionProvider = "routing.transcriptionProvider"
     static let transcriptionModel = "routing.transcriptionModel"
-    static let liveTranscriptionModel = "routing.liveTranscriptionModel"
+    static let whisperExecutable = "transcription.whisperExecutable"
+    static let whisperModel = "transcription.whisperModel"
     static let ollamaBaseURL = "ollama.baseURL"
     static let defaultSystemPrompt = "assistant.systemPrompt"
     static let microphoneID = "recording.microphoneID"
@@ -34,6 +35,8 @@ enum PrefKey {
     static let transcribeDeleteAfter = "transcribe.deleteAfter"
     static let transcribeLive = "transcribe.live"
     static let transcribeUseLive = "transcribe.useLive"
+    static let bedrockDataProfile = "transcribe.bedrockDataProfile"
+    static let bedrockDataProject = "transcribe.bedrockDataProject"
     static let bedrockRegion = "bedrock.region"
     static let bedrockAuthMethod = "bedrock.authMethod"
     static let googleClientID = "google.clientID"
@@ -49,6 +52,7 @@ enum PrefKey {
 enum TranscriptionProviderID: String, CaseIterable, Identifiable {
     case openAI = "openai"
     case amazonTranscribe = "aws"
+    case bedrock = "bedrock"
     case localWhisper = "whisper"
 
     var id: String { rawValue }
@@ -57,6 +61,7 @@ enum TranscriptionProviderID: String, CaseIterable, Identifiable {
         switch self {
         case .openAI: return "OpenAI"
         case .amazonTranscribe: return "Amazon Transcribe (AWS)"
+        case .bedrock: return "Amazon Bedrock Data Automation"
         case .localWhisper: return "Local Whisper (on device)"
         }
     }
@@ -71,7 +76,6 @@ enum Prefs {
             PrefKey.analysisProvider: AIProviderID.anthropic.rawValue,
             PrefKey.transcriptionProvider: TranscriptionProviderID.openAI.rawValue,
             PrefKey.transcriptionModel: "gpt-4o-transcribe",
-            PrefKey.liveTranscriptionModel: "gpt-4o-transcribe",
             PrefKey.ollamaBaseURL: "http://localhost:11434",
             PrefKey.microphoneID: "",
             PrefKey.includeSystemAudio: true,
@@ -86,7 +90,7 @@ enum Prefs {
             PrefKey.transcribeIdentifySpeakers: true,
             PrefKey.transcribeMaxSpeakers: 4,
             PrefKey.transcribeDeleteAfter: true,
-            PrefKey.transcribeLive: true,
+            PrefKey.transcribeLive: false,
             PrefKey.transcribeUseLive: false,
             PrefKey.bedrockAuthMethod: BedrockAuthMethod.accessKeys.rawValue,
             PrefKey.clipboardEnabled: true,

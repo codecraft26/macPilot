@@ -10,7 +10,9 @@ enum Persistence {
         Note.self,
         TaskItem.self,
         Recording.self,
-        ClipboardItem.self
+        ClipboardItem.self,
+        AutomationWorkflow.self,
+        AutomationRun.self
     ])
 
     nonisolated static let storeDirectory: URL = {

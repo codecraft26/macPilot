@@ -37,6 +37,7 @@ final class MicRecorder: NSObject, AVCaptureFileOutputRecordingDelegate, AVCaptu
     private let dataQueue = DispatchQueue(label: "com.macpilot.mic-data")
     /// Raw microphone audio for live transcription, called on a background queue. Set before `start`.
     var onAudio: ((AVAudioPCMBuffer) -> Void)?
+    private(set) var capturesLiveAudio = false
     private var finishContinuation: CheckedContinuation<Void, Never>?
     private let lock = NSLock()
     private var _startedAt: Date?
@@ -74,10 +75,15 @@ final class MicRecorder: NSObject, AVCaptureFileOutputRecordingDelegate, AVCaptu
             throw RecorderError.cannotAddInput
         }
         session.addInput(input)
-        if session.canAddOutput(output) { session.addOutput(output) }
+        guard session.canAddOutput(output) else {
+            session.commitConfiguration()
+            throw RecorderError.cannotAddInput
+        }
+        session.addOutput(output)
         if onAudio != nil, session.canAddOutput(dataOutput) {
             session.addOutput(dataOutput)
             dataOutput.setSampleBufferDelegate(self, queue: dataQueue)
+            capturesLiveAudio = true
         }
         session.commitConfiguration()
 
@@ -103,8 +109,11 @@ final class MicRecorder: NSObject, AVCaptureFileOutputRecordingDelegate, AVCaptu
     }
 
     func stop() async {
-        guard output.isRecording else {
+        defer {
             session.stopRunning()
+            if capturesLiveAudio { dataQueue.sync {} }
+        }
+        guard output.isRecording else {
             return
         }
         await withCheckedContinuation { continuation in
@@ -113,13 +122,12 @@ final class MicRecorder: NSObject, AVCaptureFileOutputRecordingDelegate, AVCaptu
             lock.unlock()
             output.stopRecording()
         }
-        session.stopRunning()
     }
 
     // MARK: AVCaptureAudioDataOutputSampleBufferDelegate
 
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
-        guard let onAudio, let buffer = sampleBuffer.pcmBuffer() else { return }
+        guard startedAt != nil, let onAudio, let buffer = sampleBuffer.pcmBuffer() else { return }
         onAudio(buffer)
     }
 

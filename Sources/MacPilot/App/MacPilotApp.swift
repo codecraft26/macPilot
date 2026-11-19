@@ -34,6 +34,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         ShortcutManager.shared.registerAll()
         ClipboardMonitor.shared.start()
+        AutomationEngine.shared.start()
 
         let defaults = UserDefaults.standard
         if !defaults.bool(forKey: PrefKey.hasLaunchedBefore) {

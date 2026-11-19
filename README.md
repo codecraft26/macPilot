@@ -1,6 +1,6 @@
 # MacPilot
 
-Your personal AI-powered workspace for macOS: a native menu bar app with a floating assistant, a full dashboard, global shortcuts, and bring-your-own-key access to Claude (Anthropic API or Amazon Bedrock) and OpenAI, plus local models through Ollama. Everything is stored locally; API keys live in the macOS Keychain.
+MacPilot is a native macOS menu bar app with a floating AI assistant, meeting recording, a calendar, notes, tasks, clipboard history, and developer tools. Use your own credentials for Claude through Anthropic or Amazon Bedrock and for OpenAI, or run models locally with Ollama. MacPilot stores app data on your Mac and credentials in the macOS Keychain. Cloud features send the relevant content to the configured service.
 
 ## Status
 
@@ -8,11 +8,11 @@ Your personal AI-powered workspace for macOS: a native menu bar app with a float
 |---|---|---|
 | 1 | Native app, menu bar, dashboard, shortcuts, settings, Keychain | Done |
 | 2 | OpenAI + Claude streaming chat, history, prompt library | Done (plus Ollama) |
-| 3 | Microphone recording, dictation, transcription, transcript editor | Recording, import, transcription and editor done; push-to-talk dictation next |
-| 4 | Meeting recording, system audio, speakers, meeting intelligence | Done (live transcription not yet) |
+| 3 | Microphone recording, dictation, transcription, transcript editor | Recording, import, transcription, and editing available. Push-to-talk dictation planned. |
+| 4 | Meeting recording, system audio, speakers, meeting intelligence | Recording and post-recording analysis available. Amazon Transcribe integration in progress. |
 | 5 | Calendar, notes, tasks, reminders | Done (Apple Reminders sync not yet) |
 | 6 | Clipboard manager, developer workspace | Done (plus ⌥K command launcher) |
-| 7 | Automations, local Whisper, distribution | Planned |
+| 7 | Automations, local Whisper, distribution | ZIP and DMG packaging available. Automations and local Whisper planned. |
 
 ## Screenshots
 
@@ -40,13 +40,13 @@ open build/MacPilot.app
 
 You can also open `Package.swift` in Xcode and run the `MacPilot` scheme for debugging. Running the bare binary (`swift run`) works too, but task notifications are disabled outside a bundled `.app`.
 
-Tests: `swift test`
+Run the test suite with `swift test`.
 
-On first launch the dashboard opens on **Settings → Providers**. Paste your Anthropic and/or OpenAI key, press **Save**, and MacPilot tests the connection and loads the model list.
+On first launch the dashboard opens on **Settings → Providers**. Save an Anthropic or OpenAI key to test the connection and load available models. For Ollama, enable the provider and enter your server URL (default `http://localhost:11434`). Choose your default chat, transcript analysis, and audio transcription providers in **Settings → Routing**.
 
 ### Installing on another Mac
 
-1. On this Mac run `scripts/package.sh`. It builds a universal app (Apple silicon and Intel, macOS 14+) and writes `build/MacPilot-<version>.zip` and `.dmg`. Send the zip or dmg, not the bare `.app` folder: copying the folder through some apps strips permissions and macOS then calls it "damaged".
+1. Run `./scripts/package.sh` to create `build/MacPilot-<version>.zip` and `build/MacPilot-<version>.dmg`. The script attempts a universal build for Apple silicon and Intel and prints the architectures it packaged. If the universal build fails, it retries for the build Mac's architecture. Share the ZIP or DMG to preserve the app bundle's permissions and structure.
 2. On the other Mac, unzip (or open the dmg) and drag **MacPilot** into **Applications**.
 3. The default build is not signed with an Apple Developer ID, so macOS blocks the first launch. Allow it once, either:
    - double-click MacPilot, then **System Settings → Privacy & Security**, scroll down and press **Open Anyway**; or
@@ -97,9 +97,15 @@ All shortcuts can be changed in **Settings → Shortcuts**. Some macOS versions 
 
 - **Voice & Transcription** records voice notes (microphone) and imports audio files (MP3, WAV, M4A, FLAC, OGG, AAC). Pick the microphone in **Settings → Recording & Calendar**; pause, resume and a level meter are in the recording bar and the menu bar.
 - **Meetings** (⌥R, or **Record** on a calendar event) record the microphone as “Me” and, with Screen & System Audio Recording permission, system audio as “Others” in a separate track via ScreenCaptureKit. Without that permission MacPilot keeps recording the microphone and says so.
-- After you stop, the audio is transcribed with OpenAI (`/v1/audio/transcriptions`, model from **Routing**; long files go up in 2-minute pieces) and analyzed by the analysis provider: summary, decisions, action items with owner and due date, deadlines, open questions and a follow-up email. Turn the automatic run off in Settings to trigger each step yourself.
+- After you stop, MacPilot uses the audio transcription and transcript analysis providers selected in **Settings → Routing**. Analysis produces a summary, decisions, action items with owners and due dates, deadlines, open questions, and a follow-up email draft. Turn off **Transcribe and summarize automatically** in **Settings → Recording & Calendar** to start each step yourself.
 - The transcript editor plays both tracks together; click a timestamp to seek, edit any line, rename speakers, search, and export Markdown, TXT or SRT. Action items become tasks (category “Meeting”); **Save as note** and **Ask AI** reuse the transcript.
-- Audio lives in `~/Library/Application Support/MacPilot/Recordings/`; set a retention period in **Privacy & Data**. Live transcription and local Whisper are not available yet.
+- Audio lives in `~/Library/Application Support/MacPilot/Recordings/`. Set a retention period in **Settings → Privacy & Data**.
+
+### Transcription providers
+
+- **OpenAI** is the default. Save your OpenAI API key in **Settings → Providers** and set **File transcription model** under **Settings → Routing → Audio transcription**. The default is `gpt-4o-transcribe`. MacPilot splits long audio it can decode into two-minute uploads. Choose `whisper-1` for segment timestamps returned by OpenAI.
+- **Amazon Transcribe (AWS)** is experimental. In **Settings → Providers → Claude via Amazon Bedrock**, save an AWS access key ID and secret, plus a session token if you use temporary credentials. Then select **Amazon Transcribe (AWS)** in **Settings → Routing → Audio transcription**. MacPilot uses the Bedrock region by default and streams saved audio files to Amazon Transcribe. The code also supports S3 batch jobs with speaker labels when a bucket is configured. S3 settings have yet to be added to the UI.
+- Live captions still need to be connected to the recording controls. The **Local Whisper (on device)** option is a placeholder.
 
 ## Calendar
 
@@ -137,18 +143,15 @@ Sources/MacPilot
 ├── Models/       SwiftData models (Conversation, ChatMessage, PromptTemplate, Note, TaskItem, Recording) and the store
 ├── Services/     Keychain, preferences, export/delete, notifications, transcription, meeting intelligence, EventKit
 │   ├── Audio/    Microphone (AVCaptureSession) and system audio (ScreenCaptureKit) recorders, RecordingManager
+│   ├── AWS/      Amazon Transcribe batch and streaming clients, AWS event-stream framing
 │   ├── Clipboard/ Pasteboard monitor, sensitive-content filter, paste service, fuzzy matcher, clip AI actions
 │   └── Developer/ git (porcelain v2), argument-array process runner, command safety, HTTP request runner
 └── Views/        Dashboard, Assistant, Quick assistant, Voice, Calendar & Meetings, Notes, Tasks, Settings, menu bar
 ```
 
-- **Providers are independent** (PRD section 5): chat, transcript analysis and transcription each have their own setting in **Settings → Routing**.
+- **Provider routing** lets you choose chat, transcript analysis, and audio transcription providers independently in **Settings → Routing**.
 - **Claude** uses the Messages API with streaming over raw HTTP (there is no official Swift SDK). The default model is `claude-opus-5-5`. For models that support it, requests opt into the server-side refusal fallback (`anthropic-beta: server-side-fallback-2026-07-01`, `fallbacks: "default"`), so a safety refusal is retried on a suitable model instead of failing.
 - **OpenAI** uses Chat Completions streaming. The default model is `gpt-5`; change it or pick from the live list after **Test connection**.
 - **Secrets**: keys are read from the Keychain at request time, never stored in SwiftData or UserDefaults, and provider error messages are passed through a redactor before they are shown.
 - **Usage limits**: token usage per provider per month is tracked from provider responses; set a monthly token cap in **Settings → Usage**.
 - **No backend**: data lives in `~/Library/Application Support/MacPilot/`. Export everything as JSON or delete it from **Settings → Privacy & Data**.
-
-## Not yet verified
-
-The transcription model names in the PRD (`gpt-transcribe`, `gpt-live-transcribe`) were not verifiable when this was written, so Routing defaults to `gpt-4o-transcribe`; the fields are editable.

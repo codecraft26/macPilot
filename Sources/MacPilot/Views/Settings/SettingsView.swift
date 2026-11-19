@@ -196,7 +196,6 @@ struct RoutingSettingsView: View {
     @AppStorage(PrefKey.analysisProvider) private var analysisProvider = AIProviderID.anthropic.rawValue
     @AppStorage(PrefKey.transcriptionProvider) private var transcriptionProvider = TranscriptionProviderID.openAI.rawValue
     @AppStorage(PrefKey.transcriptionModel) private var transcriptionModel = "gpt-4o-transcribe"
-    @AppStorage(PrefKey.liveTranscriptionModel) private var liveTranscriptionModel = "gpt-4o-transcribe"
     @AppStorage(PrefKey.defaultSystemPrompt) private var systemPrompt = ""
 
     var body: some View {
@@ -221,17 +220,108 @@ struct RoutingSettingsView: View {
                 Picker("Provider", selection: $transcriptionProvider) {
                     ForEach(TranscriptionProviderID.allCases) { Text($0.displayName).tag($0.rawValue) }
                 }
-                TextField("File transcription model", text: $transcriptionModel)
-                TextField("Live transcription model", text: $liveTranscriptionModel)
-            } header: {
-                Text("Audio transcription")
-            } footer: {
-                Text("Claude is used for analysis, not speech-to-text. OpenAI models: gpt-4o-transcribe, gpt-4o-mini-transcribe or whisper-1 (whisper-1 returns exact segment timestamps). Long audio is uploaded in 2-minute pieces. Local Whisper arrives in Phase 7; live transcription is not available yet.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                if selectedTranscriber == .openAI {
+                    TextField("File transcription model", text: $transcriptionModel)
+                    Text("Long audio is uploaded to OpenAI in two-minute pieces when MacPilot can decode it.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            } header: { Text("Audio transcription") }
+            if selectedTranscriber == .amazonTranscribe || selectedTranscriber == .bedrock {
+                AWSTranscriptionSettingsView(provider: selectedTranscriber)
             }
+            if selectedTranscriber == .localWhisper { LocalWhisperSettingsView() }
         }
         .formStyle(.grouped)
+    }
+
+    private var selectedTranscriber: TranscriptionProviderID {
+        TranscriptionProviderID(rawValue: transcriptionProvider) ?? .openAI
+    }
+}
+
+private struct AWSTranscriptionSettingsView: View {
+    let provider: TranscriptionProviderID
+    @AppStorage(PrefKey.transcribeRegion) private var region = ""
+    @AppStorage(PrefKey.transcribeBucket) private var bucket = ""
+    @AppStorage(PrefKey.transcribePrefix) private var prefix = "macpilot/"
+    @AppStorage(PrefKey.transcribeLanguage) private var language = "auto"
+    @AppStorage(PrefKey.transcribeIdentifySpeakers) private var speakers = true
+    @AppStorage(PrefKey.transcribeMaxSpeakers) private var maxSpeakers = 4
+    @AppStorage(PrefKey.transcribeDeleteAfter) private var cleanUp = true
+    @AppStorage(PrefKey.transcribeLive) private var live = false
+    @AppStorage(PrefKey.transcribeUseLive) private var reuseLive = false
+    @AppStorage(PrefKey.bedrockDataProfile) private var profile = ""
+    @AppStorage(PrefKey.bedrockDataProject) private var project = ""
+
+    var body: some View {
+        Section("AWS transcription") {
+            Text("Save an AWS access key under Providers → Claude via Amazon Bedrock. Add the session token for temporary credentials.")
+                .font(.caption).foregroundStyle(.secondary)
+            TextField("AWS region", text: $region, prompt: Text(BedrockConfig.region))
+            TextField("S3 bucket", text: $bucket)
+            Text(provider == .bedrock
+                 ? "Bedrock uploads audio and writes transcripts to this bucket. Use a bucket in the AWS region above."
+                 : "A bucket in this region enables batch jobs. Leave it blank to stream saved audio to Amazon Transcribe.")
+                .font(.caption).foregroundStyle(.secondary)
+            if provider == .bedrock || !bucket.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                TextField("S3 key prefix", text: $prefix)
+                Toggle(provider == .bedrock ? "Delete uploaded audio after a job finishes" : "Delete uploaded audio and completed job", isOn: $cleanUp)
+            }
+            if provider == .bedrock {
+                TextField("Data Automation profile ARN", text: $profile)
+                TextField("Data Automation project ARN (optional)", text: $project)
+                Text("If you use a project, enable the full audio transcript in its standard output. Bedrock output files stay in S3.")
+                    .font(.caption).foregroundStyle(.secondary)
+                Link("Bedrock Data Automation profiles and IAM", destination: URL(string: "https://docs.aws.amazon.com/bedrock/latest/userguide/bda-cris.html")!)
+            }
+            if provider == .amazonTranscribe || live {
+                Picker("Amazon Transcribe language", selection: $language) {
+                    ForEach(TranscribeSettings.languages, id: \.code) { Text($0.label).tag($0.code) }
+                }
+                Toggle("Identify speakers with Amazon Transcribe", isOn: $speakers)
+                if speakers && provider == .amazonTranscribe && !bucket.isEmpty {
+                    Stepper("Maximum speakers per batch track: \(maxSpeakers)", value: $maxSpeakers, in: 2...10)
+                }
+            }
+            Toggle("Live microphone captions via Amazon Transcribe", isOn: $live)
+            if live {
+                Text("While recording, microphone audio streams to Amazon Transcribe. System audio is processed after you stop.")
+                    .font(.caption).foregroundStyle(.secondary)
+                if provider == .amazonTranscribe {
+                    Toggle("Reuse complete live captions for the microphone track", isOn: $reuseLive)
+                }
+            }
+            if provider == .amazonTranscribe || live {
+                Link("Amazon Transcribe WebSocket permission", destination: URL(string: "https://docs.aws.amazon.com/transcribe/latest/dg/streaming-setting-up.html")!)
+            }
+        }
+    }
+}
+
+private struct LocalWhisperSettingsView: View {
+    @AppStorage(PrefKey.whisperExecutable) private var executable = ""
+    @AppStorage(PrefKey.whisperModel) private var model = ""
+
+    var body: some View {
+        Section("Local Whisper") {
+            pathField("whisper-cli executable", path: $executable)
+            pathField("whisper.cpp model file", path: $model)
+            Text("Install whisper.cpp and select a local model file. MacPilot can find whisper-cli in the default Homebrew locations. Audio is transcribed on this Mac.")
+                .font(.caption).foregroundStyle(.secondary)
+            Link("Whisper.cpp setup", destination: URL(string: "https://github.com/ggml-org/whisper.cpp#quick-start")!)
+        }
+    }
+
+    private func pathField(_ title: String, path: Binding<String>) -> some View {
+        HStack {
+            TextField(title, text: path)
+            Button("Choose…") {
+                let panel = NSOpenPanel()
+                panel.message = title
+                if panel.runModal() == .OK, let url = panel.url { path.wrappedValue = url.path }
+            }
+            .accessibilityLabel("Choose \(title)")
+        }
     }
 }
 
@@ -425,6 +515,8 @@ struct PrivacySettingsView: View {
                     .textSelection(.enabled)
             }
             Section("Recording") {
+                Text("Cloud transcription sends audio to the provider selected in Routing. Bedrock and Amazon Transcribe batch mode also upload audio to your S3 bucket. Local Whisper processes audio on this Mac.")
+                    .font(.caption).foregroundStyle(.secondary)
                 Text("MacPilot never records in the background. A red indicator shows in the menu bar whenever audio is captured. You are responsible for getting consent from people you record.")
                     .font(.callout)
                 Picker("Keep audio files", selection: $retentionDays) {
@@ -470,7 +562,7 @@ struct PrivacySettingsView: View {
                 run { try DataManager.deleteAllLocalData(context: context) }
             }
         } message: {
-            Text("Conversations, notes, tasks, prompts, recordings (with audio), clipboard history and usage stats will be removed. API keys are kept unless you delete them separately. This cannot be undone.")
+            Text("Conversations, notes, tasks, prompts, recordings (with audio), clipboard history, workflows, run history, and usage stats will be removed. API keys are kept unless you delete them separately. This cannot be undone.")
         }
     }
 
