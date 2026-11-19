@@ -12,7 +12,7 @@ enum SyncKind: String, Codable, CaseIterable {
         case .recording: return "Meetings (transcripts & summaries)"
         case .conversation: return "AI chats"
         case .prompt: return "Prompt library"
-        case .library: return "Snippets & quick links"
+        case .library: return "Snippets, quick links & AI commands"
         }
     }
 }
@@ -180,4 +180,6 @@ struct PromptDTO: Codable, Equatable {
 struct LibraryDTO: Codable, Equatable {
     var links: [QuickLink]
     var snippets: [Snippet]
+    /// Optional so files from 0.16.0 still read.
+    var aiCommands: [AICommand]?
 }

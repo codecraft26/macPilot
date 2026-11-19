@@ -293,8 +293,10 @@ struct SyncSnapshot {
             let dto = PromptDTO(title: prompt.title, body: prompt.body, category: prompt.category, createdAt: prompt.createdAt)
             snapshot.items.append(LocalItem(kind: .prompt, id: prompt.uid, payload: SyncCodec.encode(dto), naturalDate: prompt.createdAt))
         }
-        let library = LibraryDTO(links: SnippetLibrary.shared.links, snippets: SnippetLibrary.shared.snippets)
+        let library = LibraryDTO(links: SnippetLibrary.shared.links, snippets: SnippetLibrary.shared.snippets,
+                                 aiCommands: SnippetLibrary.shared.aiCommands)
         let isDefault = library.links == QuickLink.defaults && library.snippets == Snippet.defaults
+            && library.aiCommands == AICommand.defaults
         snapshot.items.append(LocalItem(kind: .library, id: SyncKeys.libraryID, payload: SyncCodec.encode(library),
                                         naturalDate: isDefault ? .distantPast : Date()))
         return snapshot
@@ -397,6 +399,7 @@ enum SyncApplier {
             guard let dto = SyncCodec.decode(LibraryDTO.self, from: payload) else { return .skipped }
             if SnippetLibrary.shared.links != dto.links { SnippetLibrary.shared.links = dto.links }
             if SnippetLibrary.shared.snippets != dto.snippets { SnippetLibrary.shared.snippets = dto.snippets }
+            if let commands = dto.aiCommands, SnippetLibrary.shared.aiCommands != commands { SnippetLibrary.shared.aiCommands = commands }
         }
         return .updated
     }

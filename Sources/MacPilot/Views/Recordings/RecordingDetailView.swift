@@ -281,8 +281,8 @@ private struct SummaryTab: View {
                                 }
                             }
                             Button("Add all as tasks") {
-                                recording.actionItems.forEach { RecordingActions.addTask($0, from: recording, context: context) }
-                                flash = "Added \(recording.actionItems.count) tasks (category Meeting)."
+                                let added = RecordingActions.addMissingTasks(from: recording, context: context)
+                                flash = added == 0 ? "All action items are already tasks." : "Added \(added) tasks (category Meeting)."
                             }
                         }
                     }
@@ -295,9 +295,31 @@ private struct SummaryTab: View {
                                 .padding(10)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .textBackgroundColor)))
-                            Button("Copy email") {
-                                Clipboard.copy(recording.followUpEmail)
-                                flash = "Follow-up email copied."
+                            HStack {
+                                Button("Open in Mail") {
+                                    flash = RecordingActions.openFollowUpInMail(recording)
+                                        ? "Draft opened in Mail — review and send it yourself." : "Couldn't open Mail; the email is copied instead."
+                                    if flash?.hasPrefix("Couldn't") == true { Clipboard.copy(recording.followUpEmail) }
+                                }
+                                Button("Copy email") {
+                                    Clipboard.copy(recording.followUpEmail)
+                                    flash = "Follow-up email copied."
+                                }
+                            }
+                        }
+                        section("Follow up in one click") {
+                            Text("Opens the email as a Mail draft to the attendees (you send it), adds the action items as tasks (they sync to Reminders), and opens a follow-up meeting for next week to confirm.")
+                                .font(.caption).foregroundStyle(.secondary)
+                            HStack {
+                                Button {
+                                    let mailed = RecordingActions.openFollowUpInMail(recording)
+                                    let added = RecordingActions.addMissingTasks(from: recording, context: context)
+                                    flash = [mailed ? "Mail draft opened" : "Couldn't open Mail", "\(added) task\(added == 1 ? "" : "s") added"].joined(separator: " · ")
+                                } label: { Label("Do the follow-up", systemImage: "paperplane") }
+                                .buttonStyle(.borderedProminent)
+                                Button("Schedule next meeting…") {
+                                    WindowManager.shared.open(.calendar, action: .quickAddEvent("Follow-up: \(recording.title) next week at the same time"))
+                                }
                             }
                         }
                     }

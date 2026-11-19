@@ -146,6 +146,10 @@ enum LauncherCatalog {
                          primary: { if NotchTimers.shared.current != nil { NotchTimers.shared.cancel() } else { WindowManager.shared.toggleLauncher() } }),
             LauncherItem(id: "cmd.askmac", title: "Ask my Mac", subtitle: "Answers from your meetings, notes, tasks and clipboard (⌥⇧A)",
                          icon: .system("sparkle.magnifyingglass"), section: "AI", primary: { WindowManager.shared.toggleAskMac() }),
+            LauncherItem(id: "cmd.screenshot", title: "Screenshot & read text", subtitle: "Capture an area, OCR, ask AI, pin (⌥⇧S)",
+                         icon: .system("camera.viewfinder"), section: "AI", primary: { ScreenCaptureTool.shared.captureArea() }),
+            LauncherItem(id: "cmd.askscreen", title: "Ask AI about this window", subtitle: "Summarize or explain the window you were using",
+                         icon: .system("macwindow.badge.plus"), section: "AI", primary: { ScreenCaptureTool.shared.askAboutFrontWindow() }),
             LauncherItem(id: "cmd.textactions", title: "AI on selected text", subtitle: "Rewrite, shorten, fix, translate (⌥⇧E)",
                          icon: .system("wand.and.stars"), section: "AI", primary: { TextActionsController.shared.open() }),
             LauncherItem(id: "cmd.icloudsync", title: "Sync with my other Macs now", subtitle: "iCloud Drive sync (Settings → Sync)",
@@ -158,6 +162,10 @@ enum LauncherCatalog {
             LauncherItem(id: "sys.darkmode", title: "Toggle Dark Mode", icon: .system("circle.lefthalf.filled"), section: "System", primary: { SystemCommands.toggleDarkMode() }),
             LauncherItem(id: "sys.emptytrash", title: "Empty Trash…", subtitle: "Asks first", icon: .system("trash"), section: "System", primary: { SystemCommands.emptyTrash() })
         ]
+        commands += SnippetLibrary.shared.aiCommands.map { command in
+            LauncherItem(id: "ai.\(command.id.uuidString)", title: command.name, subtitle: "AI command on selected text",
+                         icon: .system("sparkles"), section: "AI", primary: { TextActionsController.shared.open(running: command) })
+        }
         commands.append(LauncherItem(id: "tool.pageEditor", title: "Edit PDF pages", subtitle: "Rotate, reorder, delete, page numbers, watermark",
                                      icon: .system("doc.on.doc"), section: "File Tools",
                                      primary: { windows.open(.tools, action: .openTool("pageEditor")) }))

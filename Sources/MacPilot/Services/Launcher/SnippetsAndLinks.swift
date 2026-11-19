@@ -57,6 +57,23 @@ struct Snippet: Codable, Identifiable, Hashable {
     }
 }
 
+/// Your own AI command on selected text, e.g. "Tweet from selection". Shown in ⌥⇧E and ⌥K.
+struct AICommand: Codable, Identifiable, Hashable {
+    var id = UUID()
+    var name: String
+    var instruction: String
+    /// True: the result can replace the selection. False: it's an answer about the text.
+    var replacesSelection = false
+
+    static let defaults: [AICommand] = [
+        AICommand(name: "Tweet from selection", instruction: "Turn it into one punchy post under 280 characters. No hashtags unless essential."),
+        AICommand(name: "Commit message", instruction: "Write a conventional commit message (subject under 72 characters, blank line, short body) for this diff or description."),
+        AICommand(name: "Find bugs", instruction: "Review this code. List real bugs and risks with a one-line fix each, most serious first. Say so if it looks fine."),
+        AICommand(name: "Make a checklist", instruction: "Turn it into a Markdown checklist (- [ ] item), one action per line.", replacesSelection: true),
+        AICommand(name: "Simplify for anyone", instruction: "Rewrite it so a 12-year-old could understand it, keeping every important point.", replacesSelection: true)
+    ]
+}
+
 @Observable
 @MainActor
 final class SnippetLibrary {
@@ -64,13 +81,16 @@ final class SnippetLibrary {
 
     var links: [QuickLink] { didSet { save(links, key: Self.linksKey) } }
     var snippets: [Snippet] { didSet { save(snippets, key: Self.snippetsKey) } }
+    var aiCommands: [AICommand] { didSet { save(aiCommands, key: Self.aiCommandsKey) } }
 
     private static let linksKey = "launcher.quickLinks"
     private static let snippetsKey = "launcher.snippets"
+    private static let aiCommandsKey = "launcher.aiCommands"
 
     private init() {
         links = Self.load(Self.linksKey) ?? QuickLink.defaults
         snippets = Self.load(Self.snippetsKey) ?? Snippet.defaults
+        aiCommands = Self.load(Self.aiCommandsKey) ?? AICommand.defaults
     }
 
     private static func load<T: Decodable>(_ key: String) -> T? {

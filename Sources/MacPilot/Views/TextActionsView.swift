@@ -63,6 +63,24 @@ struct TextActionsView: View {
                     .buttonStyle(.plain)
                     .hoverHighlight()
                 }
+                if !SnippetLibrary.shared.aiCommands.isEmpty {
+                    Text("Your commands").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                        .padding(.horizontal, 10).padding(.top, 6)
+                    ForEach(SnippetLibrary.shared.aiCommands) { command in
+                        Button { controller.run(command) } label: {
+                            HStack(spacing: 10) {
+                                Image(systemName: "sparkles").frame(width: 20).foregroundStyle(DS.violet)
+                                Text(command.name)
+                                Spacer()
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .hoverHighlight()
+                    }
+                }
                 HStack(spacing: 8) {
                     Image(systemName: "text.cursor").frame(width: 20).foregroundStyle(DS.accent)
                     TextField("Or tell it what to do… (Return)", text: $controller.customInstruction)
@@ -80,7 +98,7 @@ struct TextActionsView: View {
     private var resultView: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text(controller.lastAction?.title ?? "Custom").font(.headline)
+                Text(controller.lastAction?.title ?? controller.commandName ?? "Custom").font(.headline)
                 if controller.phase == .running { ProgressView().controlSize(.small) }
                 Spacer()
                 Button("Back") { controller.reset() }.buttonStyle(.borderless)
@@ -109,7 +127,7 @@ struct TextActionsView: View {
             if controller.phase == .done {
                 Button("Try again") { controller.retry() }
                 Button("Copy") { controller.copyResult() }
-                if controller.lastAction?.replacesSelection ?? true {
+                if controller.canReplace {
                     Button("Replace selection") { controller.replace() }.buttonStyle(.borderedProminent)
                 }
             } else {
@@ -130,7 +148,7 @@ struct TextActionsView: View {
             guard actions.indices.contains(number - 1), controller.phase == .idle else { return false }
             controller.run(actions[number - 1])
         case .enter where controller.phase == .done && !customFocused:
-            if event.command { controller.copyResult() } else if controller.lastAction?.replacesSelection ?? true { controller.replace() } else { controller.copyResult() }
+            if event.command { controller.copyResult() } else if controller.canReplace { controller.replace() } else { controller.copyResult() }
         default:
             return false
         }

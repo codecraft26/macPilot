@@ -56,7 +56,7 @@ struct HotKey: Codable, Equatable {
 
 /// Actions reachable from global shortcuts (PRD section 8).
 enum ShortcutAction: String, CaseIterable, Identifiable, Codable {
-    case assistant, dictation, recording, clipboard, newNote, newTask, launcher, voiceTask, textActions, askMac
+    case assistant, dictation, recording, clipboard, newNote, newTask, launcher, voiceTask, textActions, askMac, screenshot
 
     var id: String { rawValue }
 
@@ -72,6 +72,7 @@ enum ShortcutAction: String, CaseIterable, Identifiable, Codable {
         case .voiceTask: return "Voice to task"
         case .textActions: return "AI on selected text"
         case .askMac: return "Ask my Mac"
+        case .screenshot: return "Screenshot & read text"
         }
     }
 
@@ -92,6 +93,7 @@ enum ShortcutAction: String, CaseIterable, Identifiable, Codable {
         case .voiceTask: return HotKey(keyCode: UInt32(kVK_ANSI_T), carbonModifiers: option | UInt32(shiftKey), keyLabel: "T")
         case .textActions: return HotKey(keyCode: UInt32(kVK_ANSI_E), carbonModifiers: option | UInt32(shiftKey), keyLabel: "E")
         case .askMac: return HotKey(keyCode: UInt32(kVK_ANSI_A), carbonModifiers: option | UInt32(shiftKey), keyLabel: "A")
+        case .screenshot: return HotKey(keyCode: UInt32(kVK_ANSI_S), carbonModifiers: option | UInt32(shiftKey), keyLabel: "S")
         }
     }
 }
@@ -309,6 +311,8 @@ enum ShortcutRouter {
             TextActionsController.shared.open()
         case .askMac:
             WindowManager.shared.toggleAskMac()
+        case .screenshot:
+            ScreenCaptureTool.shared.captureArea()
         }
     }
 

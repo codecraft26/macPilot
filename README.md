@@ -95,10 +95,13 @@ SIGN_IDENTITY="Apple Development: Your Name (TEAMID)" ./scripts/build-app.sh
 | ⌥K | Command launcher: commands, notes, tasks, clipboard, apps, “Ask AI” |
 | ⌥⇧E | AI on selected text: fix, rewrite, shorten, change tone, translate, then replace it |
 | ⌥⇧A | Ask my Mac: answers from your meetings, notes, tasks and clipboard, with sources |
+| ⌥⇧S | Screenshot an area: read its text (OCR), ask AI, copy, pin on screen, save |
 
 All shortcuts can be changed in **Settings → Shortcuts**. Some macOS versions refuse global shortcuts that use only ⌥ (or ⌥⇧); if that happens, Settings shows the error and you can add ⌃ or ⌘.
 
 ## Recording and meetings
+
+**One-click follow-up:** on a meeting with a summary, **Do the follow-up** opens the follow-up email as a Mail draft addressed to the attendees (you review and send), adds the action items as tasks (skipping ones already added; they sync to Reminders), and **Schedule next meeting…** opens a pre-filled event to confirm.
 
 - **Voice & Transcription** records voice notes (microphone) and imports audio files (MP3, WAV, M4A, FLAC, OGG, AAC). Pick the microphone in **Settings → Recording & Calendar**; pause, resume and a level meter are in the recording bar and the menu bar.
 - **Meetings** (⌥R, or **Record** on a calendar event) record the microphone as “Me” and, with Screen & System Audio Recording permission, system audio as “Others” in a separate track via ScreenCaptureKit. Without that permission MacPilot keeps recording the microphone and says so.
@@ -159,6 +162,18 @@ Turn on **Settings → Recording & Calendar → Reminders → Sync tasks with Ap
 ## AI on selected text (⌥⇧E)
 
 Select text in any app and press **⌥⇧E**. Pick an action — fix spelling & grammar, rewrite more clearly, make shorter or longer, more professional or friendly, bullet points, summarize, explain, draft a reply, translate — or type your own instruction. **⌘1–9** runs an action, **Return** replaces the selection in the original app (the clipboard is restored afterwards), **⌘Return** copies. Needs Accessibility; apps that don't expose the selection (browsers, Electron) are read with a quick ⌘C. Uses the analysis provider from Settings (e.g. Claude on Bedrock).
+
+**Your own AI commands:** save prompts like “Tweet from selection”, “Commit message” or “Find bugs” in **Settings → Snippets & Links → AI commands**. They appear in ⌥⇧E under “Your commands” and as ⌥K commands that run on the current selection.
+
+## Morning briefing
+
+The dashboard opens with **Today's briefing**: an AI summary of today's meetings, tasks due today and overdue, and open action items from the last three days of meetings, ending with a suggested focus. Written once each morning (turn that off from the card's ⋯ menu) or on demand with Refresh; without an AI provider it shows the plain list.
+
+## Screenshots and screen-aware assistant
+
+- **⌥⇧S** works like ⌘⇧4 (drag an area; Space picks a window). MacPilot reads the text, then you can copy the text or image, ask AI about it, **pin it** as a floating always-on-top image (drag to move, double-click or Esc to close), or save it to the Desktop.
+- In the **⌥Space** assistant, the 👁 button reads the window you were using, so you can ask “summarize this”, “reply to this email” or “what does this error mean”. ⌥K → “Ask AI about this window” does it in one step.
+- Needs Screen Recording permission (the same one meeting recording uses). Text is read on the Mac; only the text goes to your AI provider.
 
 ## Ask my Mac (⌥⇧A)
 

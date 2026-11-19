@@ -1380,6 +1380,32 @@ struct SnippetsSettingsView: View {
             }
 
             Section {
+                ForEach(Bindable(library).aiCommands) { $command in
+                    HStack(alignment: .top) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            TextField("Name", text: $command.name).font(.body.weight(.medium))
+                            TextField("What the AI should do with the selected text", text: $command.instruction, axis: .vertical).lineLimit(1...5)
+                            Toggle("Result replaces the selection", isOn: $command.replacesSelection).controlSize(.small)
+                        }
+                        Button(role: .destructive) { library.aiCommands.removeAll { $0.id == command.id } } label: {
+                            Image(systemName: "minus.circle")
+                        }
+                        .buttonStyle(.borderless)
+                        .accessibilityLabel("Delete AI command")
+                    }
+                }
+                HStack {
+                    Button("Add AI command") { library.aiCommands.append(AICommand(name: "New command", instruction: "")) }
+                    Button("Restore defaults") { library.aiCommands = AICommand.defaults }
+                }
+            } header: {
+                Text("AI commands")
+            } footer: {
+                Text("Your own prompts for selected text. They appear in ⌥⇧E under “Your commands” and as commands in ⌥K.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+
+            Section {
                 ForEach(Bindable(library).links) { $link in
                     HStack {
                         TextField("Keyword", text: $link.keyword).frame(width: 70).font(.body.monospaced())

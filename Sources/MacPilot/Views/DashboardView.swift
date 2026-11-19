@@ -33,6 +33,7 @@ struct DashboardView: View {
             VStack(alignment: .leading, spacing: DS.Space.l) {
                 header
                 NextMeetingHero()
+                BriefingCard()
                 QuickActionsRow()
                 LazyVGrid(columns: columns, alignment: .leading, spacing: DS.Space.m) {
                     tasksCard
@@ -374,6 +375,49 @@ private struct QuickActionTile: View {
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
         .help(shortcut.isEmpty ? title : "\(title) (\(shortcut))")
+    }
+}
+
+// MARK: - Briefing
+
+private struct BriefingCard: View {
+    @AppStorage(PrefKey.autoBriefing) private var auto = true
+    @State private var expanded = true
+    private let briefing = DailyBriefing.shared
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: DS.Space.s) {
+            SectionHeader(title: "Today's briefing", systemImage: "sun.max", color: .orange) {
+                if briefing.phase == .writing { ProgressView().controlSize(.small) }
+                if let date = briefing.generatedAt, briefing.phase != .writing {
+                    Text(date.formatted(.relative(presentation: .named))).font(.caption).foregroundStyle(.secondary)
+                }
+                Menu {
+                    Toggle("Write automatically each morning", isOn: $auto)
+                    Button(expanded ? "Collapse" : "Expand") { expanded.toggle() }
+                } label: { Image(systemName: "ellipsis.circle") }
+                    .menuStyle(.borderlessButton).frame(width: 28)
+                Button(briefing.text.isEmpty ? "Write it" : "Refresh") { briefing.generate() }
+                    .controlSize(.small).disabled(briefing.phase == .writing)
+            }
+            if expanded {
+                if briefing.text.isEmpty && briefing.phase != .writing {
+                    Text("A short AI summary of today's meetings, due and overdue tasks, and open action items from recent meetings.")
+                        .font(.callout).foregroundStyle(.secondary)
+                } else if briefing.text.isEmpty {
+                    TypingIndicator()
+                } else {
+                    Text(LocalizedStringKey(briefing.text)).textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                if case .failed(let message) = briefing.phase {
+                    Label("AI unavailable (\(message)) — showing the plain list.", systemImage: "exclamationmark.triangle")
+                        .font(.caption).foregroundStyle(.orange)
+                }
+            }
+        }
+        .card()
+        .onAppear { briefing.generateIfNeeded() }
     }
 }
 

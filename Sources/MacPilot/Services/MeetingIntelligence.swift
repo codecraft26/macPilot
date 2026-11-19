@@ -220,6 +220,50 @@ enum RecordingActions {
         return note
     }
 
+    /// Email addresses among the attendees (calendar attendees are often "Name <a@b.com>" or plain addresses).
+    nonisolated static func emailAddresses(in attendees: String) -> [String] {
+        guard let regex = try? NSRegularExpression(pattern: #"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}"#, options: .caseInsensitive) else { return [] }
+        let range = NSRange(attendees.startIndex..., in: attendees)
+        var seen = Set<String>()
+        return regex.matches(in: attendees, range: range).compactMap { Range($0.range, in: attendees).map { String(attendees[$0]) } }
+            .filter { seen.insert($0.lowercased()).inserted }
+    }
+
+    /// Splits "Subject: …" off the AI's follow-up email if present.
+    nonisolated static func splitSubject(_ email: String, fallback: String) -> (subject: String, body: String) {
+        let lines = email.split(separator: "\n", omittingEmptySubsequences: false)
+        if let first = lines.first, first.lowercased().hasPrefix("subject:") {
+            let subject = first.dropFirst("subject:".count).trimmingCharacters(in: .whitespaces)
+            return (subject, lines.dropFirst().joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines))
+        }
+        return (fallback, email)
+    }
+
+    /// Opens a new Mail message with the follow-up, addressed to the attendees.
+    static func openFollowUpInMail(_ recording: Recording) -> Bool {
+        let (subject, body) = splitSubject(recording.followUpEmail, fallback: "Follow-up: \(recording.title)")
+        guard let service = NSSharingService(named: .composeEmail) else { return false }
+        service.recipients = emailAddresses(in: recording.attendees)
+        service.subject = subject
+        guard service.canPerform(withItems: [body]) else { return false }
+        service.perform(withItems: [body])
+        return true
+    }
+
+    /// Adds action items that aren't tasks yet; returns how many were added.
+    @discardableResult
+    static func addMissingTasks(from recording: Recording, context: ModelContext) -> Int {
+        let existing = Set(((try? context.fetch(FetchDescriptor<TaskItem>())) ?? []).map { $0.title.lowercased() })
+        var added = 0
+        for item in recording.actionItems {
+            let title = item.owner.map { "\(item.task) (\($0))" } ?? item.task
+            guard !existing.contains(title.lowercased()) else { continue }
+            addTask(item, from: recording, context: context)
+            added += 1
+        }
+        return added
+    }
+
     static func addTask(_ item: ActionItem, from recording: Recording, context: ModelContext) {
         let title = item.owner.map { "\(item.task) (\($0))" } ?? item.task
         let task = TaskItem(title: title, dueDate: item.due.flatMap { DateParsing.firstDate(in: $0) }, category: "Meeting")

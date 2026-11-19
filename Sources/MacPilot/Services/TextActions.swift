@@ -83,17 +83,30 @@ final class TextActionsController {
     private(set) var lastAction: TextAction?
     private(set) var lastInstruction = ""
     private(set) var targetApp: NSRunningApplication?
+    /// Name of the custom command that produced the result, if any.
+    private(set) var commandName: String?
+    /// Whether Return should replace the selection with the result.
+    private(set) var canReplace = true
     private var task: Task<Void, Never>?
 
     /// Shortcut: grab the selection in the front app, then show the panel.
-    func open() {
+    func open(running command: AICommand? = nil) {
         let front = NSWorkspace.shared.frontmostApplication
         targetApp = front?.bundleIdentifier == Bundle.main.bundleIdentifier ? WindowManager.shared.previousApp : front
         reset()
         Task {
+            if command != nil { try? await Task.sleep(for: .milliseconds(150)) } // let ⌥K close and focus return
             selection = await Self.captureSelection(from: targetApp)
             WindowManager.shared.showTextActions()
+            if let command { run(command) }
         }
+    }
+
+    func run(_ command: AICommand) {
+        lastAction = nil
+        commandName = command.name
+        canReplace = command.replacesSelection
+        start(instruction: command.instruction)
     }
 
     func reset() {
@@ -101,12 +114,16 @@ final class TextActionsController {
         result = ""
         phase = .idle
         lastAction = nil
+        commandName = nil
+        canReplace = true
         customInstruction = ""
     }
 
     func run(_ action: TextAction) {
         let language = UserDefaults.standard.string(forKey: PrefKey.dictationLanguage) ?? "English"
         lastAction = action
+        commandName = nil
+        canReplace = action.replacesSelection
         start(instruction: action.instruction(language: language))
     }
 
@@ -114,6 +131,8 @@ final class TextActionsController {
         let instruction = customInstruction.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !instruction.isEmpty else { return }
         lastAction = nil
+        commandName = nil
+        canReplace = true
         start(instruction: instruction)
     }
 

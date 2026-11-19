@@ -122,6 +122,26 @@ final class WindowManager: NSObject, NSWindowDelegate {
         launcherPanel?.orderOut(nil)
         textActionsPanel?.orderOut(nil)
         askMacPanel?.orderOut(nil)
+        screenshotPanel?.orderOut(nil)
+    }
+
+    private(set) var screenshotPanel: FloatingPanel?
+
+    func showScreenshot() {
+        if screenshotPanel == nil {
+            screenshotPanel = FloatingPanel(rootView: ScreenshotView(), size: NSSize(width: 640, height: 440))
+        }
+        guard let panel = screenshotPanel else { return }
+        if !panel.isVisible, let screen = NSScreen.main {
+            let frame = screen.visibleFrame
+            panel.setFrameOrigin(NSPoint(x: frame.midX - panel.frame.width / 2, y: frame.midY - panel.frame.height / 2))
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        panel.makeKeyAndOrderFront(nil)
+    }
+
+    func hideScreenshot() {
+        screenshotPanel?.orderOut(nil)
     }
 
     private(set) var askMacPanel: FloatingPanel?
