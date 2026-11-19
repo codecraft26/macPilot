@@ -4,6 +4,7 @@ import SwiftUI
 struct VoiceView: View {
     @State private var showingImporter = false
     @State private var importError: String?
+    @State private var tab = 0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -16,11 +17,24 @@ struct VoiceView: View {
                     .padding(.horizontal, 16)
                     .padding(.bottom, 8)
             }
+            Picker("Show", selection: $tab) {
+                Text("Recordings").tag(0)
+                Text("Dictations").tag(1)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .frame(width: 260)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 10)
             Divider()
-            RecordingsBrowser(
-                kinds: Set(RecordingKind.allCases),
-                emptyMessage: "No recordings yet.\nRecord a voice note or meeting, or import an audio file (MP3, WAV, M4A, FLAC, OGG)."
-            )
+            if tab == 0 {
+                RecordingsBrowser(
+                    kinds: Set(RecordingKind.allCases),
+                    emptyMessage: "No recordings yet.\nRecord a voice note or meeting, or import an audio file (MP3, WAV, M4A, FLAC, OGG)."
+                )
+            } else {
+                DictationHistoryView()
+            }
         }
         .navigationTitle("Voice & Transcription")
         .fileImporter(isPresented: $showingImporter, allowedContentTypes: RecordingManager.importableTypes, allowsMultipleSelection: true) { result in

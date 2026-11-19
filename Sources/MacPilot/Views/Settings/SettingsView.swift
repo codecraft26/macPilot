@@ -9,6 +9,8 @@ struct SettingsView: View {
                 .tabItem { Label("Providers", systemImage: "key") }
             RoutingSettingsView()
                 .tabItem { Label("Routing", systemImage: "arrow.triangle.branch") }
+            DictationSettingsView()
+                .tabItem { Label("Dictation", systemImage: "mic.badge.plus") }
             RecordingSettingsView()
                 .tabItem { Label("Recording & Calendar", systemImage: "waveform") }
             ClipboardSettingsView()
@@ -1012,5 +1014,88 @@ private struct BedrockCredentialsSection: View {
         } catch {
             message = error.localizedDescription
         }
+    }
+}
+
+// MARK: - Dictation
+
+struct DictationSettingsView: View {
+    @AppStorage(PrefKey.dictationPushToTalk) private var pushToTalk = true
+    @AppStorage(PrefKey.dictationCleanup) private var cleanup = true
+    @AppStorage(PrefKey.dictationMode) private var mode = DictationMode.plain.rawValue
+    @AppStorage(PrefKey.dictationVocabulary) private var vocabulary = ""
+    @AppStorage(PrefKey.dictationLanguage) private var language = "English"
+    @AppStorage(PrefKey.dictationSounds) private var sounds = true
+    @AppStorage(PrefKey.dictationAutoPaste) private var autoPaste = true
+    @AppStorage(PrefKey.dictationKeepClipboard) private var keepClipboard = true
+    @AppStorage(PrefKey.dictationSaveNote) private var saveNote = false
+    @State private var isTrusted = PasteService.isTrusted
+    private let shortcuts = ShortcutManager.shared
+
+    var body: some View {
+        Form {
+            Section {
+                Picker("Shortcut behaviour", selection: $pushToTalk) {
+                    Text("Hold to talk, tap for hands-free").tag(true)
+                    Text("Tap to start, tap to stop").tag(false)
+                }
+                LabeledContent("Dictate", value: shortcuts.hotKey(for: .dictation)?.displayString ?? "Off")
+                LabeledContent("Voice to task", value: shortcuts.hotKey(for: .voiceTask)?.displayString ?? "Off")
+                Toggle("Play sounds on start and stop", isOn: $sounds)
+            } header: {
+                Text("Shortcut")
+            } footer: {
+                Text("Change the keys in Settings → Shortcuts. Esc cancels while listening (needs Accessibility), or use ✕ on the pill.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+
+            Section {
+                LabeledContent("Speech to text", value: Prefs.transcriptionProvider.displayName)
+                LabeledContent("Microphone", value: Prefs.microphoneID == nil ? "System default" : "Chosen in Recording & Calendar")
+                Toggle("Clean up with AI (punctuation, fillers, grammar)", isOn: $cleanup)
+                Picker("Default style", selection: $mode) {
+                    ForEach(DictationMode.allCases.filter { $0 != .task }) { Label($0.label, systemImage: $0.systemImage).tag($0.rawValue) }
+                }
+                TextField("Translate into", text: $language)
+            } header: {
+                Text("Transcription")
+            } footer: {
+                Text("Speech to text uses the provider in Routing; with Amazon Transcribe you see words while you speak. Cleanup uses \(Prefs.analysisProvider.displayName) (Routing → Transcript analysis); a fast model such as Haiku keeps it quick. Styles other than Plain always use AI. Without AI, fillers like “um” are removed locally.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+
+            Section {
+                TextEditor(text: $vocabulary)
+                    .font(.body.monospaced())
+                    .frame(minHeight: 70)
+            } header: {
+                Text("Vocabulary")
+            } footer: {
+                Text("Names, product terms and code identifiers, separated by commas or new lines. They help transcription and cleanup spell them right.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+
+            Section("Output") {
+                Toggle("Paste into the app you're using", isOn: $autoPaste)
+                Toggle("Keep my clipboard (restore it after pasting)", isOn: $keepClipboard)
+                    .disabled(!autoPaste)
+                Toggle("Also save each dictation as a note", isOn: $saveNote)
+                HStack {
+                    Image(systemName: isTrusted ? "checkmark.circle.fill" : "exclamationmark.triangle")
+                        .foregroundStyle(isTrusted ? .green : .orange)
+                    Text(isTrusted ? "Accessibility granted: text is pasted at your cursor." : "Without Accessibility permission the text is copied and you press ⌘V.")
+                    Spacer()
+                    if !isTrusted {
+                        Button("Open Settings") {
+                            PasteService.requestTrust()
+                            PasteService.openAccessibilitySettings()
+                        }
+                    }
+                }
+                .font(.callout)
+            }
+        }
+        .formStyle(.grouped)
+        .onAppear { isTrusted = PasteService.isTrusted }
     }
 }

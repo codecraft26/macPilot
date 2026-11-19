@@ -8,7 +8,7 @@ MacPilot is a native macOS menu bar app with a floating AI assistant, meeting re
 |---|---|---|
 | 1 | Native app, menu bar, dashboard, shortcuts, settings, Keychain | Done |
 | 2 | OpenAI + Claude streaming chat, history, prompt library | Done (plus Ollama) |
-| 3 | Microphone recording, dictation, transcription, transcript editor | Recording, import, transcription, and editing available. Push-to-talk dictation planned. |
+| 3 | Microphone recording, dictation, transcription, transcript editor | Done: recording, import, transcription, editing and ⌥D push-to-talk dictation. |
 | 4 | Meeting recording, system audio, speakers, meeting intelligence | Post-recording analysis and optional live microphone captions with Amazon Transcribe. |
 | 5 | Calendar, notes, tasks, reminders | Done (Apple Reminders sync not yet) |
 | 6 | Clipboard manager, developer workspace | Done (plus ⌥K command launcher) |
@@ -86,7 +86,8 @@ SIGN_IDENTITY="Apple Development: Your Name (TEAMID)" ./scripts/build-app.sh
 | Shortcut | Action |
 |---|---|
 | ⌥Space | Floating AI assistant |
-| ⌥D | Voice dictation (opens Voice until push-to-talk ships) |
+| ⌥D | Dictation: hold to talk, release to paste at the cursor (tap once for hands-free) |
+| ⌥⇧T | Voice to task: say a task (with a date) and it is added to Tasks |
 | ⌥R | Start / stop a meeting recording (named after the current calendar event) |
 | ⌥C | Clipboard history panel (search, paste into the current app) |
 | ⌥N | New note |
@@ -131,6 +132,15 @@ Workflows can create a note or task and can optionally require approval first. *
 - Create, edit and delete events with an alert. **Quick add** (“Lunch with Sam Friday 1pm”) is read by the analysis provider (or by macOS date detection if no provider is available) and always opens the editor so you confirm before anything is saved.
 - **Google Calendar (optional):** in **Settings → Recording & Calendar**, paste the client ID and secret of a Google Cloud OAuth client of type *Desktop app* (Google Calendar API enabled), press **Connect** and approve in your browser. Google calendars then appear next to Apple ones (marked with a G), with the same views, conflict checks, quick add, Record and Prep notes. Sign-in uses PKCE with a loopback redirect; the refresh token and client secret stay in the Keychain. Alternatively add the Google account under System Settings → Internet Accounts and it shows up through Apple Calendar.
 - Each event has **Record** (a meeting linked to the event, with its attendees) and **Prep notes** (a note linked to the event; its text is included when the meeting is analyzed). The dashboard shows upcoming meetings with a live countdown.
+
+## Dictation (⌥D)
+
+- **Hold ⌥D** anywhere, speak, and release: MacPilot transcribes, cleans up the text and pastes it where your cursor is. A **quick tap** starts hands-free mode; tap again to finish. **Esc** or the ✕ on the pill cancels.
+- A small pill at the bottom of the screen shows the mic level, timer and, with Amazon Transcribe, the words as you speak. It never takes focus from your app.
+- Speech to text uses the provider in **Settings → Routing** (OpenAI, Amazon Transcribe, Bedrock or local Whisper). Cleanup (punctuation, fillers, grammar) uses the analysis provider; without AI, fillers are removed locally.
+- Styles: Plain, Message, Email, Code prompt and Translate — pick the default in **Settings → Dictation** or change it on the pill. **⌥⇧T** turns speech into a task, with any spoken date as the due date.
+- Your clipboard is restored after pasting, and MacPilot's own pastes are not added to clipboard history. Pasting needs **Accessibility** permission; without it the text is copied and you press ⌘V.
+- Add names and technical terms under **Settings → Dictation → Vocabulary** so they're spelled right. The last 50 dictations are in **Voice & Transcription → Dictations**.
 
 ## Clipboard history (Raycast-style)
 

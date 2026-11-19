@@ -40,7 +40,8 @@ enum TranscriptionService {
         return TranscriptMerger.merge(tracks)
     }
 
-    private static func transcribe(
+    /// Transcribes one audio file with the given provider (used for recordings and dictation).
+    static func transcribe(
         _ url: URL, speaker: String, offset: Double, provider: TranscriptionProviderID
     ) async throws -> [TranscriptSegment] {
         switch provider {
@@ -143,6 +144,9 @@ enum OpenAITranscriber {
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
 
         var fields: [(String, String)] = [("model", model)]
+        if let hint = DictationPrompt.transcriptionHint(vocabulary: Prefs.dictationVocabulary) {
+            fields.append(("prompt", hint)) // spells names and terms from Settings → Dictation correctly
+        }
         if model.hasPrefix("whisper") {
             fields.append(("response_format", "verbose_json"))
             fields.append(("timestamp_granularities[]", "segment"))

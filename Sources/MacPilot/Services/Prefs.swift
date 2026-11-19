@@ -26,6 +26,15 @@ enum PrefKey {
     static let clipboardSkipSensitive = "clipboard.skipSensitive"
     static let clipboardExcludedApps = "clipboard.excludedApps"
     static let developerRepos = "developer.repositories"
+    static let dictationPushToTalk = "dictation.pushToTalk"
+    static let dictationCleanup = "dictation.cleanup"
+    static let dictationMode = "dictation.mode"
+    static let dictationVocabulary = "dictation.vocabulary"
+    static let dictationLanguage = "dictation.translateLanguage"
+    static let dictationSounds = "dictation.sounds"
+    static let dictationAutoPaste = "dictation.autoPaste"
+    static let dictationKeepClipboard = "dictation.keepClipboard"
+    static let dictationSaveNote = "dictation.saveAsNote"
     static let transcribeRegion = "transcribe.region"
     static let transcribeBucket = "transcribe.bucket"
     static let transcribePrefix = "transcribe.prefix"
@@ -83,6 +92,15 @@ enum Prefs {
             PrefKey.audioRetentionDays: 0,
             PrefKey.defaultEventAlarmMinutes: 10,
             PrefKey.bedrockRegion: BedrockConfig.defaultRegion,
+            PrefKey.dictationPushToTalk: true,
+            PrefKey.dictationCleanup: true,
+            PrefKey.dictationMode: DictationMode.plain.rawValue,
+            PrefKey.dictationVocabulary: "",
+            PrefKey.dictationLanguage: "English",
+            PrefKey.dictationSounds: true,
+            PrefKey.dictationAutoPaste: true,
+            PrefKey.dictationKeepClipboard: true,
+            PrefKey.dictationSaveNote: false,
             PrefKey.transcribeRegion: "",
             PrefKey.transcribeBucket: "",
             PrefKey.transcribePrefix: "macpilot/",
@@ -145,6 +163,18 @@ enum Prefs {
     static var clipboardExcludedApps: [String] {
         get { defaults.stringArray(forKey: PrefKey.clipboardExcludedApps) ?? SensitiveContent.defaultExcludedBundleIDs }
         set { defaults.set(newValue, forKey: PrefKey.clipboardExcludedApps) }
+    }
+
+    static var dictationDefaultMode: DictationMode {
+        DictationMode(rawValue: defaults.string(forKey: PrefKey.dictationMode) ?? "") ?? .plain
+    }
+
+    /// Names, product terms and identifiers, one per line or comma separated.
+    static var dictationVocabulary: [String] {
+        (defaults.string(forKey: PrefKey.dictationVocabulary) ?? "")
+            .components(separatedBy: CharacterSet(charactersIn: ",\n"))
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
     }
 
     static var hiddenCalendarIDs: Set<String> {
