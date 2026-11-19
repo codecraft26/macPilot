@@ -559,11 +559,109 @@ struct RecordingSettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            GoogleCalendarSettingsSection()
         }
         .formStyle(.grouped)
         .onAppear {
             devices = MicRecorder.availableDevices()
             hasScreenPermission = SystemAudioRecorder.hasPermission
+        }
+    }
+}
+
+// MARK: - Google Calendar
+
+private struct GoogleCalendarSettingsSection: View {
+    private let google = GoogleCalendarService.shared
+    private let calendar = CalendarService.shared
+    @State private var clientID = GoogleCalendarService.shared.clientID
+    @State private var clientSecret = ""
+    @State private var hasSecret = KeychainStore.exists(account: GoogleCalendarService.clientSecretAccount)
+    @State private var showHelp = false
+    @State private var message: String?
+
+    var body: some View {
+        Section {
+            if google.isConnected {
+                HStack {
+                    Label(google.accountEmail.isEmpty ? "Connected" : "Connected as \(google.accountEmail)", systemImage: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                    Spacer()
+                    Button("Refresh calendars") { Task { await google.refreshCalendars() } }
+                    Button("Disconnect", role: .destructive) { google.disconnect() }
+                }
+                let calendars = calendar.calendars.filter { $0.source == .google }
+                if calendars.isEmpty {
+                    Text("No calendars loaded yet.").font(.caption).foregroundStyle(.secondary)
+                }
+                ForEach(calendars) { item in
+                    Toggle(isOn: Binding(get: { calendar.isVisible(item) }, set: { calendar.setVisible($0, item) })) {
+                        HStack(spacing: 6) {
+                            Circle().fill(item.color.color).frame(width: 9, height: 9)
+                            Text(item.title)
+                            if !item.isWritable { Text("read only").font(.caption).foregroundStyle(.secondary) }
+                        }
+                    }
+                }
+            } else {
+                TextField("OAuth client ID", text: $clientID, prompt: Text("1234-abc.apps.googleusercontent.com"))
+                    .onChange(of: clientID) { _, value in google.clientID = value }
+                HStack {
+                    SecureField("Client secret", text: $clientSecret, prompt: Text(hasSecret ? "Saved in Keychain" : "GOCSPX-…"))
+                    Button("Save") { saveSecret() }
+                        .disabled(clientSecret.isEmpty)
+                }
+                HStack {
+                    Button {
+                        Task { await google.connect() }
+                    } label: {
+                        if google.isSigningIn {
+                            HStack(spacing: 6) { ProgressView().controlSize(.small); Text("Waiting for Google in your browser…") }
+                        } else {
+                            Text("Connect Google Calendar")
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(clientID.trimmingCharacters(in: .whitespaces).isEmpty || google.isSigningIn)
+                    Spacer()
+                    Button(showHelp ? "Hide setup steps" : "How do I get these?") { showHelp.toggle() }
+                        .buttonStyle(.link)
+                }
+                if showHelp {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("1. Open console.cloud.google.com and create (or pick) a project.")
+                        Text("2. APIs & Services → Library → enable “Google Calendar API”.")
+                        Text("3. APIs & Services → OAuth consent screen: choose External, fill in the app name and your email, and add yourself as a test user.")
+                        Text("4. APIs & Services → Credentials → Create credentials → OAuth client ID → Application type “Desktop app”.")
+                        Text("5. Copy the client ID and client secret here, then press Connect and approve access in your browser.")
+                    }
+                    .font(.caption)
+                    .textSelection(.enabled)
+                }
+            }
+            if let error = google.lastError {
+                Text(error).font(.caption).foregroundStyle(.red).textSelection(.enabled)
+            }
+            if let message {
+                Text(message).font(.caption).foregroundStyle(.secondary)
+            }
+        } header: {
+            Text("Google Calendar (optional)")
+        } footer: {
+            Text("MacPilot talks to Google directly with your own OAuth client; the refresh token and client secret are kept in your Keychain. Simpler alternative: add your Google account under System Settings → Internet Accounts and turn on Calendars — it then shows up through Apple Calendar with no setup here (don't use both, or events appear twice).")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func saveSecret() {
+        do {
+            try KeychainStore.save(clientSecret.trimmingCharacters(in: .whitespacesAndNewlines), account: GoogleCalendarService.clientSecretAccount)
+            clientSecret = ""
+            hasSecret = true
+            message = "Client secret saved in Keychain."
+        } catch {
+            message = error.localizedDescription
         }
     }
 }

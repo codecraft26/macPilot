@@ -1,4 +1,3 @@
-import EventKit
 import SwiftData
 import SwiftUI
 
@@ -66,14 +65,14 @@ struct CalendarPane: View {
     @State private var quickAdd = ""
     @State private var isParsing = false
     @State private var quickAddError: String?
-    @State private var deleting: EKEvent?
+    @State private var deleting: CalendarEvent?
 
     private let calendar = CalendarService.shared
     private var cal: Calendar { Calendar.current }
 
     var body: some View {
         Group {
-            if calendar.isAuthorized {
+            if calendar.isConnected {
                 VStack(spacing: 0) {
                     toolbar.padding(16)
                     if let quickAddError {
@@ -95,7 +94,11 @@ struct CalendarPane: View {
         }
         .confirmationDialog("Delete “\(deleting?.title ?? "")”?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })) {
             Button("Delete Event", role: .destructive) {
-                if let deleting { try? calendar.delete(deleting) }
+                if let event = deleting {
+                    Task {
+                        do { try await calendar.delete(event) } catch { quickAddError = AIError.describe(error) }
+                    }
+                }
                 deleting = nil
             }
         } message: {
@@ -111,15 +114,25 @@ struct CalendarPane: View {
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: 460)
+            HStack(spacing: 12) {
+                if calendar.isDenied {
+                    Button("Open Privacy Settings") { calendar.openPrivacySettings() }
+                } else {
+                    Button("Allow Apple Calendar Access") { Task { await calendar.requestAccess() } }
+                        .buttonStyle(.borderedProminent)
+                }
+                Button("Set up Google Calendar…") { appState.selectedSection = .settings }
+            }
             if calendar.isDenied {
-                Button("Open Privacy Settings") { calendar.openPrivacySettings() }
-                Text("Calendar access was denied. Allow MacPilot under Privacy & Security → Calendars.")
+                Text("Apple Calendar access was denied. Allow MacPilot under Privacy & Security → Calendars.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-            } else {
-                Button("Allow Calendar Access") { Task { await calendar.requestAccess() } }
-                    .buttonStyle(.borderedProminent)
             }
+            Text("Google Calendar: connect it in Settings → Recording & Calendar, or add your Google account under System Settings → Internet Accounts so it appears through Apple Calendar.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 460)
             if let error = calendar.lastError {
                 Text(error).font(.caption).foregroundStyle(.red)
             }
@@ -163,9 +176,20 @@ struct CalendarPane: View {
 
     private var calendarsMenu: some View {
         Menu {
-            ForEach(calendar.calendars, id: \.calendarIdentifier) { item in
-                Toggle(isOn: Binding(get: { calendar.isVisible(item) }, set: { calendar.setVisible($0, item) })) {
-                    Text(item.title)
+            let apple = calendar.calendars.filter { $0.source == .apple }
+            let google = calendar.calendars.filter { $0.source == .google }
+            if !apple.isEmpty {
+                Section("Apple Calendar") {
+                    ForEach(apple) { item in
+                        Toggle(item.title, isOn: Binding(get: { calendar.isVisible(item) }, set: { calendar.setVisible($0, item) }))
+                    }
+                }
+            }
+            if !google.isEmpty {
+                Section("Google Calendar") {
+                    ForEach(google) { item in
+                        Toggle(item.title, isOn: Binding(get: { calendar.isVisible(item) }, set: { calendar.setVisible($0, item) }))
+                    }
                 }
             }
         } label: {
@@ -221,11 +245,31 @@ struct CalendarPane: View {
     private var content: some View {
         // Reading `revision` makes the view reload when the calendar database changes.
         let _ = calendar.revision
-        switch mode {
-        case .day: dayView
-        case .week: weekView
-        case .month: monthView
+        Group {
+            switch mode {
+            case .day: dayView
+            case .week: weekView
+            case .month: monthView
+            }
         }
+        .task(id: loadKey) {
+            // Google events are fetched for the visible range now and every 5 minutes while open.
+            while !Task.isCancelled {
+                await calendar.refresh(from: loadRange.start, to: loadRange.end)
+                try? await Task.sleep(for: .seconds(300))
+            }
+        }
+    }
+
+    private var loadRange: DateInterval {
+        let component: Calendar.Component = mode == .day ? .day : mode == .week ? .weekOfYear : .month
+        let interval = cal.dateInterval(of: component, for: anchor) ?? DateInterval(start: anchor, duration: 86_400)
+        // Month view shows up to 6 weeks; pad by a week on each side.
+        return DateInterval(start: interval.start.addingTimeInterval(-7 * 86_400), end: interval.end.addingTimeInterval(7 * 86_400))
+    }
+
+    private var loadKey: String {
+        "\(mode.rawValue)-\(Int(loadRange.start.timeIntervalSince1970))-\(calendar.google.isConnected)"
     }
 
     private var weekDays: [Date] {
@@ -244,10 +288,10 @@ struct CalendarPane: View {
                 if events.isEmpty {
                     Text("No events.").foregroundStyle(.secondary)
                 }
-                ForEach(events, id: \.calendarItemIdentifier) { event in
+                ForEach(events, id: \.id) { event in
                     DayEventRow(
                         event: event,
-                        isConflict: conflicts.contains(event.calendarItemIdentifier),
+                        isConflict: conflicts.contains(event.id),
                         hasPrepNote: prepNote(for: event) != nil,
                         onRecord: { record(event) },
                         onPrep: { openPrepNote(for: event) },
@@ -257,7 +301,7 @@ struct CalendarPane: View {
                         Button("Edit…") { editor = EventEditorRequest(draft: EventDraft(event)) }
                         Button("Prep notes") { openPrepNote(for: event) }
                         Button("Record meeting") { record(event) }
-                        if event.calendar?.allowsContentModifications == true {
+                        if event.isEditable {
                             Divider()
                             Button("Delete…", role: .destructive) { deleting = event }
                         }
@@ -307,9 +351,9 @@ struct CalendarPane: View {
                             }
                         }
                         .buttonStyle(.plain)
-                        let events = all.filter { cal.isDate($0.startDate, inSameDayAs: day) || ($0.isAllDay && $0.startDate <= day && $0.endDate > day) }
-                        ForEach(events, id: \.calendarItemIdentifier) { event in
-                            EventChip(event: event, isConflict: conflicts.contains(event.calendarItemIdentifier))
+                        let events = all.filter { cal.isDate($0.start, inSameDayAs: day) || ($0.isAllDay && $0.start <= day && $0.end > day) }
+                        ForEach(events, id: \.id) { event in
+                            EventChip(event: event, isConflict: conflicts.contains(event.id))
                                 .onTapGesture { editor = EventEditorRequest(draft: EventDraft(event)) }
                         }
                         let due = tasksDue(on: day)
@@ -344,7 +388,7 @@ struct CalendarPane: View {
             }
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 7), spacing: 4) {
                 ForEach(days, id: \.self) { day in
-                    let dayEvents = events.filter { cal.isDate($0.startDate, inSameDayAs: day) }
+                    let dayEvents = events.filter { cal.isDate($0.start, inSameDayAs: day) }
                     MonthCell(
                         day: day,
                         inMonth: cal.isDate(day, equalTo: anchor, toGranularity: .month),
@@ -369,18 +413,18 @@ struct CalendarPane: View {
             .sorted { ($0.dueDate ?? .distantFuture) < ($1.dueDate ?? .distantFuture) }
     }
 
-    private func prepNote(for event: EKEvent) -> Note? {
-        notes.first { $0.eventID == event.calendarItemIdentifier }
+    private func prepNote(for event: CalendarEvent) -> Note? {
+        notes.first { $0.eventID == event.id }
     }
 
-    private func openPrepNote(for event: EKEvent) {
+    private func openPrepNote(for event: CalendarEvent) {
         let note = prepNote(for: event) ?? {
             let note = Note(
-                title: "Prep: \(event.title ?? "Meeting")",
-                body: "**When:** \(event.startDate.formatted(date: .abbreviated, time: .shortened))\n\n## Agenda\n\n- \n\n## Questions\n\n- \n",
+                title: "Prep: \(event.title)",
+                body: "**When:** \(event.start.formatted(date: .abbreviated, time: .shortened))\n\n## Agenda\n\n- \n\n## Questions\n\n- \n",
                 folder: "Meeting prep"
             )
-            note.eventID = event.calendarItemIdentifier
+            note.eventID = event.id
             note.tagsRaw = "meeting, prep"
             context.insert(note)
             try? context.save()
@@ -390,14 +434,14 @@ struct CalendarPane: View {
         appState.selectedSection = .notes
     }
 
-    private func record(_ event: EKEvent) {
+    private func record(_ event: CalendarEvent) {
         let prep = prepNote(for: event)?.body ?? ""
         Task {
             await RecordingManager.shared.start(
                 kind: .meeting,
-                title: event.title ?? "Meeting",
-                eventID: event.calendarItemIdentifier,
-                attendees: CalendarService.attendeeNames(event),
+                title: event.title,
+                eventID: event.id,
+                attendees: event.attendeeNames,
                 prepNotes: prep
             )
         }
@@ -407,7 +451,7 @@ struct CalendarPane: View {
 // MARK: - Rows and cells
 
 private struct DayEventRow: View {
-    let event: EKEvent
+    let event: CalendarEvent
     let isConflict: Bool
     let hasPrepNote: Bool
     var onRecord: () -> Void
@@ -417,11 +461,12 @@ private struct DayEventRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             RoundedRectangle(cornerRadius: 2)
-                .fill(Color(cgColor: event.calendar?.cgColor ?? CGColor(gray: 0.5, alpha: 1)))
+                .fill(event.calendar.color.color)
                 .frame(width: 4)
             VStack(alignment: .leading, spacing: 3) {
                 HStack {
-                    Text(event.title ?? "Event").font(.headline)
+                    Text(event.title).font(.headline)
+                    if event.source == .google { GoogleBadge() }
                     if isConflict {
                         Label("Conflict", systemImage: "exclamationmark.triangle.fill")
                             .font(.caption)
@@ -429,10 +474,10 @@ private struct DayEventRow: View {
                     }
                 }
                 Text(timeRange).font(.caption).foregroundStyle(.secondary)
-                if let location = event.location, !location.isEmpty {
-                    Label(location, systemImage: "mappin").font(.caption).foregroundStyle(.secondary)
+                if !event.location.isEmpty {
+                    Label(event.location, systemImage: "mappin").font(.caption).foregroundStyle(.secondary)
                 }
-                let attendees = CalendarService.attendeeNames(event)
+                let attendees = event.attendeeNames
                 if !attendees.isEmpty {
                     Label(attendees, systemImage: "person.2").font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 }
@@ -454,33 +499,36 @@ private struct DayEventRow: View {
 
     private var timeRange: String {
         if event.isAllDay { return "All day" }
-        return "\(event.startDate.formatted(date: .omitted, time: .shortened)) – \(event.endDate.formatted(date: .omitted, time: .shortened))"
+        return "\(event.start.formatted(date: .omitted, time: .shortened)) – \(event.end.formatted(date: .omitted, time: .shortened))"
     }
 }
 
 private struct EventChip: View {
-    let event: EKEvent
+    let event: CalendarEvent
     let isConflict: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
-            Text(event.title ?? "Event").font(.caption.weight(.medium)).lineLimit(2)
-            Text(event.isAllDay ? "All day" : event.startDate.formatted(date: .omitted, time: .shortened))
+            HStack(spacing: 3) {
+                if event.source == .google { GoogleBadge() }
+                Text(event.title).font(.caption.weight(.medium)).lineLimit(2)
+            }
+            Text(event.isAllDay ? "All day" : event.start.formatted(date: .omitted, time: .shortened))
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
         .padding(6)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 6).fill(Color(cgColor: event.calendar?.cgColor ?? CGColor(gray: 0.5, alpha: 1)).opacity(0.18)))
+        .background(RoundedRectangle(cornerRadius: 6).fill(event.calendar.color.color.opacity(0.18)))
         .overlay(RoundedRectangle(cornerRadius: 6).stroke(isConflict ? Color.orange : Color.clear, lineWidth: 1.5))
-        .help(isConflict ? "Overlaps another event" : (event.title ?? ""))
+        .help(isConflict ? "Overlaps another event" : (event.title))
     }
 }
 
 private struct MonthCell: View {
     let day: Date
     let inMonth: Bool
-    let events: [EKEvent]
+    let events: [CalendarEvent]
     let taskCount: Int
 
     var body: some View {
@@ -494,10 +542,10 @@ private struct MonthCell: View {
                     Text("\(taskCount)✓").font(.caption2).foregroundStyle(.secondary)
                 }
             }
-            ForEach(events.prefix(3), id: \.calendarItemIdentifier) { event in
+            ForEach(events.prefix(3), id: \.id) { event in
                 HStack(spacing: 3) {
-                    Circle().fill(Color(cgColor: event.calendar?.cgColor ?? CGColor(gray: 0.5, alpha: 1))).frame(width: 5, height: 5)
-                    Text(event.title ?? "").font(.caption2).lineLimit(1)
+                    Circle().fill(event.calendar.color.color).frame(width: 5, height: 5)
+                    Text(event.title).font(.caption2).lineLimit(1)
                 }
             }
             if events.count > 3 {
@@ -509,5 +557,17 @@ private struct MonthCell: View {
         .frame(maxWidth: .infinity, minHeight: 78, alignment: .topLeading)
         .background(RoundedRectangle(cornerRadius: 6).fill(Color(nsColor: .controlBackgroundColor).opacity(inMonth ? 1 : 0.4)))
         .contentShape(Rectangle())
+    }
+}
+
+/// Marks events that come from Google Calendar.
+struct GoogleBadge: View {
+    var body: some View {
+        Text("G")
+            .font(.system(size: 9, weight: .bold))
+            .foregroundStyle(.white)
+            .frame(width: 13, height: 13)
+            .background(Circle().fill(Color.blue))
+            .help("Google Calendar")
     }
 }

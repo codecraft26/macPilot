@@ -111,6 +111,10 @@ struct DashboardView: View {
         DashboardCard(title: "Upcoming meetings", systemImage: "calendar", section: .calendar) {
             UpcomingMeetingsList()
         }
+        .task {
+            let calendar = CalendarService.shared
+            await calendar.refresh(from: Date(), to: Date().addingTimeInterval(7 * 86_400))
+        }
     }
 
     private var recentChatsCard: some View {
@@ -236,40 +240,44 @@ private struct UpcomingMeetingsList: View {
 
     var body: some View {
         let _ = calendar.revision
-        if !calendar.isAuthorized {
+        if !calendar.isConnected {
             VStack(alignment: .leading, spacing: 6) {
-                Text("Connect Apple Calendar to see what's next.").foregroundStyle(.secondary)
-                Button(calendar.isDenied ? "Open Privacy Settings" : "Connect Calendar") {
+                Text("Connect Apple or Google Calendar to see what's next.").foregroundStyle(.secondary)
+                Button(calendar.isDenied ? "Open Privacy Settings" : "Connect Apple Calendar") {
                     if calendar.isDenied { calendar.openPrivacySettings() } else { Task { await calendar.requestAccess() } }
                 }
             }
         } else {
             TimelineView(.periodic(from: .now, by: 30)) { context in
+                let _ = calendar.revision
                 let events = calendar.upcoming(limit: 4, withinDays: 7)
                 if events.isEmpty {
                     Text("No meetings in the next 7 days.").foregroundStyle(.secondary)
                 } else {
                     VStack(alignment: .leading, spacing: 8) {
-                        ForEach(events, id: \.calendarItemIdentifier) { event in
+                        ForEach(events) { event in
                             HStack {
                                 Circle()
-                                    .fill(Color(cgColor: event.calendar?.cgColor ?? CGColor(gray: 0.5, alpha: 1)))
+                                    .fill(event.calendar.color.color)
                                     .frame(width: 8, height: 8)
                                 VStack(alignment: .leading, spacing: 1) {
-                                    Text(event.title ?? "Event").lineLimit(1)
-                                    Text(event.startDate.shortRelative).font(.caption).foregroundStyle(.secondary)
+                                    HStack(spacing: 4) {
+                                        Text(event.title).lineLimit(1)
+                                        if event.source == .google { GoogleBadge() }
+                                    }
+                                    Text(event.start.shortRelative).font(.caption).foregroundStyle(.secondary)
                                 }
                                 Spacer()
-                                Text(Countdown.text(to: event.startDate, end: event.endDate, now: context.date))
+                                Text(Countdown.text(to: event.start, end: event.end, now: context.date))
                                     .font(.caption.monospacedDigit().weight(.medium))
-                                    .foregroundStyle(event.startDate <= context.date ? .green : .secondary)
+                                    .foregroundStyle(event.start <= context.date ? .green : .secondary)
                                 Button {
                                     Task {
                                         await recorder.start(
                                             kind: .meeting,
-                                            title: event.title ?? "Meeting",
-                                            eventID: event.calendarItemIdentifier,
-                                            attendees: CalendarService.attendeeNames(event)
+                                            title: event.title,
+                                            eventID: event.id,
+                                            attendees: event.attendeeNames
                                         )
                                     }
                                 } label: {

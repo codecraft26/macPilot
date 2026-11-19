@@ -28,6 +28,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Seeder.seedIfNeeded(Persistence.container.mainContext)
         RecordingStorage.applyRetention(days: Prefs.audioRetentionDays, context: Persistence.container.mainContext)
         RecordingRecovery.markInterrupted(context: Persistence.container.mainContext)
+        Task {
+            // Prime Google Calendar (if connected) so the menu bar can show the next meeting.
+            await CalendarService.shared.refresh(from: Date(), to: Date().addingTimeInterval(7 * 86_400))
+        }
         ShortcutManager.shared.registerAll()
 
         let defaults = UserDefaults.standard

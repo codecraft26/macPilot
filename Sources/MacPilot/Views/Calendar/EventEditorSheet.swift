@@ -1,4 +1,3 @@
-import EventKit
 import SwiftUI
 
 /// Create or edit an event. Nothing touches the calendar until the user presses Save.
@@ -8,11 +7,12 @@ struct EventEditorSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var error: String?
     @State private var confirmDelete = false
+    @State private var isSaving = false
     private let calendar = CalendarService.shared
 
     private static let alarmChoices: [Int?] = [nil, 0, 5, 10, 15, 30, 60, 1440]
 
-    private var conflicts: [EKEvent] {
+    private var conflicts: [CalendarEvent] {
         guard !draft.isAllDay else { return [] }
         return calendar.conflicts(start: draft.start, end: draft.end, excluding: draft.eventID)
     }
@@ -32,11 +32,11 @@ struct EventEditorSheet: View {
                     }
                 DatePicker("Ends", selection: $draft.end, in: draft.start..., displayedComponents: draft.isAllDay ? [.date] : [.date, .hourAndMinute])
                 Picker("Calendar", selection: Binding(
-                    get: { draft.calendarID ?? calendar.store.defaultCalendarForNewEvents?.calendarIdentifier ?? "" },
+                    get: { draft.calendarID ?? calendar.defaultCalendarID ?? "" },
                     set: { draft.calendarID = $0 }
                 )) {
-                    ForEach(calendar.writableCalendars, id: \.calendarIdentifier) { item in
-                        Text(item.title).tag(item.calendarIdentifier)
+                    ForEach(calendar.writableCalendars) { item in
+                        Text(item.source == .google ? "\(item.title) (Google)" : item.title).tag(item.id)
                     }
                 }
                 Picker("Alert", selection: $draft.alarmMinutes) {
@@ -50,8 +50,8 @@ struct EventEditorSheet: View {
                 }
                 if !conflicts.isEmpty {
                     Section {
-                        ForEach(conflicts, id: \.calendarItemIdentifier) { event in
-                            Label("\(event.title ?? "Event") · \(event.startDate.formatted(date: .omitted, time: .shortened))–\(event.endDate.formatted(date: .omitted, time: .shortened))",
+                        ForEach(conflicts) { event in
+                            Label("\(event.title) · \(event.start.formatted(date: .omitted, time: .shortened))–\(event.end.formatted(date: .omitted, time: .shortened))",
                                   systemImage: "exclamationmark.triangle.fill")
                                 .foregroundStyle(.orange)
                         }
@@ -72,10 +72,11 @@ struct EventEditorSheet: View {
                 Spacer()
                 Button("Cancel", role: .cancel) { dismiss() }
                     .keyboardShortcut(.cancelAction)
+                if isSaving { ProgressView().controlSize(.small) }
                 Button(draft.eventID == nil ? "Add to Calendar" : "Save") { save() }
                     .keyboardShortcut(.defaultAction)
                     .buttonStyle(.borderedProminent)
-                    .disabled(calendar.writableCalendars.isEmpty)
+                    .disabled(calendar.writableCalendars.isEmpty || isSaving)
             }
             .padding(16)
         }
@@ -83,7 +84,7 @@ struct EventEditorSheet: View {
         .confirmationDialog("Delete this event?", isPresented: $confirmDelete) {
             Button("Delete Event", role: .destructive) { deleteEvent() }
         } message: {
-            Text("It is removed from \(calendar.event(withID: draft.eventID ?? "")?.calendar?.title ?? "your calendar") on every device that syncs it.")
+            Text("It is removed from \(calendar.event(withID: draft.eventID ?? "")?.calendar.title ?? "your calendar") on every device that syncs it.")
         }
     }
 
@@ -97,21 +98,30 @@ struct EventEditorSheet: View {
     }
 
     private func save() {
-        do {
-            try calendar.save(draft)
-            dismiss()
-        } catch {
-            self.error = error.localizedDescription
+        isSaving = true
+        error = nil
+        Task {
+            do {
+                try await calendar.save(draft)
+                dismiss()
+            } catch {
+                self.error = AIError.describe(error)
+            }
+            isSaving = false
         }
     }
 
     private func deleteEvent() {
         guard let id = draft.eventID, let event = calendar.event(withID: id) else { return }
-        do {
-            try calendar.delete(event)
-            dismiss()
-        } catch {
-            self.error = error.localizedDescription
+        isSaving = true
+        Task {
+            do {
+                try await calendar.delete(event)
+                dismiss()
+            } catch {
+                self.error = AIError.describe(error)
+            }
+            isSaving = false
         }
     }
 }

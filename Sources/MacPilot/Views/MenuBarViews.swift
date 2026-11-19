@@ -24,7 +24,7 @@ struct MenuBarContent: View {
             Button("Stop Recording  \(shortcutLabel(.recording))") { Task { await recorder.stop() } }
             Divider()
         } else if let next = CalendarService.shared.upcoming(limit: 1, withinDays: 1).first {
-            Text("Next: \(next.title ?? "Event") at \(next.startDate.formatted(date: .omitted, time: .shortened))")
+            Text("Next: \(next.title) at \(next.start.formatted(date: .omitted, time: .shortened))")
             Divider()
         }
 

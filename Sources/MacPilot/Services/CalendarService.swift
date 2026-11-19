@@ -2,16 +2,86 @@ import AppKit
 import EventKit
 import Foundation
 import Observation
+import SwiftUI
 
-/// Apple Calendar through EventKit. MacPilot never writes to the calendar without the user confirming in the event editor.
+enum CalendarSource: String, Hashable {
+    case apple, google
+}
+
+struct RGBColor: Hashable {
+    var red: Double
+    var green: Double
+    var blue: Double
+
+    init(red: Double, green: Double, blue: Double) {
+        self.red = red
+        self.green = green
+        self.blue = blue
+    }
+
+    init?(hex: String) {
+        var text = hex.trimmingCharacters(in: .whitespaces)
+        if text.hasPrefix("#") { text.removeFirst() }
+        guard text.count == 6, let value = UInt32(text, radix: 16) else { return nil }
+        red = Double((value >> 16) & 0xFF) / 255
+        green = Double((value >> 8) & 0xFF) / 255
+        blue = Double(value & 0xFF) / 255
+    }
+
+    init(cgColor: CGColor?) {
+        let converted = cgColor.flatMap { $0.converted(to: CGColorSpace(name: CGColorSpace.sRGB)!, intent: .defaultIntent, options: nil) }
+        let components = converted?.components ?? [0.5, 0.5, 0.5]
+        red = Double(components.count > 0 ? components[0] : 0.5)
+        green = Double(components.count > 1 ? components[1] : 0.5)
+        blue = Double(components.count > 2 ? components[2] : 0.5)
+    }
+
+    var color: Color { Color(red: red, green: green, blue: blue) }
+}
+
+/// A calendar from either Apple Calendar (EventKit) or Google Calendar.
+struct CalendarInfo: Identifiable, Hashable {
+    /// The source's own identifier.
+    var rawID: String
+    var source: CalendarSource
+    var title: String
+    var color: RGBColor
+    var isWritable: Bool
+
+    /// Unique across sources, e.g. "apple:<id>" or "google:<id>".
+    var id: String { "\(source.rawValue):\(rawID)" }
+}
+
+/// An event from either source. Apple ids are EventKit `calendarItemIdentifier`s;
+/// Google ids are "google:<calendar id>|<event id>".
+struct CalendarEvent: Identifiable, Hashable {
+    var id: String
+    var title: String
+    var start: Date
+    var end: Date
+    var isAllDay: Bool
+    var location: String
+    var notes: String
+    var attendees: [String]
+    var calendar: CalendarInfo
+    var alarmMinutes: Int?
+
+    var isEditable: Bool { calendar.isWritable }
+    var attendeeNames: String { attendees.joined(separator: ", ") }
+    var source: CalendarSource { calendar.source }
+}
+
+/// Apple Calendar (EventKit) and, optionally, Google Calendar behind one interface.
+/// MacPilot never writes to a calendar without the user confirming in the event editor.
 @Observable
 @MainActor
 final class CalendarService {
     static let shared = CalendarService()
 
     let store = EKEventStore()
+    let google = GoogleCalendarService.shared
     private(set) var status: EKAuthorizationStatus = EKEventStore.authorizationStatus(for: .event)
-    /// Bumped whenever the calendar database changes, so views reload.
+    /// Bumped whenever calendar data changes, so views reload.
     private(set) var revision = 0
     private(set) var hiddenCalendarIDs: Set<String> = Prefs.hiddenCalendarIDs
     var lastError: String?
@@ -20,11 +90,14 @@ final class CalendarService {
         NotificationCenter.default.addObserver(forName: .EKEventStoreChanged, object: store, queue: .main) { [weak self] _ in
             Task { @MainActor in self?.revision += 1 }
         }
+        google.onChange = { [weak self] in self?.revision += 1 }
     }
 
+    /// Apple Calendar access.
     var isAuthorized: Bool { status == .fullAccess }
-
     var isDenied: Bool { status == .denied || status == .restricted }
+    /// True when at least one source is available.
+    var isConnected: Bool { isAuthorized || google.isConnected }
 
     func requestAccess() async {
         do {
@@ -44,85 +117,167 @@ final class CalendarService {
 
     // MARK: Calendars
 
-    var calendars: [EKCalendar] {
+    private var appleCalendars: [EKCalendar] {
         guard isAuthorized else { return [] }
-        return store.calendars(for: .event).sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+        return store.calendars(for: .event)
     }
 
-    var writableCalendars: [EKCalendar] { calendars.filter(\.allowsContentModifications) }
+    private static func info(_ calendar: EKCalendar) -> CalendarInfo {
+        CalendarInfo(
+            rawID: calendar.calendarIdentifier,
+            source: .apple,
+            title: calendar.title,
+            color: RGBColor(cgColor: calendar.cgColor),
+            isWritable: calendar.allowsContentModifications
+        )
+    }
 
-    func isVisible(_ calendar: EKCalendar) -> Bool { !hiddenCalendarIDs.contains(calendar.calendarIdentifier) }
+    var calendars: [CalendarInfo] {
+        let apple = appleCalendars.map(Self.info)
+        return (apple + google.calendars).sorted {
+            if $0.source != $1.source { return $0.source == .apple }
+            return $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
+        }
+    }
 
-    func setVisible(_ visible: Bool, _ calendar: EKCalendar) {
-        if visible { hiddenCalendarIDs.remove(calendar.calendarIdentifier) } else { hiddenCalendarIDs.insert(calendar.calendarIdentifier) }
+    var writableCalendars: [CalendarInfo] { calendars.filter(\.isWritable) }
+
+    var defaultCalendarID: String? {
+        if let apple = store.defaultCalendarForNewEvents, isAuthorized { return Self.info(apple).id }
+        return writableCalendars.first?.id
+    }
+
+    func isVisible(_ calendar: CalendarInfo) -> Bool {
+        // Apple calendars were stored by raw id before Google support; accept both.
+        !hiddenCalendarIDs.contains(calendar.id) && !hiddenCalendarIDs.contains(calendar.rawID)
+    }
+
+    func setVisible(_ visible: Bool, _ calendar: CalendarInfo) {
+        if visible {
+            hiddenCalendarIDs.remove(calendar.id)
+            hiddenCalendarIDs.remove(calendar.rawID)
+        } else {
+            hiddenCalendarIDs.insert(calendar.id)
+        }
         Prefs.hiddenCalendarIDs = hiddenCalendarIDs
         revision += 1
+        if visible && calendar.source == .google {
+            let start = Calendar.current.date(byAdding: .month, value: -1, to: Date()) ?? Date()
+            let end = Calendar.current.date(byAdding: .month, value: 2, to: Date()) ?? Date()
+            Task { await refresh(from: start, to: end) }
+        }
     }
 
     // MARK: Events
 
-    func events(from start: Date, to end: Date) -> [EKEvent] {
-        guard isAuthorized else { return [] }
-        let visible = calendars.filter(isVisible)
-        guard !visible.isEmpty else { return [] }
-        let predicate = store.predicateForEvents(withStart: start, end: end, calendars: visible)
-        return store.events(matching: predicate).sorted { $0.startDate < $1.startDate }
+    private static func event(_ event: EKEvent) -> CalendarEvent {
+        var alarm: Int?
+        if let offset = event.alarms?.first?.relativeOffset, offset <= 0 { alarm = Int(-offset / 60) }
+        return CalendarEvent(
+            id: event.calendarItemIdentifier,
+            title: event.title ?? "Event",
+            start: event.startDate,
+            end: event.endDate,
+            isAllDay: event.isAllDay,
+            location: event.location ?? "",
+            notes: event.notes ?? "",
+            attendees: (event.attendees ?? []).compactMap(\.name),
+            calendar: info(event.calendar),
+            alarmMinutes: alarm
+        )
     }
 
-    func events(on day: Date) -> [EKEvent] {
+    /// Fetches Google events for the range (Apple events are read live from EventKit).
+    func refresh(from start: Date, to end: Date) async {
+        await google.load(from: start, to: end, visible: isVisible)
+    }
+
+    func events(from start: Date, to end: Date) -> [CalendarEvent] {
+        var result: [CalendarEvent] = []
+        let visibleApple = appleCalendars.filter { isVisible(Self.info($0)) }
+        if !visibleApple.isEmpty {
+            let predicate = store.predicateForEvents(withStart: start, end: end, calendars: visibleApple)
+            result += store.events(matching: predicate).map(Self.event)
+        }
+        result += google.events(from: start, to: end).filter { isVisible($0.calendar) }
+        return result.sorted { $0.start < $1.start }
+    }
+
+    func events(on day: Date) -> [CalendarEvent] {
         let start = Calendar.current.startOfDay(for: day)
         let end = Calendar.current.date(byAdding: .day, value: 1, to: start) ?? start
         return events(from: start, to: end)
     }
 
     /// Timed (not all-day) events that have not ended, soonest first.
-    func upcoming(limit: Int = 5, withinDays days: Int = 7) -> [EKEvent] {
+    func upcoming(limit: Int = 5, withinDays days: Int = 7) -> [CalendarEvent] {
         let now = Date()
         let end = Calendar.current.date(byAdding: .day, value: days, to: now) ?? now
-        return events(from: now, to: end).filter { !$0.isAllDay && $0.endDate > now }.prefix(limit).map { $0 }
+        return Array(events(from: now, to: end).filter { !$0.isAllDay && $0.end > now }.prefix(limit))
     }
 
     /// An event in progress or starting within 10 minutes, used to name a new meeting recording.
-    func currentOrImminentEvent() -> EKEvent? {
+    func currentOrImminentEvent() -> CalendarEvent? {
         let now = Date()
-        return upcoming(limit: 10, withinDays: 1).first { $0.startDate <= now.addingTimeInterval(600) }
+        return upcoming(limit: 10, withinDays: 1).first { $0.start <= now.addingTimeInterval(600) }
     }
 
-    func event(withID id: String) -> EKEvent? {
-        guard isAuthorized else { return nil }
-        return store.calendarItem(withIdentifier: id) as? EKEvent
+    func event(withID id: String) -> CalendarEvent? {
+        if id.hasPrefix(GoogleMapping.idPrefix) { return google.event(withID: id) }
+        guard isAuthorized, let event = store.calendarItem(withIdentifier: id) as? EKEvent else { return nil }
+        return Self.event(event)
     }
 
     /// Other events overlapping the given time range.
-    func conflicts(start: Date, end: Date, excluding id: String? = nil) -> [EKEvent] {
+    func conflicts(start: Date, end: Date, excluding id: String? = nil) -> [CalendarEvent] {
         let candidates = events(from: start.addingTimeInterval(-86_400), to: end.addingTimeInterval(86_400))
-            .filter { !$0.isAllDay && $0.calendarItemIdentifier != id }
-        let spans = candidates.map { EventSpan(id: $0.calendarItemIdentifier, start: $0.startDate, end: $0.endDate) }
+            .filter { !$0.isAllDay && $0.id != id }
+        let spans = candidates.map { EventSpan(id: $0.id, start: $0.start, end: $0.end) }
         let ids = Set(EventSpan.overlapping(EventSpan(id: id ?? "", start: start, end: end), in: spans).map(\.id))
-        return candidates.filter { ids.contains($0.calendarItemIdentifier) }
+        return candidates.filter { ids.contains($0.id) }
     }
 
     /// IDs of events that overlap another event in the list.
-    func conflictingIDs(in events: [EKEvent]) -> Set<String> {
-        EventSpan.conflictingIDs(events.filter { !$0.isAllDay }.map {
-            EventSpan(id: $0.calendarItemIdentifier, start: $0.startDate, end: $0.endDate)
-        })
+    func conflictingIDs(in events: [CalendarEvent]) -> Set<String> {
+        EventSpan.conflictingIDs(events.filter { !$0.isAllDay }.map { EventSpan(id: $0.id, start: $0.start, end: $0.end) })
     }
 
-    func save(_ draft: EventDraft) throws {
-        let event = draft.eventID.flatMap(event(withID:)) ?? EKEvent(eventStore: store)
-        draft.apply(to: event, store: store)
-        try store.save(event, span: .thisEvent, commit: true)
+    func save(_ draft: EventDraft) async throws {
+        guard let target = draft.calendarID.flatMap({ id in calendars.first { $0.id == id } })
+                ?? defaultCalendarID.flatMap({ id in calendars.first { $0.id == id } }) else {
+            throw GoogleCalendarError.notConnected
+        }
+        let existing = draft.eventID.flatMap(event(withID:))
+        switch target.source {
+        case .apple:
+            if let existing, existing.source == .google { try await google.delete(existing) }
+            let ekEvent = (existing?.source == .apple ? draft.eventID.flatMap { store.calendarItem(withIdentifier: $0) as? EKEvent } : nil)
+                ?? EKEvent(eventStore: store)
+            draft.apply(to: ekEvent, calendar: store.calendar(withIdentifier: target.rawID) ?? store.defaultCalendarForNewEvents)
+            try store.save(ekEvent, span: .thisEvent, commit: true)
+        case .google:
+            if let existing, existing.source == .apple, let ekEvent = store.calendarItem(withIdentifier: existing.id) as? EKEvent {
+                var copy = draft
+                copy.eventID = nil
+                try await google.save(copy, calendarRawID: target.rawID)
+                try store.remove(ekEvent, span: .thisEvent, commit: true)
+            } else {
+                try await google.save(draft, calendarRawID: target.rawID)
+            }
+            await refresh(from: draft.start.addingTimeInterval(-86_400), to: draft.end.addingTimeInterval(86_400))
+        }
         revision += 1
     }
 
-    func delete(_ event: EKEvent) throws {
-        try store.remove(event, span: .thisEvent, commit: true)
+    func delete(_ event: CalendarEvent) async throws {
+        switch event.source {
+        case .apple:
+            guard let ekEvent = store.calendarItem(withIdentifier: event.id) as? EKEvent else { return }
+            try store.remove(ekEvent, span: .thisEvent, commit: true)
+        case .google:
+            try await google.delete(event)
+        }
         revision += 1
-    }
-
-    static func attendeeNames(_ event: EKEvent) -> String {
-        (event.attendees ?? []).compactMap(\.name).joined(separator: ", ")
     }
 }
 
@@ -165,6 +320,7 @@ struct EventDraft: Equatable {
     var isAllDay = false
     var location = ""
     var notes = ""
+    /// `CalendarInfo.id` of the target calendar; nil means the default calendar.
     var calendarID: String?
     /// Minutes before the start; nil means no alert.
     var alarmMinutes: Int?
@@ -180,32 +336,26 @@ struct EventDraft: Equatable {
 
     init() {}
 
-    init(_ event: EKEvent) {
-        eventID = event.calendarItemIdentifier
-        title = event.title ?? ""
-        start = event.startDate
-        end = event.endDate
+    init(_ event: CalendarEvent) {
+        eventID = event.id
+        title = event.title
+        start = event.start
+        end = event.end
         isAllDay = event.isAllDay
-        location = event.location ?? ""
-        notes = event.notes ?? ""
-        calendarID = event.calendar?.calendarIdentifier
-        if let offset = event.alarms?.first?.relativeOffset, offset <= 0 {
-            alarmMinutes = Int(-offset / 60)
-        }
+        location = event.location
+        notes = event.notes
+        calendarID = event.calendar.id
+        alarmMinutes = event.alarmMinutes
     }
 
-    func apply(to event: EKEvent, store: EKEventStore) {
+    func apply(to event: EKEvent, calendar: EKCalendar?) {
         event.title = title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "New event" : title
         event.startDate = start
         event.endDate = max(end, start.addingTimeInterval(isAllDay ? 0 : 300))
         event.isAllDay = isAllDay
         event.location = location.isEmpty ? nil : location
         event.notes = notes.isEmpty ? nil : notes
-        if let calendarID, let calendar = store.calendar(withIdentifier: calendarID) {
-            event.calendar = calendar
-        } else if event.calendar == nil {
-            event.calendar = store.defaultCalendarForNewEvents
-        }
+        if let calendar { event.calendar = calendar }
         event.alarms = alarmMinutes.map { [EKAlarm(relativeOffset: TimeInterval(-$0 * 60))] }
     }
 }

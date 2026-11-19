@@ -52,8 +52,8 @@ final class RecordingManager {
                 await start(
                     kind: .meeting,
                     title: event?.title ?? "Meeting \(Date().formatted(date: .abbreviated, time: .shortened))",
-                    eventID: event?.calendarItemIdentifier,
-                    attendees: event.map(CalendarService.attendeeNames) ?? ""
+                    eventID: event?.id,
+                    attendees: event?.attendeeNames ?? ""
                 )
             }
         }

@@ -17,6 +17,8 @@ enum PrefKey {
     static let audioRetentionDays = "privacy.audioRetentionDays"
     static let hiddenCalendarIDs = "calendar.hiddenCalendarIDs"
     static let defaultEventAlarmMinutes = "calendar.defaultAlarmMinutes"
+    static let googleClientID = "google.clientID"
+    static let googleAccountEmail = "google.accountEmail"
 
     static func enabled(_ provider: AIProviderID) -> String { "provider.\(provider.rawValue).enabled" }
     static func model(_ provider: AIProviderID) -> String { "provider.\(provider.rawValue).model" }

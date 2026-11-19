@@ -154,7 +154,7 @@ private struct NoteEditor: View {
                 .buttonStyle(.link)
             }
             if let eventID = note.eventID, let event = CalendarService.shared.event(withID: eventID) {
-                Label("Prep for \(event.title ?? "event") · \(event.startDate.shortRelative)", systemImage: "calendar")
+                Label("Prep for \(event.title) · \(event.start.shortRelative)", systemImage: "calendar")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

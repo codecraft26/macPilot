@@ -122,3 +122,76 @@ final class CalendarLogicTests: XCTestCase {
         XCTAssertEqual(Countdown.text(to: now.addingTimeInterval(5400), end: now.addingTimeInterval(7200), now: now), "in 1 h 30 min")
     }
 }
+
+final class GoogleCalendarTests: XCTestCase {
+    private let calendar = CalendarInfo(rawID: "team@group.calendar.google.com", source: .google, title: "Team",
+                                        color: RGBColor(red: 0, green: 0, blue: 1), isWritable: true)
+
+    func testPKCEChallengeIsBase64URLSHA256() {
+        // Expected value: base64url(SHA-256(verifier)) without padding, computed independently with openssl.
+        XCTAssertEqual(PKCE.challenge(for: "dBjftJeZ4CVP-mB92K27uhbUJU1p1r7wW1gFWFOEjXk"), "bwWFMyPfdG9qreDhH2lmftFx_dFeLDalzcT1gb_j68g")
+        let verifier = PKCE.verifier()
+        XCTAssertEqual(verifier.count, 43)
+        XCTAssertFalse(verifier.contains("="))
+    }
+
+    func testTimedEventParsing() {
+        let json: [String: Any] = [
+            "id": "abc123", "summary": "Standup", "location": "Zoom",
+            "start": ["dateTime": "2026-11-20T09:30:00+05:30"],
+            "end": ["dateTime": "2026-11-20T09:45:00+05:30"],
+            "attendees": [["email": "me@x.com", "self": true], ["email": "sam@x.com", "displayName": "Sam"], ["email": "bob@x.com"]],
+            "reminders": ["useDefault": false, "overrides": [["method": "popup", "minutes": 10]]]
+        ]
+        let event = GoogleMapping.event(json, calendar: calendar)
+        XCTAssertEqual(event?.title, "Standup")
+        XCTAssertEqual(event?.isAllDay, false)
+        XCTAssertEqual(event.map { $0.end.timeIntervalSince($0.start) }, 900)
+        XCTAssertEqual(event?.attendees, ["Sam", "bob@x.com"])
+        XCTAssertEqual(event?.alarmMinutes, 10)
+        XCTAssertEqual(event?.id, "google:team@group.calendar.google.com|abc123")
+        XCTAssertEqual(event.flatMap { GoogleMapping.eventID(from: $0.id) }, "abc123")
+    }
+
+    func testAllDayEventParsingAndCancelledSkipped() {
+        let json: [String: Any] = ["id": "d1", "summary": "Offsite", "start": ["date": "2026-11-20"], "end": ["date": "2026-11-22"]]
+        let event = GoogleMapping.event(json, calendar: calendar)
+        XCTAssertEqual(event?.isAllDay, true)
+        XCTAssertEqual(event.map { Calendar.current.dateComponents([.day], from: $0.start, to: $0.end).day }, 2)
+        var cancelled = json
+        cancelled["status"] = "cancelled"
+        XCTAssertNil(GoogleMapping.event(cancelled, calendar: calendar))
+    }
+
+    func testEventBodyForAllDayUsesExclusiveEndDate() {
+        var draft = EventDraft()
+        draft.title = "Holiday"
+        draft.isAllDay = true
+        draft.start = Calendar.current.date(from: DateComponents(year: 2026, month: 12, day: 24))!
+        draft.end = draft.start
+        let body = GoogleMapping.body(for: draft)
+        XCTAssertEqual((body["start"] as? [String: String])?["date"], "2026-12-24")
+        XCTAssertEqual((body["end"] as? [String: String])?["date"], "2026-12-25")
+    }
+
+    func testAccessTokenExpiry() {
+        let now = Date(timeIntervalSince1970: 1_000)
+        let token = AccessToken(response: ["access_token": "abc", "expires_in": 3600], now: now)
+        XCTAssertEqual(token.validValue(now: now), "abc")
+        XCTAssertEqual(token.validValue(now: now.addingTimeInterval(3_500)), "abc")
+        XCTAssertNil(token.validValue(now: now.addingTimeInterval(3_545)), "treated as expired a minute early")
+        XCTAssertNil(AccessToken().validValue(now: now))
+    }
+
+    func testLoopbackQueryParsing() {
+        let request = "GET /?state=xyz&code=4%2F0Abc&scope=email HTTP/1.1\r\nHost: 127.0.0.1:5000\r\n\r\n"
+        let query = LoopbackReceiver.query(fromRequest: request)
+        XCTAssertEqual(query["code"], "4/0Abc")
+        XCTAssertEqual(query["state"], "xyz")
+    }
+
+    func testJWTEmail() {
+        let payload = PKCE.base64URL(Data(#"{"email":"me@example.com"}"#.utf8))
+        XCTAssertEqual(JWT.email("header.\(payload).signature"), "me@example.com")
+    }
+}
