@@ -603,6 +603,7 @@ struct RecordingSettingsView: View {
 
     var body: some View {
         Form {
+            NotchSettingsSection()
             Section("Microphone") {
                 Picker("Input", selection: $microphoneID) {
                     Text("System default").tag("")
@@ -1296,6 +1297,28 @@ private struct ScreenRecordingSettings: View {
             }
             Toggle("Hide MacPilot's own windows in the video", isOn: $hideMacPilot)
             Text("Saved as screen.mp4 next to the meeting audio, about \(estimate) per hour at these settings. Watch it in the meeting's Transcript tab (it follows the transcript) or export one MP4 with screen and sound from Export.")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+    }
+}
+
+// MARK: - Notch
+
+private struct NotchSettingsSection: View {
+    @AppStorage(PrefKey.notchEnabled) private var enabled = true
+    @AppStorage(PrefKey.notchExpandOnHover) private var expandOnHover = true
+    @AppStorage(PrefKey.notchMeetingCountdown) private var countdown = true
+
+    var body: some View {
+        Section {
+            Toggle("Show MacPilot in the notch", isOn: $enabled)
+                .onChange(of: enabled) { _, _ in NotchController.shared.start() }
+            Toggle("Expand when the pointer is on it", isOn: $expandOnHover).disabled(!enabled)
+            Toggle("Count down to meetings starting in 15 minutes", isOn: $countdown).disabled(!enabled)
+        } header: {
+            Text("Notch")
+        } footer: {
+            Text("A Dynamic Island–style area around the camera: recording timer, dictation, next meeting with Join and Record, and quick actions. On Macs without a notch it sits at the top centre of the main screen and only appears when something is happening.")
                 .font(.caption).foregroundStyle(.secondary)
         }
     }

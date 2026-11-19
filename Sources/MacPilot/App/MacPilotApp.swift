@@ -36,6 +36,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ProviderAutoSetup.reconcile()
         ClipboardMonitor.shared.start()
         ReminderSync.shared.start()
+        NotchController.shared.start()
         AutomationEngine.shared.start()
 
         let defaults = UserDefaults.standard

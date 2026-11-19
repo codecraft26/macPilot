@@ -65,3 +65,27 @@ final class LauncherExtrasTests: XCTestCase {
         XCTAssertEqual(LauncherUsage.stableID("web.Google:swift"), "web.Google")
     }
 }
+
+final class NotchTests: XCTestCase {
+    func testMeetingLinks() {
+        XCTAssertEqual(MeetingLink.find(in: ["Join: https://us02web.zoom.us/j/123456?pwd=abc."])?.host, "us02web.zoom.us")
+        XCTAssertEqual(MeetingLink.find(in: ["", "Video call: https://meet.google.com/abc-defg-hij"])?.absoluteString, "https://meet.google.com/abc-defg-hij")
+        XCTAssertNotNil(MeetingLink.find(in: ["<https://teams.microsoft.com/l/meetup-join/19%3ameeting_x/0?context=y>"]))
+        XCTAssertNil(MeetingLink.find(in: ["Room 4, https://example.com/agenda"]))
+    }
+
+    @MainActor
+    func testCompactShapeWrapsTheNotch() {
+        let controller = NotchController.shared
+        let notch = NotchGeometry(notch: CGRect(x: 0, y: 0, width: 200, height: 32), hasHardwareNotch: true)
+        controller.setPreview(geometry: notch, activity: .idle, expanded: false)
+        XCTAssertEqual(controller.shapeSize, CGSize(width: 200, height: 32))
+        controller.setPreview(geometry: notch, activity: .recording(paused: false), expanded: false)
+        XCTAssertEqual(controller.shapeSize.width, 200 + NotchController.compactSideWidth * 2)
+        controller.setPreview(geometry: notch, activity: .idle, expanded: true)
+        XCTAssertEqual(controller.shapeSize, NotchController.expandedSize)
+        let noNotch = NotchGeometry(notch: CGRect(x: 0, y: 0, width: 190, height: 24), hasHardwareNotch: false)
+        controller.setPreview(geometry: noNotch, activity: .idle, expanded: false)
+        XCTAssertEqual(controller.shapeSize, .zero, "nothing shows on screens without a notch when idle")
+    }
+}
