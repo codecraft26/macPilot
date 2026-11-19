@@ -121,6 +121,33 @@ final class WindowManager: NSObject, NSWindowDelegate {
         clipboardPanel?.orderOut(nil)
         launcherPanel?.orderOut(nil)
         textActionsPanel?.orderOut(nil)
+        askMacPanel?.orderOut(nil)
+    }
+
+    private(set) var askMacPanel: FloatingPanel?
+
+    /// "Ask my Mac": questions answered from notes, tasks, meetings and clipboard.
+    func toggleAskMac() {
+        if let panel = askMacPanel, panel.isVisible {
+            hideAskMac()
+            return
+        }
+        hidePanels()
+        AskMyMacController.shared.reset()
+        if askMacPanel == nil {
+            askMacPanel = FloatingPanel(rootView: AskMyMacView(), size: NSSize(width: 640, height: 480))
+        }
+        guard let panel = askMacPanel else { return }
+        if let screen = NSScreen.main {
+            let frame = screen.visibleFrame
+            panel.setFrameOrigin(NSPoint(x: frame.midX - panel.frame.width / 2, y: frame.maxY - panel.frame.height - 80))
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        panel.makeKeyAndOrderFront(nil)
+    }
+
+    func hideAskMac() {
+        askMacPanel?.orderOut(nil)
     }
 
     private(set) var textActionsPanel: FloatingPanel?

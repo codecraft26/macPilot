@@ -144,6 +144,8 @@ enum LauncherCatalog {
             LauncherItem(id: "timer.cancel", title: NotchTimers.shared.current == nil ? "Timer: type “timer 25m”" : "Cancel timer",
                          icon: .system("timer"), section: "Timer",
                          primary: { if NotchTimers.shared.current != nil { NotchTimers.shared.cancel() } else { WindowManager.shared.toggleLauncher() } }),
+            LauncherItem(id: "cmd.askmac", title: "Ask my Mac", subtitle: "Answers from your meetings, notes, tasks and clipboard (⌥⇧A)",
+                         icon: .system("sparkle.magnifyingglass"), section: "AI", primary: { WindowManager.shared.toggleAskMac() }),
             LauncherItem(id: "cmd.textactions", title: "AI on selected text", subtitle: "Rewrite, shorten, fix, translate (⌥⇧E)",
                          icon: .system("wand.and.stars"), section: "AI", primary: { TextActionsController.shared.open() }),
             LauncherItem(id: "sys.lock", title: "Lock Screen", icon: .system("lock"), section: "System", primary: { SystemCommands.lockScreen() }),
