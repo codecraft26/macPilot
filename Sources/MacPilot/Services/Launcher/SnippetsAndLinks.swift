@@ -144,7 +144,7 @@ final class SnippetExpander {
     }
 
     /// The snippet whose keyword the typed text ends with (keyword must start a word).
-    static func match(typed: String, in snippets: [Snippet]) -> Snippet? {
+    nonisolated static func match(typed: String, in snippets: [Snippet]) -> Snippet? {
         snippets
             .filter { !$0.keyword.isEmpty && typed.hasSuffix($0.keyword) }
             .filter { snippet in
