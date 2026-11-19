@@ -126,4 +126,16 @@ final class UISnapshots: XCTestCase {
         snapshot("14-assistant-dark", size: big, AssistantView())
         appearance = NSAppearance(named: .aqua)
     }
+
+    func testRenderAutomations() throws {
+        let context = container.mainContext
+        let workflow = AutomationWorkflow(name: "Weekly sync transcript")
+        workflow.action = .copyTranscript
+        context.insert(workflow)
+        let event = AutomationEvent(trigger: .transcriptReady, id: "weekly-sync", date: Date(),
+                                    title: "Weekly product sync", body: "The team agreed to update the release notes.")
+        AutomationEngine.handle(event, workflows: [workflow], context: context)
+        try context.save()
+        snapshot("automations", size: CGSize(width: 900, height: 640), AutomationsView())
+    }
 }

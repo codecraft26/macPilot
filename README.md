@@ -9,10 +9,10 @@ MacPilot is a native macOS menu bar app with a floating AI assistant, meeting re
 | 1 | Native app, menu bar, dashboard, shortcuts, settings, Keychain | Done |
 | 2 | OpenAI + Claude streaming chat, history, prompt library | Done (plus Ollama) |
 | 3 | Microphone recording, dictation, transcription, transcript editor | Recording, import, transcription, and editing available. Push-to-talk dictation planned. |
-| 4 | Meeting recording, system audio, speakers, meeting intelligence | Recording and post-recording analysis available. Amazon Transcribe integration in progress. |
+| 4 | Meeting recording, system audio, speakers, meeting intelligence | Post-recording analysis and optional live microphone captions with Amazon Transcribe. |
 | 5 | Calendar, notes, tasks, reminders | Done (Apple Reminders sync not yet) |
 | 6 | Clipboard manager, developer workspace | Done (plus ⌥K command launcher) |
-| 7 | Automations, local Whisper, distribution | ZIP and DMG packaging available. Automations and local Whisper planned. |
+| 7 | Automations, local Whisper, distribution | Workflows with approvals and run history, on-device transcription with whisper.cpp, and ZIP and DMG packaging. |
 
 ## Screenshots
 
@@ -52,6 +52,8 @@ On first launch the dashboard opens on **Settings → Providers**. Save an Anthr
    - double-click MacPilot, then **System Settings → Privacy & Security**, scroll down and press **Open Anyway**; or
    - in Terminal: `xattr -dr com.apple.quarantine /Applications/MacPilot.app`
 4. Open MacPilot. It lives in the menu bar (paper-plane icon); there is no Dock icon until you open the dashboard.
+
+Set `BUILD_DIR=build/release` before running the packaging script to keep a separate set of output files.
 
 For installs that open with no warning, sign with a Developer ID certificate (paid Apple Developer Program) and notarize:
 
@@ -104,8 +106,24 @@ All shortcuts can be changed in **Settings → Shortcuts**. Some macOS versions 
 ### Transcription providers
 
 - **OpenAI** is the default. Save your OpenAI API key in **Settings → Providers** and set **File transcription model** under **Settings → Routing → Audio transcription**. The default is `gpt-4o-transcribe`. MacPilot splits long audio it can decode into two-minute uploads. Choose `whisper-1` for segment timestamps returned by OpenAI.
-- **Amazon Transcribe (AWS)** is experimental. In **Settings → Providers → Claude via Amazon Bedrock**, save an AWS access key ID and secret, plus a session token if you use temporary credentials. Then select **Amazon Transcribe (AWS)** in **Settings → Routing → Audio transcription**. MacPilot uses the Bedrock region by default and streams saved audio files to Amazon Transcribe. The code also supports S3 batch jobs with speaker labels when a bucket is configured. S3 settings have yet to be added to the UI.
-- Live captions still need to be connected to the recording controls. The **Local Whisper (on device)** option is a placeholder.
+- **Amazon Transcribe (AWS)** streams saved tracks in real time when the S3 bucket field is blank. Enter a bucket in the transcription region to use batch jobs with speaker labels.
+- **Amazon Bedrock Data Automation** reads saved audio from S3 and returns timestamped transcript segments. Enter your S3 bucket and Data Automation profile ARN. You can also enter a project ARN to use its audio standard output settings. Enable full transcription in the project and speaker labeling if you want individual speaker labels. [Bedrock audio output](https://docs.aws.amazon.com/bedrock/latest/userguide/audio-processing.html)
+- **Local Whisper (on device)** runs `whisper-cli` on this Mac. Install [whisper.cpp](https://github.com/ggml-org/whisper.cpp#quick-start) and download a [GGML model](https://github.com/ggml-org/whisper.cpp/tree/master/models), then select the model in **Settings → Routing → Local Whisper**. MacPilot finds the executable in the default Homebrew locations. Use **Choose…** if you installed it somewhere else. Transcript analysis still uses the provider selected separately in Routing.
+
+#### AWS setup
+
+1. Save an AWS **Access key** in **Settings → Providers → Claude via Amazon Bedrock**. Include the session token for temporary credentials. A Bedrock bearer key works for Claude chat and analysis. AWS transcription uses the AWS access key and secret.
+2. In **Settings → Routing → Audio transcription**, select **Amazon Transcribe (AWS)** or **Amazon Bedrock Data Automation**. The transcription region defaults to the Bedrock region. Set an override if your transcription services use another region.
+3. For Amazon Transcribe streaming and live captions, give the AWS identity `transcribe:StartStreamTranscriptionWebSocket`. For batch, it needs `transcribe:StartTranscriptionJob`, `transcribe:GetTranscriptionJob`, and read and write access to your input bucket. If you enable cleanup, also allow `s3:DeleteObject` and `transcribe:DeleteTranscriptionJob`. [Amazon Transcribe streaming setup](https://docs.aws.amazon.com/transcribe/latest/dg/streaming-setting-up.html) · [Batch requests](https://docs.aws.amazon.com/transcribe/latest/APIReference/API_StartTranscriptionJob.html)
+4. For Bedrock Data Automation, configure `bedrock:InvokeDataAutomationAsync` and `bedrock:GetDataAutomationStatus` for the profile and invocation resources, and allow the required reads and writes on the bucket. For example, a supported US profile uses an ARN ending in `data-automation-profile/us.data-automation-v1`. MacPilot can delete the uploaded audio after a completed job if granted `s3:DeleteObject`. Bedrock output stays in S3 and is subject to your bucket's retention policy. [Bedrock profiles and permissions](https://docs.aws.amazon.com/bedrock/latest/userguide/bda-cris.html) · [S3 access](https://docs.aws.amazon.com/bedrock/latest/userguide/s3-bucket-access.html)
+
+Enable **Live microphone captions via Amazon Transcribe** under either AWS provider. Captions appear in Voice and Calendar & Meetings while you record. System audio is transcribed afterward. With Amazon Transcribe, you can reuse a completed live microphone transcript for an uninterrupted recording. Paused or failed streams use the saved microphone audio for the final transcript.
+
+## Automations
+
+Open **Automations → New Workflow**. Choose **Recording finished**, **Meeting ended**, **Transcript ready**, or **Daily summary**. For recording and meeting triggers, you can filter by title and minimum duration. **Meeting ended** follows the scheduled end time of visible events in connected calendars. A daily summary collects the day's calendar events and open tasks due by the end of that day. Scheduled workflows run while MacPilot is open and use the Mac's local time.
+
+Workflows can create a note or task and can optionally require approval first. **Copy transcript** always asks for approval. Review the proposed content under **Needs Approval**, and check completed, declined, and failed actions in **Run History**. A workflow runs once for a matching recording, meeting occurrence, or daily schedule.
 
 ## Calendar
 
@@ -143,7 +161,7 @@ Sources/MacPilot
 ├── Models/       SwiftData models (Conversation, ChatMessage, PromptTemplate, Note, TaskItem, Recording) and the store
 ├── Services/     Keychain, preferences, export/delete, notifications, transcription, meeting intelligence, EventKit
 │   ├── Audio/    Microphone (AVCaptureSession) and system audio (ScreenCaptureKit) recorders, RecordingManager
-│   ├── AWS/      Amazon Transcribe batch and streaming clients, AWS event-stream framing
+│   ├── AWS/      Amazon Transcribe, Bedrock Data Automation, S3 and AWS event-stream framing
 │   ├── Clipboard/ Pasteboard monitor, sensitive-content filter, paste service, fuzzy matcher, clip AI actions
 │   └── Developer/ git (porcelain v2), argument-array process runner, command safety, HTTP request runner
 └── Views/        Dashboard, Assistant, Quick assistant, Voice, Calendar & Meetings, Notes, Tasks, Settings, menu bar

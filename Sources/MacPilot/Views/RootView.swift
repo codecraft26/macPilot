@@ -132,4 +132,3 @@ private struct RecordingStatusFooter: View {
         .background(.bar)
     }
 }
-

@@ -123,8 +123,10 @@ final class RecordingManager {
             return
         }
         let recorder = SystemAudioRecorder()
+        let recordingID = recording.uid
         recorder.onUnexpectedStop = { [weak self] error in
             Task { @MainActor in
+                guard self?.current?.uid == recordingID, self?.state != .stopping else { return }
                 let message = "System audio stopped: \(error.localizedDescription). The microphone is still recording."
                 self?.notice = message
                 self?.current?.notice = message

@@ -16,6 +16,7 @@ final class LiveTranscriber {
     private let converter = PCM16()
     private let pauseLock = NSLock()
     @ObservationIgnored nonisolated(unsafe) private var paused = false
+    @ObservationIgnored nonisolated(unsafe) private var droppedAudio = false
     private var wasPaused = false
 
     static var isEnabled: Bool {
@@ -55,6 +56,7 @@ final class LiveTranscriber {
         pauseLock.lock()
         if paused { data = Data(count: data.count) } // Silence keeps the stream open while paused.
         let accepted = stream.send(data)
+        if !accepted { droppedAudio = true }
         pauseLock.unlock()
         if !accepted {
             Task { @MainActor [weak self] in
@@ -87,12 +89,18 @@ final class LiveTranscriber {
         errorMessage = message
     }
 
+    private func hadAudioLoss() -> Bool {
+        pauseLock.lock()
+        defer { pauseLock.unlock() }
+        return droppedAudio
+    }
+
     /// Returns reusable microphone segments only when the live timebase matches the saved audio.
     func finish(reuse: Bool) async -> [TranscriptSegment] {
         guard let stream else { return [] }
         self.stream = nil
         defer { partial = "" }
-        guard reuse, !wasPaused, errorMessage == nil else {
+        guard reuse, !wasPaused, !hadAudioLoss(), errorMessage == nil else {
             stream.cancel()
             return []
         }

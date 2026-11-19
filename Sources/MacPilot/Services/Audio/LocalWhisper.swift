@@ -35,7 +35,7 @@ enum LocalWhisper {
         try Task.checkCancellation()
         let output = directory.appendingPathComponent("transcript")
         let result = await Shell.run(executable, [
-            "-m", model, "-f", input.path, "-l", "auto", "-oj", "-of", output.path, "-np"
+            "-m", model, "-f", input.path, "-l", "auto", "-oj", "-of", output.path
         ], timeout: 14_400)
         guard result.ok else {
             let reason = result.timedOut ? "The local transcription timed out." : "Check the executable and model selected in Settings → Routing."

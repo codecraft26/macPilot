@@ -123,8 +123,8 @@ enum BedrockTranscription {
         let speakers = Set(items.compactMap { ($0["speaker"] as? [String: Any])?["speaker_label"] as? String })
         return items.compactMap { item in
             guard item["type"] as? String == "TRANSCRIPT",
-                  let start = item["start_timestamp_millis"] as? Double,
-                  let end = item["end_timestamp_millis"] as? Double,
+                  let start = TranscribeParsing.number(item["start_timestamp_millis"]),
+                  let end = TranscribeParsing.number(item["end_timestamp_millis"]),
                   start >= 0, end >= start, end.isFinite,
                   let text = (item["text"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
                   !text.isEmpty else { return nil }
