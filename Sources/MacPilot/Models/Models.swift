@@ -153,6 +153,8 @@ final class TaskItem {
     var reminderID: String?
     /// Task state at the last successful sync, used to tell which side changed.
     var reminderFingerprint: String?
+    /// Apple's cross-device id for that reminder, used by iCloud sync to link the same reminder on every Mac.
+    var reminderExternalID: String?
 
     init(title: String, dueDate: Date? = nil, priority: TaskPriority = .none, category: String = "") {
         self.title = title

@@ -27,6 +27,7 @@ enum PrefKey {
     static let clipboardExcludedApps = "clipboard.excludedApps"
     static let developerRepos = "developer.repositories"
     static let snippetsEnabled = "snippets.enabled"
+    static let iCloudSyncEnabled = "sync.iCloudEnabled"
     static let notchEnabled = "notch.enabled"
     static let notchExpandOnHover = "notch.expandOnHover"
     static let notchMeetingCountdown = "notch.meetingCountdown"

@@ -207,6 +207,20 @@ final class ReminderSync {
         UserDefaults.standard.removeObject(forKey: Self.deletedKey)
 
         let tasks = try context.fetch(FetchDescriptor<TaskItem>())
+        // Tasks that arrived from another Mac through iCloud sync carry the reminder's cross-device id:
+        // link them to the same reminder here instead of creating a second one.
+        var byExternalID: [String: EKReminder] = [:]
+        for reminder in byID.values {
+            if let external = reminder.calendarItemExternalIdentifier { byExternalID[external] = reminder }
+        }
+        for task in tasks where task.reminderID == nil {
+            guard let external = task.reminderExternalID else { continue }
+            if let reminder = byExternalID[external] {
+                task.reminderID = reminder.calendarItemIdentifier
+                task.reminderFingerprint = fields(of: reminder).fingerprint
+            }
+        }
+        let linkedExternalIDs = Set(tasks.compactMap(\.reminderExternalID))
         for task in tasks {
             if let id = task.reminderID {
                 let reminder = byID.removeValue(forKey: id)
@@ -239,7 +253,13 @@ final class ReminderSync {
                     created += 1
                     continue
                 }
-                if let reminder { task.reminderFingerprint = fields(of: reminder).fingerprint }
+                if let reminder {
+                    task.reminderFingerprint = fields(of: reminder).fingerprint
+                    task.reminderExternalID = reminder.calendarItemExternalIdentifier
+                }
+            } else if task.reminderExternalID != nil {
+                // Synced from another Mac; its reminder hasn't reached this Mac yet. Link it on a later sync.
+                continue
             } else if !task.isCompleted {
                 try create(for: task, in: list)
                 created += 1
@@ -247,11 +267,13 @@ final class ReminderSync {
         }
 
         // New reminders made in the Reminders app.
-        for reminder in byID.values where !reminder.isCompleted {
+        for reminder in byID.values where !reminder.isCompleted
+            && !(reminder.calendarItemExternalIdentifier.map(linkedExternalIDs.contains) ?? false) {
             let fields = fields(of: reminder)
             let task = TaskItem(title: fields.title, dueDate: fields.due, priority: fields.priority, category: "Reminders")
             task.notes = fields.notes
             task.reminderID = reminder.calendarItemIdentifier
+            task.reminderExternalID = reminder.calendarItemExternalIdentifier
             task.reminderFingerprint = fields.fingerprint
             context.insert(task)
             NotificationService.schedule(id: task.notificationID, title: task.title, at: task.dueDate)
@@ -288,6 +310,7 @@ final class ReminderSync {
         write(task, to: reminder)
         try store.save(reminder, commit: false)
         task.reminderID = reminder.calendarItemIdentifier
+        task.reminderExternalID = reminder.calendarItemExternalIdentifier
         task.reminderFingerprint = fields(of: task).fingerprint
     }
 

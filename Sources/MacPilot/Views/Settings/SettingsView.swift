@@ -17,6 +17,8 @@ struct SettingsView: View {
                 .tabItem { Label("Clipboard", systemImage: "doc.on.clipboard") }
             SnippetsSettingsView()
                 .tabItem { Label("Snippets & Links", systemImage: "text.quote") }
+            SyncSettingsView()
+                .tabItem { Label("Sync", systemImage: "icloud") }
             ShortcutsSettingsView()
                 .tabItem { Label("Shortcuts", systemImage: "keyboard") }
             UsageSettingsView()

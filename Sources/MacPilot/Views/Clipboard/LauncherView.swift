@@ -148,6 +148,10 @@ enum LauncherCatalog {
                          icon: .system("sparkle.magnifyingglass"), section: "AI", primary: { WindowManager.shared.toggleAskMac() }),
             LauncherItem(id: "cmd.textactions", title: "AI on selected text", subtitle: "Rewrite, shorten, fix, translate (⌥⇧E)",
                          icon: .system("wand.and.stars"), section: "AI", primary: { TextActionsController.shared.open() }),
+            LauncherItem(id: "cmd.icloudsync", title: "Sync with my other Macs now", subtitle: "iCloud Drive sync (Settings → Sync)",
+                         icon: .system("icloud"), section: "MacPilot", primary: {
+                             if ICloudSync.isEnabled { ICloudSync.shared.syncNow() } else { windows.open(.settings) }
+                         }),
             LauncherItem(id: "sys.lock", title: "Lock Screen", icon: .system("lock"), section: "System", primary: { SystemCommands.lockScreen() }),
             LauncherItem(id: "sys.sleepdisplay", title: "Sleep Display", icon: .system("display"), section: "System", primary: { SystemCommands.sleepDisplay() }),
             LauncherItem(id: "sys.screensaver", title: "Start Screen Saver", icon: .system("sparkles.tv"), section: "System", primary: { SystemCommands.startScreenSaver() }),

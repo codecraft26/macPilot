@@ -190,7 +190,7 @@ enum DataManager {
 
 /// Task reminders. Only available when running as a bundled .app.
 enum NotificationService {
-    static var isAvailable: Bool { Bundle.main.bundleIdentifier != nil }
+    static var isAvailable: Bool { Bundle.main.bundleIdentifier != nil && Bundle.main.bundleURL.pathExtension == "app" }
 
     /// A one-off alert after `seconds` (used by notch timers).
     static func alert(id: String, heading: String, body: String, after seconds: TimeInterval) {

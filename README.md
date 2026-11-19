@@ -165,6 +165,17 @@ Select text in any app and press **⌥⇧E**. Pick an action — fix spelling & 
 Ask questions like “What did we decide about the launch date?” or “Which tasks are due this week?”. MacPilot ranks your notes, tasks, meeting summaries/transcripts and recent clipboard text **on this Mac**, sends only the best-matching passages with your question to the AI, and shows the answer with numbered sources — click one (or ⌘1–9) to open that note, meeting or task.
 
 
+## iCloud sync between your Macs
+
+Turn on **Settings → Sync** on each Mac (same Apple Account, iCloud Drive on). Notes, tasks, meeting transcripts and summaries, AI chats, the prompt library, and snippets & quick links sync through `iCloud Drive/MacPilot/Sync/`, usually within a minute.
+
+- Each Mac writes only its own file and reads the others, so iCloud never has to merge one file edited on two Macs. The newest edit of an item wins; deletions sync too.
+- Tasks linked to Apple Reminders are matched to the same reminder on every Mac (by Apple's cross-device id), so nothing is duplicated.
+- Not synced: clipboard history, audio/screen video files (meetings arrive with transcript and summary), API keys and AWS credentials (Keychain, per Mac), app settings.
+- Why iCloud Drive and not CloudKit: CloudKit needs the app signed by a paid Apple Developer team; this works with the ad-hoc signed build. macOS may ask once to let MacPilot access iCloud Drive.
+
+## File Tools
+
 A **File Tools** section (also searchable from ⌥K) with on-device converters — nothing is uploaded:
 
 - **PDF:** PDF → Word (.docx; scanned pages are read with OCR), merge, split (every page or ranges like `1-3, 5, 8-`), compress, password-protect, PDF → PNG/JPEG pages.

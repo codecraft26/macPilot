@@ -39,6 +39,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NotchController.shared.start()
         NowPlaying.shared.start()
         SnippetExpander.shared.start()
+        ICloudSync.shared.start()
         AutomationEngine.shared.start()
 
         let defaults = UserDefaults.standard
