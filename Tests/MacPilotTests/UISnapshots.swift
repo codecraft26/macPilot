@@ -402,7 +402,7 @@ final class UISnapshots: XCTestCase {
         let notchImage = NSImage(size: size)
         notchImage.addRepresentation(rep)
 
-        let canvas = NSSize(width: 1100, height: expanded ? 300 : 150)
+        let canvas = NSSize(width: 1100, height: expanded ? 330 : 150)
         let output = NSImage(size: canvas, flipped: false) { rect in
             self.drawDesktop(in: rect)
             self.drawMenuBar(in: rect, height: 32)
@@ -491,6 +491,14 @@ final class UISnapshots: XCTestCase {
         notchShot("notch-dictating", activity: .dictating, expanded: false)
         notchShot("notch-music", activity: .nowPlaying, expanded: false)
         notchShot("notch-expanded", activity: .idle, expanded: true)
+        let shelfDir = FileManager.default.temporaryDirectory.appendingPathComponent("shelf-demo", isDirectory: true)
+        try? FileManager.default.createDirectory(at: shelfDir, withIntermediateDirectories: true)
+        let shelfFiles = ["Q4 roadmap.pdf", "Hero banner.png", "Contract draft.docx", "Budget.xlsx", "Demo.mov"].map { shelfDir.appendingPathComponent($0) }
+        shelfFiles.forEach { FileManager.default.createFile(atPath: $0.path, contents: Data("demo".utf8)) }
+        NowPlaying.shared.setPreview(nil, playing: false, artwork: nil)
+        NotchShelf.shared.setPreview(shelfFiles)
+        notchShot("notch-shelf", activity: .idle, expanded: true)
+        NotchShelf.shared.setPreview([])
         NowPlaying.shared.setPreview(nil, playing: false, artwork: nil)
     }
 
@@ -498,6 +506,7 @@ final class UISnapshots: XCTestCase {
     private func buddyShot() {
         let states: [(String, BuddyMood, Bool)] = [("Idle", .idle, false), ("Hover", .idle, true),
                                                    ("Dictating", .listening, false), ("Recording", .recording, false)]
+        talkingBuddyShot()
         var images: [NSImage] = []
         for (_, mood, hover) in states {
             let hosting = NSHostingView(rootView: BuddyView(previewMood: mood, previewHover: hover).environment(AppState.shared))
@@ -530,5 +539,35 @@ final class UISnapshots: XCTestCase {
         guard let tiff = output.tiffRepresentation, let bitmap = NSBitmapImageRep(data: tiff),
               let png = bitmap.representation(using: .png, properties: [:]) else { return }
         try? png.write(to: directory.appendingPathComponent("buddy.png"))
+    }
+
+    /// Pilot answering a spoken question, on the desktop.
+    private func talkingBuddyShot() {
+        let size = FloatingBuddy.talkingSize
+        let hosting = NSHostingView(rootView: BuddyView(previewMood: .speaking,
+                                                        previewBubble: (heard: "Hey Pilot, what's next today?",
+                                                                        reply: "Next up is Design review at 10:00. You have 3 meetings left today, and 2 tasks due, starting with Send Q4 roadmap."))
+            .environment(AppState.shared))
+        hosting.frame = CGRect(origin: .zero, size: size)
+        let window = NSWindow(contentRect: hosting.frame, styleMask: [.borderless], backing: .buffered, defer: false)
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.contentView = hosting
+        hosting.layoutSubtreeIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.4))
+        guard let rep = hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds) else { return }
+        hosting.cacheDisplay(in: hosting.bounds, to: rep)
+        let image = NSImage(size: size)
+        image.addRepresentation(rep)
+        let canvas = NSSize(width: 560, height: size.height + 70)
+        let output = NSImage(size: canvas, flipped: false) { rect in
+            self.drawDesktop(in: rect)
+            self.drawMenuBar(in: rect, height: 28)
+            image.draw(in: NSRect(x: (rect.width - size.width) / 2, y: 20, width: size.width, height: size.height))
+            return true
+        }
+        guard let tiff = output.tiffRepresentation, let bitmap = NSBitmapImageRep(data: tiff),
+              let png = bitmap.representation(using: .png, properties: [:]) else { return }
+        try? png.write(to: directory.appendingPathComponent("buddy-talking.png"))
     }
 }

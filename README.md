@@ -9,10 +9,10 @@
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-000?logo=apple)
 ![Swift 5.10](https://img.shields.io/badge/Swift-5.10-F05138?logo=swift&logoColor=white)
 ![SwiftUI](https://img.shields.io/badge/UI-SwiftUI-0A84FF)
-![Version](https://img.shields.io/badge/version-0.18.3-6E5BF7)
+![Version](https://img.shields.io/badge/version-0.19.0-6E5BF7)
 ![Universal](https://img.shields.io/badge/Apple%20silicon%20%2B%20Intel-universal-555)
 
-[**⬇ Download MacPilot 0.18.3 (.dmg)**](releases/MacPilot-0.18.3.dmg) · [What's new](#whats-new) · [Features](#features) · [Floating buddy](#-floating-buddy) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
+[**⬇ Download MacPilot 0.19.0 (.dmg)**](releases/MacPilot-0.19.0.dmg) · [What's new](#whats-new) · [Features](#features) · [Floating buddy](#-floating-buddy) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
 
 <img src="docs/screenshots/mac/dashboard.png" width="860" alt="MacPilot dashboard with today's briefing">
 
@@ -21,6 +21,10 @@
 MacPilot brings Raycast-style speed and an AI assistant to everything you do on a Mac: ask Claude (Anthropic or Amazon Bedrock), OpenAI or a local Ollama model from anywhere, record and summarize meetings, dictate into any app, manage notes, tasks and your calendar, search your clipboard, convert files, and sync it all between your Macs — with a friendly floating buddy on your desktop and live status in the MacBook notch. **Bring your own keys** — there is no MacPilot account or server; data stays on your Mac and credentials in the Keychain. Cloud features send only the relevant content to the provider you choose.
 
 ## What's new
+
+**0.19** — Pilot talks back, and a file shelf in the notch
+- 🗣 **Talk to Pilot:** click the buddy (or say **“Hey Pilot”**) and speak. It answers out loud with an on-device voice and runs commands: “add a task call mom tomorrow at 5”, “what's next today?”, “start recording”, “set a timer for 25 minutes”, “new note …”, “open my calendar” — anything else goes to your AI.
+- 📥 **Notch file shelf:** drag files onto the notch to park them, then drag them out into any app, AirDrop them, or ask AI about them.
 
 **0.18** — the floating buddy
 - 🤖 **Pilot**, an animated desktop helper: click to ask AI; buttons for voice note, dictation and new note; ⋯ for Ask my Mac, screenshot, clipboard and launcher. Reacts while you dictate or record.
@@ -47,11 +51,13 @@ MacPilot brings Raycast-style speed and an AI assistant to everything you do on 
 | ![Assistant](docs/screenshots/mac/assistant.png) | ![Dashboard dark](docs/screenshots/mac/dashboard-dark.png) |
 | Full chat window with streaming, code blocks, attachments, saved prompts and per-chat model choice. | The dashboard opens with an AI summary of today's meetings, due/overdue tasks and open action items, plus a suggested focus. |
 
-### 🤖 Floating buddy
+### 🤖 Floating buddy that talks back
 
-![Floating buddy](docs/screenshots/mac/buddy.png)
+| Talk to Pilot | States |
+|---|---|
+| ![Pilot answering](docs/screenshots/mac/buddy-talking.png) | ![Floating buddy](docs/screenshots/mac/buddy.png) |
 
-**Pilot**, MacPilot's little desktop helper, floats above your windows. Click it to ask AI. Its buttons record a **voice note**, start **dictation** into the app you're using, or open a **new note**; ⋯ adds Ask my Mac, screenshot, clipboard and launcher. It blinks while idle, smiles when you hover, shows a live waveform while you dictate and a red REC light while recording. Drag it anywhere (it remembers the spot) and right-click for more. To remove it, hover and click its **×** button (or use the menu bar, ⌥K or **Settings → Shortcuts**); bring it back from any of those. Like every MacPilot window, it's hidden from screen sharing.
+**Pilot**, MacPilot's little desktop helper, floats above your windows. **Click it (or say “Hey Pilot”) and speak**: it shows what it heard, answers out loud with an on-device voice, and can act for you — *“add a task call mom tomorrow at 5”*, *“what's next today?”*, *“start recording”* / *“stop recording”*, *“take a voice note”*, *“set a timer for 25 minutes”*, *“new note buy a gift for Sam”*, *“open my calendar”*, *“dictate”*. Anything else is answered by your AI in a sentence or two, and follow-up questions keep the context. Its buttons record a **voice note**, start **dictation** into the app you're using, or open a **new note**; ⋯ adds Ask my Mac, screenshot, clipboard and launcher. It blinks while idle, smiles when you hover, shows a live waveform while you dictate and a red REC light while recording. Drag it anywhere (it remembers the spot) and right-click for more. To remove it, hover and click its **×** button (or use the menu bar, ⌥K or **Settings → Shortcuts**); bring it back from any of those. Like every MacPilot window, it's hidden from screen sharing.
 
 ### 🎙 Meetings, voice and calendar
 
@@ -70,13 +76,15 @@ MacPilot brings Raycast-style speed and an AI assistant to everything you do on 
 
 MacPilot turns the MacBook notch into a live status area. Hover or click it to expand.
 
-| Recording | Meeting about to start |
+| File shelf: drop files on the notch | Expanded |
 |---|---|
+| ![Notch shelf](docs/screenshots/mac/notch-shelf.png) | ![Notch expanded](docs/screenshots/mac/notch-expanded.png) |
+| **Recording** | **Meeting about to start** |
 | ![Notch recording](docs/screenshots/mac/notch-recording.png) | ![Notch meeting](docs/screenshots/mac/notch-meeting.png) |
 | **Now playing (Music / Spotify)** | **Dictation** |
 | ![Notch music](docs/screenshots/mac/notch-music.png) | ![Notch dictation](docs/screenshots/mac/notch-dictating.png) |
 
-![Notch expanded](docs/screenshots/mac/notch-expanded.png)
+**File shelf:** drag files from Finder (or anywhere) toward the notch — it opens as a drop zone. Parked files stay there (only a reference; the files don't move) until you drag them out into Mail, Slack, a browser upload or any app. Double-click opens one; right-click for Ask AI, AirDrop, Show in Finder and Remove; the shelf's buttons ask AI about all of them, AirDrop all or clear it. Turn it off in **Settings → Recording & Calendar → Notch**.
 
 Expanded: date and time, next meeting with **Join** and **Record**, open tasks, now playing with playback controls, quick timers (“25m focus”), and one-tap buttons for Ask AI, Dictate, Record, Clipboard, Launcher and Note. On Macs without a notch it shows as a small pill under the menu bar.
 
@@ -108,7 +116,7 @@ Expanded: date and time, next meeting with **Join** and **Record**, open tasks, 
 
 ## Install
 
-1. [Download `MacPilot-0.18.3.dmg`](releases/MacPilot-0.18.3.dmg) (universal: Apple silicon and Intel, macOS 14+).
+1. [Download `MacPilot-0.19.0.dmg`](releases/MacPilot-0.19.0.dmg) (universal: Apple silicon and Intel, macOS 14+).
 2. Open it and drag **MacPilot** into **Applications**.
 3. The build is ad-hoc signed (not notarized), so the first launch needs one approval: right-click MacPilot → **Open** → **Open**, or **System Settings → Privacy & Security → Open Anyway**. If macOS still refuses:
    ```bash
@@ -117,7 +125,7 @@ Expanded: date and time, next meeting with **Join** and **Record**, open tasks, 
 4. MacPilot lives in the menu bar and **opens automatically when you log in** (turn that off in **Settings → Shortcuts → Startup** or the menu bar's “Open at Login”; macOS also lists it under System Settings → General → Login Items).
 5. Add an API key (Anthropic, OpenAI or AWS) in **Settings → Providers**, and grant Microphone, Accessibility and Screen Recording when you use features that need them.
 
-SHA-256 of the DMG: `38a4de948c5b201342e0eba9afa66ff2de94419b3700bbcece097a782032f04f`
+SHA-256 of the DMG: `9383d2d280821bf8ce46a262d494bb460f3aabbe707f2d21f4709f6d1a5ac940`
 
 ## Status
 
@@ -133,6 +141,7 @@ SHA-256 of the DMG: `38a4de948c5b201342e0eba9afa66ff2de94419b3700bbcece097a78203
 | 8 | AI everywhere: text actions, Ask my Mac, screenshots, briefing, AI commands | Done |
 | 9 | File tools, PDF page editor, iCloud sync, notch | Done |
 | 10 | Floating buddy, open at login, hidden from screen sharing | Done |
+| 11 | Voice buddy (“Hey Pilot”, spoken answers, voice commands), notch file shelf | Done |
 
 ## Requirements
 
@@ -274,6 +283,8 @@ Select text in any app and press **⌥⇧E**. Pick an action — fix spelling & 
 **Your own AI commands:** save prompts like “Tweet from selection”, “Commit message” or “Find bugs” in **Settings → Snippets & Links → AI commands**. They appear in ⌥⇧E under “Your commands” and as ⌥K commands that run on the current selection.
 
 ## Floating buddy
+
+**Talking to Pilot:** click it and speak (it chimes, listens until you pause, then answers). Speech recognition runs on this Mac when your Mac supports it; questions that aren't commands go to the AI provider you chose for analysis. Turn spoken replies off in **Settings → Shortcuts → Floating buddy → Answer out loud** (the answer still shows in the bubble). **“Hey Pilot”** is off by default: when you turn it on, MacPilot keeps listening with **on-device recognition only** (it won't run on Macs that can't do that), and pauses while you record or dictate. macOS asks once for Microphone and Speech Recognition permission. Click the bubble to stop it talking.
 
 A small always-on-top character (bottom-right by default). Click: Ask AI (⌥Space). Buttons: record/stop a voice note, dictate (tap to start hands-free, tap again to paste), new note, and ⋯ for Ask my Mac, screenshot, clipboard and launcher. Right-click for record meeting, new task, dashboard and Hide. Drag to move; the position is remembered.
 

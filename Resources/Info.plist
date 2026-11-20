@@ -21,9 +21,9 @@
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.18.3</string>
+    <string>0.19.0</string>
     <key>CFBundleVersion</key>
-    <string>26</string>
+    <string>27</string>
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.productivity</string>
     <key>LSMinimumSystemVersion</key>
@@ -32,6 +32,8 @@
     <true/>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>MacPilot's buddy uses speech recognition (on this Mac when supported) to understand what you say to it.</string>
     <key>NSMicrophoneUsageDescription</key>
     <string>MacPilot uses the microphone only while you are dictating or recording. A recording indicator is always shown.</string>
     <key>NSCalendarsFullAccessUsageDescription</key>

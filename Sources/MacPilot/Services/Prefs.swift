@@ -31,6 +31,9 @@ enum PrefKey {
     static let hideFromScreenCapture = "privacy.hideFromScreenCapture"
     static let autoBriefing = "briefing.auto"
     static let buddyEnabled = "buddy.enabled"
+    static let notchShelfEnabled = "notch.shelfEnabled"
+    static let pilotWakeWord = "buddy.wakeWord"
+    static let pilotSpeaks = "buddy.speaks"
     static let notchEnabled = "notch.enabled"
     static let notchExpandOnHover = "notch.expandOnHover"
     static let notchMeetingCountdown = "notch.meetingCountdown"
@@ -112,6 +115,9 @@ enum Prefs {
             PrefKey.hideFromScreenCapture: true,
             PrefKey.autoBriefing: true,
             PrefKey.buddyEnabled: true,
+            PrefKey.notchShelfEnabled: true,
+            PrefKey.pilotWakeWord: false,
+            PrefKey.pilotSpeaks: true,
             PrefKey.notchEnabled: true,
             PrefKey.notchExpandOnHover: true,
             PrefKey.notchMeetingCountdown: true,

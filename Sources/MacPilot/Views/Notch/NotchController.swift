@@ -74,7 +74,7 @@ final class NotchController {
     private var lastAnnouncementCheck = Date.distantPast
 
     /// Size of the panel window; the visible black shape is drawn inside it.
-    static let panelSize = CGSize(width: 620, height: 300)
+    static let panelSize = CGSize(width: 620, height: 440)
     static let expandedSize = CGSize(width: 560, height: 196)
     static let compactSideWidth: CGFloat = 78
 
@@ -82,6 +82,8 @@ final class NotchController {
     private var timer: Timer?
     private var hoverStartedAt: Date?
     private var leftAt: Date?
+    private var dragChangeCount = NSPasteboard(name: .drag).changeCount
+    private var fileDragActive = false
 
     static var isEnabled: Bool { UserDefaults.standard.bool(forKey: PrefKey.notchEnabled) }
 
@@ -155,6 +157,7 @@ final class NotchController {
         var count = 0
         if NotchTimers.shared.current != nil { count += 1 }
         if NowPlaying.shared.track != nil { count += 1 }
+        if !NotchShelf.shared.items.isEmpty || NotchShelf.shared.isDropTargeted { count += 1 }
         return count
     }
 
@@ -218,7 +221,27 @@ final class NotchController {
         // On screens without a notch, the empty top centre only reacts while something is showing.
         let idleWithoutNotch = !geometry.hasHardwareNotch && activity == .idle && !isExpanded && peekMessage == nil
         let hotRect = idleWithoutNotch ? .zero : shapeRect.union(geometry.notch).insetBy(dx: -4, dy: -2)
-        let inside = hotRect.contains(mouse)
+        var inside = hotRect.contains(mouse)
+
+        // File shelf: while files are dragged near the notch, open it as a drop zone.
+        let buttonDown = NSEvent.pressedMouseButtons & 1 == 1
+        if buttonDown {
+            let changeCount = NSPasteboard(name: .drag).changeCount
+            if changeCount != dragChangeCount {
+                dragChangeCount = changeCount
+                fileDragActive = !NotchShelf.draggedFileURLs().isEmpty
+            }
+        } else {
+            fileDragActive = false
+        }
+        let dropZone = geometry.notch.insetBy(dx: -170, dy: -90)
+        let dragNear = fileDragActive && UserDefaults.standard.bool(forKey: PrefKey.notchShelfEnabled)
+            && (dropZone.contains(mouse) || (isExpanded && shapeRect.contains(mouse)))
+        if dragNear != NotchShelf.shared.isDropTargeted {
+            NotchShelf.shared.isDropTargeted = dragNear
+            if dragNear { withAnimation(.spring(response: 0.35, dampingFraction: 0.78)) { isExpanded = true } }
+        }
+        if dragNear { inside = true }
         panel.ignoresMouseEvents = !inside
 
         let now = Date()

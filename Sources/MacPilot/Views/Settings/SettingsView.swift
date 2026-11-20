@@ -339,6 +339,8 @@ private struct LocalWhisperSettingsView: View {
 struct ShortcutsSettingsView: View {
     private let manager = ShortcutManager.shared
     @AppStorage(PrefKey.buddyEnabled) private var buddyEnabled = true
+    @AppStorage(PrefKey.pilotWakeWord) private var wakeWord = false
+    @AppStorage(PrefKey.pilotSpeaks) private var speaks = true
     @State private var openAtLogin = LoginItemState.shared.enabled
     @State private var loginMessage: String?
 
@@ -366,7 +368,13 @@ struct ShortcutsSettingsView: View {
             Section {
                 Toggle("Show the floating buddy on the desktop", isOn: $buddyEnabled)
                     .onChange(of: buddyEnabled) { _, on in FloatingBuddy.shared.setEnabled(on) }
-                Text("A small always-on-top helper: click it to ask AI, use its buttons for a voice note, dictation or a new note, drag it anywhere, right-click for more.")
+                Text("A small always-on-top helper: click it and speak, use its buttons for a voice note, dictation or a new note, drag it anywhere, right-click for more.")
+                    .font(.caption).foregroundStyle(.secondary)
+                Toggle("Answer out loud", isOn: $speaks).disabled(!buddyEnabled)
+                Toggle("Listen for “Hey Pilot”", isOn: $wakeWord)
+                    .disabled(!buddyEnabled)
+                    .onChange(of: wakeWord) { _, _ in WakeWordListener.shared.start() }
+                Text("Try: “add a task call mom tomorrow at 5”, “what's next today?”, “start recording”, “set a timer for 25 minutes”, “new note …”, or any question. “Hey Pilot” keeps the microphone on and works only with on-device recognition — nothing is sent anywhere until you speak to it — and pauses during recordings and dictation.")
                     .font(.caption).foregroundStyle(.secondary)
             } header: {
                 Text("Floating buddy")
@@ -1351,6 +1359,7 @@ private struct NotchSettingsSection: View {
     @AppStorage(PrefKey.notchEnabled) private var enabled = true
     @AppStorage(PrefKey.notchExpandOnHover) private var expandOnHover = true
     @AppStorage(PrefKey.notchMeetingCountdown) private var countdown = true
+    @AppStorage(PrefKey.notchShelfEnabled) private var shelf = true
 
     var body: some View {
         Section {
@@ -1358,6 +1367,7 @@ private struct NotchSettingsSection: View {
                 .onChange(of: enabled) { _, _ in NotchController.shared.start() }
             Toggle("Expand when the pointer is on it", isOn: $expandOnHover).disabled(!enabled)
             Toggle("Count down to meetings starting in 15 minutes", isOn: $countdown).disabled(!enabled)
+            Toggle("File shelf: drop files on the notch to park them", isOn: $shelf).disabled(!enabled)
         } header: {
             Text("Notch")
         } footer: {

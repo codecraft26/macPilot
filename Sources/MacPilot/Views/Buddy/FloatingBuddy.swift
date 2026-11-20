@@ -10,6 +10,8 @@ final class FloatingBuddy {
     static let shared = FloatingBuddy()
 
     static let size = NSSize(width: 150, height: 196)
+    /// Room for the speech bubble above the buddy while it talks.
+    static let talkingSize = NSSize(width: 300, height: 330)
     private var panel: NSPanel?
     private var dragStart: (origin: NSPoint, mouse: NSPoint)?
     private let originKey = "buddy.origin"
@@ -20,11 +22,23 @@ final class FloatingBuddy {
 
     func start() {
         if Self.isEnabled { show() }
+        WakeWordListener.shared.start()
+    }
+
+    /// Grows the window upward for the speech bubble (keeping the buddy where it is), and back.
+    func updateSize() {
+        guard let panel else { return }
+        let target = PilotVoice.shared.showsBubble ? Self.talkingSize : Self.size
+        guard panel.frame.size != target else { return }
+        let frame = panel.frame
+        let origin = NSPoint(x: frame.midX - target.width / 2, y: frame.minY)
+        panel.setFrame(NSRect(origin: origin, size: target), display: true, animate: false)
     }
 
     func setEnabled(_ enabled: Bool) {
         UserDefaults.standard.set(enabled, forKey: PrefKey.buddyEnabled)
-        if enabled { show() } else { panel?.orderOut(nil); isVisible = false }
+        if enabled { show() } else { panel?.orderOut(nil); isVisible = false; PilotVoice.shared.stopAll() }
+        WakeWordListener.shared.start()
     }
 
     func toggle() { setEnabled(!isVisible) }
@@ -43,6 +57,7 @@ final class FloatingBuddy {
             panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
             let hosting = NSHostingView(rootView: BuddyView().environment(AppState.shared))
             hosting.frame = NSRect(origin: .zero, size: Self.size)
+            hosting.autoresizingMask = [.width, .height]
             panel.contentView = hosting
             self.panel = panel
         }
@@ -72,7 +87,9 @@ final class FloatingBuddy {
 
     func dragEnded() {
         dragStart = nil
-        guard let origin = panel?.frame.origin else { return }
+        guard let frame = panel?.frame else { return }
+        // Save the compact position (bottom-centre stays put when the bubble opens).
+        let origin = NSPoint(x: frame.midX - Self.size.width / 2, y: frame.minY)
         UserDefaults.standard.set([origin.x, origin.y], forKey: originKey)
     }
 
@@ -96,10 +113,16 @@ final class FloatingBuddy {
 
 /// What the buddy's face shows.
 enum BuddyMood: Equatable {
-    case idle, listening, recording, thinking
+    case idle, listening, recording, thinking, speaking
 
     @MainActor
     static var current: BuddyMood {
+        switch PilotVoice.shared.phase {
+        case .listening: return .listening
+        case .thinking: return .thinking
+        case .speaking: return .speaking
+        case .idle: break
+        }
         if RecordingManager.shared.isActive { return .recording }
         if DictationController.shared.phase.isActive {
             if case .listening = DictationController.shared.phase { return .listening }
@@ -113,23 +136,31 @@ struct BuddyView: View {
     /// For screenshots: show this state instead of the live one.
     var previewMood: BuddyMood?
     var previewHover = false
+    var previewBubble: (heard: String, reply: String)?
     @State private var hovering = false
     @State private var showMore = false
     private let buddy = FloatingBuddy.shared
 
     var body: some View {
         let mood = previewMood ?? BuddyMood.current
+        let voice = PilotVoice.shared
         VStack(spacing: 6) {
             Spacer(minLength: 0)
+            if previewBubble != nil || voice.showsBubble {
+                SpeechBubble(heard: previewBubble?.heard ?? voice.heard, reply: previewBubble?.reply ?? voice.reply,
+                             phase: previewMood.map { $0 == .listening ? .listening : $0 == .thinking ? .thinking : .speaking } ?? voice.phase)
+                    .transition(.scale(scale: 0.85, anchor: .bottom).combined(with: .opacity))
+            }
             if showMore { morePill.transition(.scale(scale: 0.8, anchor: .bottom).combined(with: .opacity)) }
-            PilotMascot(mood: mood, excited: hovering || previewHover, level: CGFloat(max(RecordingManager.shared.level, DictationController.shared.level)))
+            PilotMascot(mood: mood, excited: hovering || previewHover,
+                        level: CGFloat(max(RecordingManager.shared.level, DictationController.shared.level, voice.level)))
                 .frame(width: 104, height: 104)
                 .contentShape(Rectangle())
                 .gesture(DragGesture(minimumDistance: 3)
                     .onChanged { _ in buddy.dragChanged() }
                     .onEnded { _ in buddy.dragEnded() })
-                .onTapGesture { WindowManager.shared.toggleQuickAssistant() }
-                .help("Ask AI (click) · drag to move · right-click for more")
+                .onTapGesture { PilotVoice.shared.toggle() }
+                .help("Click and speak: “add a task…”, “what's next today?”, “start recording”, or any question · drag to move · right-click for more")
                 .contextMenu { menu }
                 .overlay(alignment: .topTrailing) {
                     if hovering || previewHover {
@@ -151,7 +182,8 @@ struct BuddyView: View {
                 }
             actionPill(mood: mood)
         }
-        .frame(width: FloatingBuddy.size.width, height: FloatingBuddy.size.height)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: voice.showsBubble)
         .onHover { inside in
             withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { hovering = inside }
             if !inside { withAnimation(.easeOut(duration: 0.2)) { showMore = false } }
@@ -202,7 +234,8 @@ struct BuddyView: View {
 
     @ViewBuilder
     private var menu: some View {
-        Button("Ask AI") { WindowManager.shared.toggleQuickAssistant() }
+        Button("Talk to Pilot") { PilotVoice.shared.toggle() }
+        Button("Type to AI instead (⌥Space)") { WindowManager.shared.toggleQuickAssistant() }
         Button("Ask my Mac") { WindowManager.shared.toggleAskMac() }
         Button("Record a voice note") { buddy.toggleVoiceNote() }
         Button("Record a meeting") { RecordingManager.shared.toggleMeeting() }
@@ -210,6 +243,37 @@ struct BuddyView: View {
         Button("Open dashboard") { WindowManager.shared.showDashboard(section: .dashboard) }
         Divider()
         Button("Hide buddy") { buddy.setEnabled(false) }
+    }
+}
+
+/// What Pilot heard and what it answers, above its head.
+struct SpeechBubble: View {
+    var heard: String
+    var reply: String
+    var phase: PilotVoice.Phase
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if !heard.isEmpty {
+                Text("“\(heard)”").font(.caption).foregroundStyle(.white.opacity(0.65)).lineLimit(2)
+            }
+            switch phase {
+            case .listening where heard.isEmpty:
+                Label("Listening…", systemImage: "waveform").font(.callout.weight(.medium))
+            case .thinking:
+                HStack(spacing: 6) { ProgressView().controlSize(.mini); Text("Thinking…").font(.callout) }
+            default:
+                if !reply.isEmpty { Text(reply).font(.callout).lineLimit(6).fixedSize(horizontal: false, vertical: true) }
+            }
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .frame(maxWidth: 270, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color(red: 0.12, green: 0.11, blue: 0.24).opacity(0.95)))
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(DS.accent.opacity(0.6)))
+        .shadow(color: .black.opacity(0.3), radius: 8, y: 4)
+        .onTapGesture { PilotVoice.shared.stopAll() }
     }
 }
 
@@ -291,6 +355,17 @@ struct PilotMascot: View {
     private func face(_ s: CGFloat, t: Double, blinking: Bool) -> some View {
         let glow = Color(red: 0.55, green: 0.95, blue: 1.0)
         switch mood {
+        case .speaking:
+            VStack(spacing: s * 0.035) {
+                HStack(spacing: s * 0.13) {
+                    eye(s, blinking: false, glow: glow)
+                    eye(s, blinking: false, glow: glow)
+                }
+                // Talking mouth.
+                Capsule().fill(glow)
+                    .frame(width: s * 0.1, height: s * (0.025 + 0.05 * abs(sin(t * 11))))
+            }
+            .shadow(color: glow.opacity(0.8), radius: 3)
         case .listening, .thinking:
             // Voice bars that follow the microphone level.
             HStack(spacing: s * 0.03) {
