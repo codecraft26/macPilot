@@ -481,6 +481,8 @@ final class UISnapshots: XCTestCase {
         macShot("dashboard-dark", size: CGSize(width: 1180, height: 820), title: "MacPilot", RootView())
         appearance = NSAppearance(named: .aqua)
 
+        buddyShot()
+
         // Notch
         NowPlaying.shared.setPreview(NowPlaying.Track(title: "Weightless", artist: "Marconi Union", album: "Ambient", player: .music),
                                      playing: true, artwork: NSImage(systemSymbolName: "music.note", accessibilityDescription: nil))
@@ -490,5 +492,43 @@ final class UISnapshots: XCTestCase {
         notchShot("notch-music", activity: .nowPlaying, expanded: false)
         notchShot("notch-expanded", activity: .idle, expanded: true)
         NowPlaying.shared.setPreview(nil, playing: false, artwork: nil)
+    }
+
+    /// The floating buddy in its four states, on the desktop.
+    private func buddyShot() {
+        let states: [(String, BuddyMood, Bool)] = [("Idle", .idle, false), ("Hover", .idle, true),
+                                                   ("Dictating", .listening, false), ("Recording", .recording, false)]
+        var images: [NSImage] = []
+        for (_, mood, hover) in states {
+            let hosting = NSHostingView(rootView: BuddyView(previewMood: mood, previewHover: hover).environment(AppState.shared))
+            hosting.frame = CGRect(origin: .zero, size: FloatingBuddy.size)
+            let window = NSWindow(contentRect: hosting.frame, styleMask: [.borderless], backing: .buffered, defer: false)
+            window.isOpaque = false
+            window.backgroundColor = .clear
+            window.contentView = hosting
+            hosting.layoutSubtreeIfNeeded()
+            RunLoop.main.run(until: Date().addingTimeInterval(0.4))
+            guard let rep = hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds) else { continue }
+            hosting.cacheDisplay(in: hosting.bounds, to: rep)
+            let image = NSImage(size: hosting.bounds.size)
+            image.addRepresentation(rep)
+            images.append(image)
+        }
+        let cell = FloatingBuddy.size
+        let canvas = NSSize(width: cell.width * 4 + 60 * 5, height: cell.height + 90)
+        let output = NSImage(size: canvas, flipped: false) { rect in
+            self.drawDesktop(in: rect)
+            for (index, image) in images.enumerated() {
+                let x = 60 + CGFloat(index) * (cell.width + 60)
+                image.draw(in: NSRect(x: x, y: 50, width: cell.width, height: cell.height))
+                let label = NSAttributedString(string: states[index].0, attributes: [
+                    .font: NSFont.systemFont(ofSize: 14, weight: .semibold), .foregroundColor: NSColor.white])
+                label.draw(at: NSPoint(x: x + (cell.width - label.size().width) / 2, y: 18))
+            }
+            return true
+        }
+        guard let tiff = output.tiffRepresentation, let bitmap = NSBitmapImageRep(data: tiff),
+              let png = bitmap.representation(using: .png, properties: [:]) else { return }
+        try? png.write(to: directory.appendingPathComponent("buddy.png"))
     }
 }

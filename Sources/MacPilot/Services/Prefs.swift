@@ -30,6 +30,7 @@ enum PrefKey {
     static let iCloudSyncEnabled = "sync.iCloudEnabled"
     static let hideFromScreenCapture = "privacy.hideFromScreenCapture"
     static let autoBriefing = "briefing.auto"
+    static let buddyEnabled = "buddy.enabled"
     static let notchEnabled = "notch.enabled"
     static let notchExpandOnHover = "notch.expandOnHover"
     static let notchMeetingCountdown = "notch.meetingCountdown"
@@ -110,6 +111,7 @@ enum Prefs {
             PrefKey.snippetsEnabled: true,
             PrefKey.hideFromScreenCapture: true,
             PrefKey.autoBriefing: true,
+            PrefKey.buddyEnabled: true,
             PrefKey.notchEnabled: true,
             PrefKey.notchExpandOnHover: true,
             PrefKey.notchMeetingCountdown: true,

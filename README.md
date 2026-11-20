@@ -9,10 +9,10 @@
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-000?logo=apple)
 ![Swift 5.10](https://img.shields.io/badge/Swift-5.10-F05138?logo=swift&logoColor=white)
 ![SwiftUI](https://img.shields.io/badge/UI-SwiftUI-0A84FF)
-![Version](https://img.shields.io/badge/version-0.17.1-6E5BF7)
+![Version](https://img.shields.io/badge/version-0.18.0-6E5BF7)
 ![Universal](https://img.shields.io/badge/Apple%20silicon%20%2B%20Intel-universal-555)
 
-[**⬇ Download MacPilot 0.17.1 (.dmg)**](releases/MacPilot-0.17.1.dmg) · [Features](#features) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
+[**⬇ Download MacPilot 0.18.0 (.dmg)**](releases/MacPilot-0.18.0.dmg) · [Features](#features) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
 
 <img src="docs/screenshots/mac/dashboard.png" width="860" alt="MacPilot dashboard with today's briefing">
 
@@ -34,6 +34,12 @@ MacPilot brings Raycast-style speed and an AI assistant to everything you do on 
 | **AI chat with history & prompt library** | **Morning briefing, light & dark** |
 | ![Assistant](docs/screenshots/mac/assistant.png) | ![Dashboard dark](docs/screenshots/mac/dashboard-dark.png) |
 | Full chat window with streaming, code blocks, attachments, saved prompts and per-chat model choice. | The dashboard opens with an AI summary of today's meetings, due/overdue tasks and open action items, plus a suggested focus. |
+
+### 🤖 Floating buddy
+
+![Floating buddy](docs/screenshots/mac/buddy.png)
+
+**Pilot**, MacPilot's little desktop helper, floats above your windows. Click it to ask AI. Its buttons record a **voice note**, start **dictation** into the app you're using, or open a **new note**; ⋯ adds Ask my Mac, screenshot, clipboard and launcher. It blinks while idle, smiles when you hover, shows a live waveform while you dictate and a red REC light while recording. Drag it anywhere (it remembers the spot), right-click for more, or hide it from the menu bar, ⌥K or **Settings → Shortcuts**. Like every MacPilot window, it's hidden from screen sharing.
 
 ### 🎙 Meetings, voice and calendar
 
@@ -90,7 +96,7 @@ Expanded: date and time, next meeting with **Join** and **Record**, open tasks, 
 
 ## Install
 
-1. [Download `MacPilot-0.17.1.dmg`](releases/MacPilot-0.17.1.dmg) (universal: Apple silicon and Intel, macOS 14+).
+1. [Download `MacPilot-0.18.0.dmg`](releases/MacPilot-0.18.0.dmg) (universal: Apple silicon and Intel, macOS 14+).
 2. Open it and drag **MacPilot** into **Applications**.
 3. The build is ad-hoc signed (not notarized), so the first launch needs one approval: right-click MacPilot → **Open** → **Open**, or **System Settings → Privacy & Security → Open Anyway**. If macOS still refuses:
    ```bash
@@ -98,7 +104,7 @@ Expanded: date and time, next meeting with **Join** and **Record**, open tasks, 
    ```
 4. MacPilot lives in the menu bar. Add an API key (Anthropic, OpenAI or AWS) in **Settings → Providers**, and grant Microphone, Accessibility and Screen Recording when you use features that need them.
 
-SHA-256 of the DMG: `056fbf9a35cdd72e21d3e6e6cca18f05c4894654f617b544e2f2af182d9bf4dd`
+SHA-256 of the DMG: `b75e01308bbc29fb91d7ec90ef671f7007c13089f90eba0508b0b12c1aab26b8`
 
 ## Status
 
@@ -252,6 +258,10 @@ Turn on **Settings → Recording & Calendar → Reminders → Sync tasks with Ap
 Select text in any app and press **⌥⇧E**. Pick an action — fix spelling & grammar, rewrite more clearly, make shorter or longer, more professional or friendly, bullet points, summarize, explain, draft a reply, translate — or type your own instruction. **⌘1–9** runs an action, **Return** replaces the selection in the original app (the clipboard is restored afterwards), **⌘Return** copies. Needs Accessibility; apps that don't expose the selection (browsers, Electron) are read with a quick ⌘C. Uses the analysis provider from Settings (e.g. Claude on Bedrock).
 
 **Your own AI commands:** save prompts like “Tweet from selection”, “Commit message” or “Find bugs” in **Settings → Snippets & Links → AI commands**. They appear in ⌥⇧E under “Your commands” and as ⌥K commands that run on the current selection.
+
+## Floating buddy
+
+A small always-on-top character (bottom-right by default). Click: Ask AI (⌥Space). Buttons: record/stop a voice note, dictate (tap to start hands-free, tap again to paste), new note, and ⋯ for Ask my Mac, screenshot, clipboard and launcher. Right-click for record meeting, new task, dashboard and Hide. Drag to move; the position is remembered. Toggle it from the menu bar, ⌥K (“Show / hide floating buddy”) or **Settings → Shortcuts**. The idle animation runs at a low frame rate to save battery.
 
 ## Morning briefing
 

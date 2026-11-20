@@ -338,9 +338,18 @@ private struct LocalWhisperSettingsView: View {
 
 struct ShortcutsSettingsView: View {
     private let manager = ShortcutManager.shared
+    @AppStorage(PrefKey.buddyEnabled) private var buddyEnabled = true
 
     var body: some View {
         Form {
+            Section {
+                Toggle("Show the floating buddy on the desktop", isOn: $buddyEnabled)
+                    .onChange(of: buddyEnabled) { _, on in FloatingBuddy.shared.setEnabled(on) }
+                Text("A small always-on-top helper: click it to ask AI, use its buttons for a voice note, dictation or a new note, drag it anywhere, right-click for more.")
+                    .font(.caption).foregroundStyle(.secondary)
+            } header: {
+                Text("Floating buddy")
+            }
             Section {
                 ForEach(ShortcutAction.allCases) { action in
                     VStack(alignment: .leading, spacing: 4) {

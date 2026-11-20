@@ -146,6 +146,8 @@ enum LauncherCatalog {
                          primary: { if NotchTimers.shared.current != nil { NotchTimers.shared.cancel() } else { WindowManager.shared.toggleLauncher() } }),
             LauncherItem(id: "cmd.askmac", title: "Ask my Mac", subtitle: "Answers from your meetings, notes, tasks and clipboard (⌥⇧A)",
                          icon: .system("sparkle.magnifyingglass"), section: "AI", primary: { WindowManager.shared.toggleAskMac() }),
+            LauncherItem(id: "cmd.buddy", title: "Show / hide floating buddy", subtitle: "The desktop helper with voice note, dictation and Ask AI",
+                         icon: .system("face.smiling"), section: "MacPilot", primary: { FloatingBuddy.shared.toggle() }),
             LauncherItem(id: "cmd.screenshot", title: "Screenshot & read text", subtitle: "Capture an area, OCR, ask AI, pin (⌥⇧S)",
                          icon: .system("camera.viewfinder"), section: "AI", primary: { ScreenCaptureTool.shared.captureArea() }),
             LauncherItem(id: "cmd.askscreen", title: "Ask AI about this window", subtitle: "Summarize or explain the window you were using",

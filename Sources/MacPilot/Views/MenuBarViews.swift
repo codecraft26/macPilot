@@ -103,6 +103,9 @@ struct MenuBarContent: View {
         Button("Command Launcher…  \(shortcutLabel(.launcher))") {
             WindowManager.shared.toggleLauncher()
         }
+        Button(FloatingBuddy.shared.isVisible ? "Hide Floating Buddy" : "Show Floating Buddy") {
+            FloatingBuddy.shared.toggle()
+        }
         Button("Developer Workspace") {
             WindowManager.shared.showDashboard(section: .developer)
         }
