@@ -12,13 +12,25 @@
 ![Version](https://img.shields.io/badge/version-0.18.3-6E5BF7)
 ![Universal](https://img.shields.io/badge/Apple%20silicon%20%2B%20Intel-universal-555)
 
-[**⬇ Download MacPilot 0.18.3 (.dmg)**](releases/MacPilot-0.18.3.dmg) · [Features](#features) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
+[**⬇ Download MacPilot 0.18.3 (.dmg)**](releases/MacPilot-0.18.3.dmg) · [What's new](#whats-new) · [Features](#features) · [Floating buddy](#-floating-buddy) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
 
 <img src="docs/screenshots/mac/dashboard.png" width="860" alt="MacPilot dashboard with today's briefing">
 
 </div>
 
-MacPilot brings Raycast-style speed and an AI assistant to everything you do on a Mac: ask Claude (Anthropic or Amazon Bedrock), OpenAI or a local Ollama model from anywhere, record and summarize meetings, dictate into any app, manage notes, tasks and your calendar, search your clipboard, convert files, and sync it all between your Macs. **Bring your own keys** — there is no MacPilot account or server; data stays on your Mac and credentials in the Keychain. Cloud features send only the relevant content to the provider you choose.
+MacPilot brings Raycast-style speed and an AI assistant to everything you do on a Mac: ask Claude (Anthropic or Amazon Bedrock), OpenAI or a local Ollama model from anywhere, record and summarize meetings, dictate into any app, manage notes, tasks and your calendar, search your clipboard, convert files, and sync it all between your Macs — with a friendly floating buddy on your desktop and live status in the MacBook notch. **Bring your own keys** — there is no MacPilot account or server; data stays on your Mac and credentials in the Keychain. Cloud features send only the relevant content to the provider you choose.
+
+## What's new
+
+**0.18** — the floating buddy
+- 🤖 **Pilot**, an animated desktop helper: click to ask AI; buttons for voice note, dictation and new note; ⋯ for Ask my Mac, screenshot, clipboard and launcher. Reacts while you dictate or record.
+- **×** on hover hides it; bring it back from the menu bar (“Show Floating Buddy”), ⌥K or Settings. The menu always shows the current Show/Hide state.
+- 🚀 **Opens at login** so everything is ready after a restart (toggle in Settings → Shortcuts → Startup or the menu bar).
+
+**0.15 – 0.17**
+- ✨ AI on selected text (⌥⇧E), Ask my Mac (⌥⇧A), screenshot & OCR (⌥⇧S), screen-aware ⌥Space, your own AI commands
+- 🌅 Morning briefing, one-click meeting follow-up, PDF page editor, snippets and quick links
+- ☁️ iCloud sync between Macs, hidden from screen sharing
 
 ## Features
 
@@ -120,6 +132,7 @@ SHA-256 of the DMG: `38a4de948c5b201342e0eba9afa66ff2de94419b3700bbcece097a78203
 | 7 | Automations, local Whisper, distribution | Done (ZIP/DMG packaging) |
 | 8 | AI everywhere: text actions, Ask my Mac, screenshots, briefing, AI commands | Done |
 | 9 | File tools, PDF page editor, iCloud sync, notch | Done |
+| 10 | Floating buddy, open at login, hidden from screen sharing | Done |
 
 ## Requirements
 
@@ -262,7 +275,9 @@ Select text in any app and press **⌥⇧E**. Pick an action — fix spelling & 
 
 ## Floating buddy
 
-A small always-on-top character (bottom-right by default). Click: Ask AI (⌥Space). Buttons: record/stop a voice note, dictate (tap to start hands-free, tap again to paste), new note, and ⋯ for Ask my Mac, screenshot, clipboard and launcher. Right-click for record meeting, new task, dashboard and Hide. Drag to move; the position is remembered. Toggle it from the menu bar, ⌥K (“Show / hide floating buddy”) or **Settings → Shortcuts**. The idle animation runs at a low frame rate to save battery.
+A small always-on-top character (bottom-right by default). Click: Ask AI (⌥Space). Buttons: record/stop a voice note, dictate (tap to start hands-free, tap again to paste), new note, and ⋯ for Ask my Mac, screenshot, clipboard and launcher. Right-click for record meeting, new task, dashboard and Hide. Drag to move; the position is remembered.
+
+**Hide or show it:** hover and click the **×** at its top-right corner to hide it (it stays hidden after restarts). Bring it back from the menu bar (the item reads “Show Floating Buddy” while it's hidden and “Hide Floating Buddy” while it's visible), ⌥K → “Show / hide floating buddy”, or **Settings → Shortcuts → Floating buddy**. The idle animation runs at a low frame rate to save battery, and the buddy is hidden from screen sharing and screenshots like every MacPilot window.
 
 ## Morning briefing
 
