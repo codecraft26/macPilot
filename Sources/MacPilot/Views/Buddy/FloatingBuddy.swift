@@ -129,6 +129,24 @@ struct BuddyView: View {
                 .onTapGesture { WindowManager.shared.toggleQuickAssistant() }
                 .help("Ask AI (click) · drag to move · right-click for more")
                 .contextMenu { menu }
+                .overlay(alignment: .topTrailing) {
+                    if hovering || previewHover {
+                        Button { buddy.setEnabled(false) } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundStyle(.white)
+                                .frame(width: 20, height: 20)
+                                .background(Circle().fill(.black.opacity(0.75)))
+                                .overlay(Circle().strokeBorder(.white.opacity(0.25)))
+                                .contentShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .help("Hide the buddy (bring it back from the menu bar, ⌥K or Settings)")
+                        .accessibilityLabel("Hide buddy")
+                        .transition(.scale.combined(with: .opacity))
+                        .offset(x: 2, y: 4)
+                    }
+                }
             actionPill(mood: mood)
         }
         .frame(width: FloatingBuddy.size.width, height: FloatingBuddy.size.height)

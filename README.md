@@ -9,10 +9,10 @@
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-000?logo=apple)
 ![Swift 5.10](https://img.shields.io/badge/Swift-5.10-F05138?logo=swift&logoColor=white)
 ![SwiftUI](https://img.shields.io/badge/UI-SwiftUI-0A84FF)
-![Version](https://img.shields.io/badge/version-0.18.1-6E5BF7)
+![Version](https://img.shields.io/badge/version-0.18.2-6E5BF7)
 ![Universal](https://img.shields.io/badge/Apple%20silicon%20%2B%20Intel-universal-555)
 
-[**⬇ Download MacPilot 0.18.1 (.dmg)**](releases/MacPilot-0.18.1.dmg) · [Features](#features) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
+[**⬇ Download MacPilot 0.18.2 (.dmg)**](releases/MacPilot-0.18.2.dmg) · [Features](#features) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
 
 <img src="docs/screenshots/mac/dashboard.png" width="860" alt="MacPilot dashboard with today's briefing">
 
@@ -39,7 +39,7 @@ MacPilot brings Raycast-style speed and an AI assistant to everything you do on 
 
 ![Floating buddy](docs/screenshots/mac/buddy.png)
 
-**Pilot**, MacPilot's little desktop helper, floats above your windows. Click it to ask AI. Its buttons record a **voice note**, start **dictation** into the app you're using, or open a **new note**; ⋯ adds Ask my Mac, screenshot, clipboard and launcher. It blinks while idle, smiles when you hover, shows a live waveform while you dictate and a red REC light while recording. Drag it anywhere (it remembers the spot), right-click for more, or hide it from the menu bar, ⌥K or **Settings → Shortcuts**. Like every MacPilot window, it's hidden from screen sharing.
+**Pilot**, MacPilot's little desktop helper, floats above your windows. Click it to ask AI. Its buttons record a **voice note**, start **dictation** into the app you're using, or open a **new note**; ⋯ adds Ask my Mac, screenshot, clipboard and launcher. It blinks while idle, smiles when you hover, shows a live waveform while you dictate and a red REC light while recording. Drag it anywhere (it remembers the spot) and right-click for more. To remove it, hover and click its **×** button (or use the menu bar, ⌥K or **Settings → Shortcuts**); bring it back from any of those. Like every MacPilot window, it's hidden from screen sharing.
 
 ### 🎙 Meetings, voice and calendar
 
@@ -96,7 +96,7 @@ Expanded: date and time, next meeting with **Join** and **Record**, open tasks, 
 
 ## Install
 
-1. [Download `MacPilot-0.18.1.dmg`](releases/MacPilot-0.18.1.dmg) (universal: Apple silicon and Intel, macOS 14+).
+1. [Download `MacPilot-0.18.2.dmg`](releases/MacPilot-0.18.2.dmg) (universal: Apple silicon and Intel, macOS 14+).
 2. Open it and drag **MacPilot** into **Applications**.
 3. The build is ad-hoc signed (not notarized), so the first launch needs one approval: right-click MacPilot → **Open** → **Open**, or **System Settings → Privacy & Security → Open Anyway**. If macOS still refuses:
    ```bash
@@ -105,7 +105,7 @@ Expanded: date and time, next meeting with **Join** and **Record**, open tasks, 
 4. MacPilot lives in the menu bar and **opens automatically when you log in** (turn that off in **Settings → Shortcuts → Startup** or the menu bar's “Open at Login”; macOS also lists it under System Settings → General → Login Items).
 5. Add an API key (Anthropic, OpenAI or AWS) in **Settings → Providers**, and grant Microphone, Accessibility and Screen Recording when you use features that need them.
 
-SHA-256 of the DMG: `7bc072b00c8775f2e2a66463304f4bccf961c08a1348fe82c5abb09d22dc0e17`
+SHA-256 of the DMG: `43fec2e58dca55b06d1b86b42d4084014c25d2ac6490086fd97f364586f78cf9`
 
 ## Status
 
