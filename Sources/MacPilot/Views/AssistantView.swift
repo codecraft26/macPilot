@@ -108,7 +108,6 @@ struct ChatPane: View {
             if let error = controller.errorMessage {
                 banner(error, systemImage: "exclamationmark.triangle", color: .red)
             }
-            Divider()
             composer
         }
         .fileImporter(
@@ -200,26 +199,22 @@ struct ChatPane: View {
     private var messageList: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 14) {
+                LazyVStack(alignment: .leading, spacing: DS.Space.l) {
                     if conversation.messages.isEmpty && !controller.isStreaming {
-                        Text(conversation.provider.dataNotice)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .padding(.top, 20)
+                        ChatEmptyState(provider: conversation.provider) { example in draft = example }
                     }
                     ForEach(conversation.sortedMessages) { message in
                         MessageBubble(role: message.role, content: message.content)
                     }
                     if controller.isStreaming {
-                        MessageBubble(
-                            role: .assistant,
-                            content: controller.streamingText.isEmpty ? "…" : controller.streamingText,
-                            isStreaming: true
-                        )
+                        MessageBubble(role: .assistant, content: controller.streamingText, isStreaming: true)
                     }
                     Color.clear.frame(height: 1).id("bottom")
                 }
-                .padding(16)
+                .padding(.horizontal, DS.Space.l)
+                .padding(.vertical, DS.Space.m)
+                .frame(maxWidth: 760)
+                .frame(maxWidth: .infinity)
             }
             .onChange(of: controller.streamingText) { _, _ in
                 proxy.scrollTo("bottom", anchor: .bottom)
@@ -269,41 +264,66 @@ struct ChatPane: View {
                     }
                 }
             }
-            HStack(alignment: .bottom, spacing: 8) {
+            HStack(alignment: .bottom, spacing: DS.Space.xs) {
                 Button { showingImporter = true } label: { Image(systemName: "paperclip") }
                     .buttonStyle(.borderless)
                     .help("Attach text or code files")
+                    .accessibilityLabel("Attach files")
+                    .padding(.bottom, 7)
                 Button { showingPrompts = true } label: { Image(systemName: "text.book.closed") }
                     .buttonStyle(.borderless)
                     .help("Prompt library")
+                    .accessibilityLabel("Prompt library")
+                    .padding(.bottom, 7)
                 ZStack(alignment: .topLeading) {
                     if draft.isEmpty {
-                        Text("Message \(conversation.provider.shortName)…  (⌘↩ to send)")
+                        Text("Message \(conversation.provider.shortName)…")
                             .foregroundStyle(.tertiary)
                             .padding(.horizontal, 5)
-                            .padding(.vertical, 8)
+                            .padding(.vertical, 6)
+                            .allowsHitTesting(false)
                     }
                     TextEditor(text: $draft)
                         .font(.body)
                         .scrollContentBackground(.hidden)
-                        .padding(.vertical, 4)
+                        .padding(.vertical, 2)
                 }
-                .frame(minHeight: 44, maxHeight: 140)
-                .background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .textBackgroundColor)))
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.25)))
+                .frame(minHeight: 30, maxHeight: 160)
+                .fixedSize(horizontal: false, vertical: true)
 
                 if controller.isStreaming {
-                    Button("Stop") { controller.stop() }
-                        .keyboardShortcut(".", modifiers: .command)
+                    Button { controller.stop() } label: {
+                        Image(systemName: "stop.circle.fill").font(.system(size: 24))
+                    }
+                    .buttonStyle(.borderless)
+                    .keyboardShortcut(".", modifiers: .command)
+                    .help("Stop (⌘.)")
+                    .accessibilityLabel("Stop")
                 } else {
-                    Button("Send", action: send)
-                        .keyboardShortcut(.return, modifiers: .command)
-                        .buttonStyle(.borderedProminent)
-                        .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && attachments.isEmpty)
+                    Button(action: send) {
+                        Image(systemName: "arrow.up.circle.fill").font(.system(size: 24))
+                    }
+                    .buttonStyle(.borderless)
+                    .keyboardShortcut(.return, modifiers: .command)
+                    .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && attachments.isEmpty)
+                    .help("Send (⌘↩)")
+                    .accessibilityLabel("Send")
                 }
             }
+            .padding(.horizontal, DS.Space.s)
+            .padding(.vertical, DS.Space.xs)
+            .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(DS.inset))
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(DS.hairline))
+            .shadow(color: .black.opacity(0.06), radius: 6, y: 2)
+            Text("⌘↩ to send · \(conversation.provider.dataNotice)")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .frame(maxWidth: .infinity, alignment: .center)
         }
-        .padding(12)
+        .padding(.horizontal, DS.Space.l)
+        .padding(.vertical, DS.Space.s)
+        .frame(maxWidth: 760)
+        .frame(maxWidth: .infinity)
     }
 
     private func send() {
@@ -317,34 +337,181 @@ struct MessageBubble: View {
     let role: ChatRole
     let content: String
     var isStreaming = false
+    @State private var hovering = false
 
     var body: some View {
-        HStack(alignment: .top) {
-            if role == .user { Spacer(minLength: 80) }
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Text(role == .user ? "You" : "Assistant")
-                        .font(.caption.bold())
-                        .foregroundStyle(.secondary)
-                    if isStreaming { ProgressView().controlSize(.mini) }
-                    Spacer()
-                    if !isStreaming {
-                        Button { Clipboard.copy(content) } label: { Image(systemName: "doc.on.doc") }
-                            .buttonStyle(.borderless)
-                            .help("Copy")
-                    }
-                }
-                Text(MarkdownText.attributed(content))
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+        HStack(alignment: .top, spacing: DS.Space.s) {
+            if role == .user {
+                Spacer(minLength: 60)
+            } else {
+                IconTile(systemImage: "sparkles", color: DS.accent, size: 26)
             }
-            .padding(12)
-            .background(
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(role == .user ? Color.accentColor.opacity(0.12) : Color(nsColor: .controlBackgroundColor))
-            )
-            if role == .assistant { Spacer(minLength: 80) }
+            VStack(alignment: role == .user ? .trailing : .leading, spacing: DS.Space.xxs) {
+                if isStreaming && content.isEmpty {
+                    TypingIndicator().padding(DS.Space.s)
+                } else if role == .user {
+                    Text(MarkdownText.attributed(content))
+                        .textSelection(.enabled)
+                        .padding(.horizontal, DS.Space.s)
+                        .padding(.vertical, DS.Space.xs)
+                        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(DS.accent.opacity(0.14)))
+                } else {
+                    RichMessageText(content: content)
+                }
+                if !isStreaming {
+                    HStack(spacing: DS.Space.s) {
+                        Button { Clipboard.copy(content) } label: { Label("Copy", systemImage: "doc.on.doc") }
+                            .accessibilityLabel("Copy message")
+                    }
+                    .buttonStyle(.borderless)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .opacity(hovering ? 1 : 0)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: role == .user ? .trailing : .leading)
         }
+        .onHover { hovering = $0 }
+    }
+}
+
+/// Splits Markdown into prose and fenced code blocks; code gets a monospaced box with a copy button.
+struct RichMessageText: View {
+    let content: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: DS.Space.s) {
+            ForEach(Array(MessageBlocks.parse(content).enumerated()), id: \.offset) { _, block in
+                switch block {
+                case .text(let text):
+                    Text(MarkdownText.attributed(text))
+                        .textSelection(.enabled)
+                        .lineSpacing(2)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                case let .code(language, code):
+                    CodeBlockView(language: language, code: code)
+                }
+            }
+        }
+    }
+}
+
+struct CodeBlockView: View {
+    let language: String
+    let code: String
+    @State private var copied = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text(language.isEmpty ? "code" : language).font(.caption.monospaced()).foregroundStyle(.secondary)
+                Spacer()
+                Button {
+                    Clipboard.copy(code)
+                    copied = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { copied = false }
+                } label: {
+                    Label(copied ? "Copied" : "Copy", systemImage: copied ? "checkmark" : "doc.on.doc").font(.caption)
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel("Copy code")
+            }
+            .padding(.horizontal, DS.Space.s)
+            .padding(.vertical, 6)
+            .background(DS.subtleFill)
+            ScrollView(.horizontal, showsIndicators: false) {
+                Text(code)
+                    .font(.system(.callout, design: .monospaced))
+                    .textSelection(.enabled)
+                    .padding(DS.Space.s)
+            }
+        }
+        .insetWell()
+    }
+}
+
+enum MessageBlocks {
+    enum Block: Equatable {
+        case text(String)
+        case code(language: String, code: String)
+    }
+
+    /// Fenced ``` blocks become code; an unterminated fence (while streaming) is treated as code too.
+    static func parse(_ content: String) -> [Block] {
+        var blocks: [Block] = []
+        var text: [Substring] = []
+        var code: [Substring] = []
+        var language = ""
+        var inCode = false
+        for line in content.split(separator: "\n", omittingEmptySubsequences: false) {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("```") {
+                if inCode {
+                    blocks.append(.code(language: language, code: code.joined(separator: "\n")))
+                    code = []
+                    inCode = false
+                } else {
+                    let prose = text.joined(separator: "\n").trimmingCharacters(in: .newlines)
+                    if !prose.isEmpty { blocks.append(.text(prose)) }
+                    text = []
+                    language = String(trimmed.dropFirst(3)).trimmingCharacters(in: .whitespaces)
+                    inCode = true
+                }
+            } else if inCode {
+                code.append(line)
+            } else {
+                text.append(line)
+            }
+        }
+        if inCode {
+            blocks.append(.code(language: language, code: code.joined(separator: "\n")))
+        } else {
+            let prose = text.joined(separator: "\n").trimmingCharacters(in: .newlines)
+            if !prose.isEmpty { blocks.append(.text(prose)) }
+        }
+        return blocks
+    }
+}
+
+/// Shown in an empty conversation: what the assistant can do, with tappable examples.
+private struct ChatEmptyState: View {
+    let provider: AIProviderID
+    var onPick: (String) -> Void
+
+    private let examples: [(String, String)] = [
+        ("doc.text.magnifyingglass", "Summarize this article in 5 bullet points:"),
+        ("chevron.left.forwardslash.chevron.right", "Explain what this code does and point out bugs:"),
+        ("envelope", "Draft a short, friendly reply to this email:"),
+        ("lightbulb", "Give me 5 ideas for a team offsite agenda")
+    ]
+
+    var body: some View {
+        VStack(spacing: DS.Space.m) {
+            IconTile(systemImage: "sparkles", color: DS.accent, size: 44)
+            Text("How can I help?").font(.title2.weight(.semibold))
+            Text("Chatting with \(provider.displayName) · \(Prefs.model(for: provider))")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: DS.Space.s) {
+                ForEach(examples, id: \.1) { icon, text in
+                    Button { onPick(text + (text.hasSuffix(":") ? "\n\n" : "")) } label: {
+                        HStack(alignment: .top, spacing: DS.Space.xs) {
+                            Image(systemName: icon).foregroundStyle(DS.accent)
+                            Text(text).multilineTextAlignment(.leading).foregroundStyle(.primary)
+                            Spacer(minLength: 0)
+                        }
+                        .font(.callout)
+                        .padding(DS.Space.s)
+                        .frame(maxWidth: .infinity, minHeight: 56, alignment: .topLeading)
+                        .card(padding: 0)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .frame(maxWidth: 560)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, DS.Space.xl)
     }
 }
 

@@ -112,8 +112,30 @@ enum DataManager {
                 "dueDate": date(task.dueDate), "completed": task.isCompleted, "completedAt": date(task.completedAt)
             ]
         }
+        let recordings = try context.fetch(FetchDescriptor<Recording>()).map { recording -> [String: Any] in
+            [
+                "id": recording.uid.uuidString, "title": recording.title, "kind": recording.kindRaw,
+                "startedAt": date(recording.startedAt), "durationSeconds": recording.duration,
+                "attendees": recording.attendees, "prepNotes": recording.prepNotes,
+                "summary": recording.summary, "decisions": recording.decisions,
+                "actionItems": recording.actionItems.map { ["task": $0.task, "owner": $0.owner ?? NSNull(), "due": $0.due ?? NSNull()] as [String: Any] },
+                "deadlines": recording.deadlines, "openQuestions": recording.openQuestions,
+                "followUpEmail": recording.followUpEmail,
+                "transcript": recording.segments.map { ["start": $0.start, "end": $0.end, "speaker": $0.speaker, "text": $0.text] as [String: Any] },
+                "audioFiles": recording.audioURLs.map(\.path)
+            ]
+        }
         let prompts = try context.fetch(FetchDescriptor<PromptTemplate>()).map { prompt -> [String: Any] in
             ["title": prompt.title, "body": prompt.body, "category": prompt.category]
+        }
+        let workflows = try context.fetch(FetchDescriptor<AutomationWorkflow>()).map { workflow -> [String: Any] in
+            ["id": workflow.uid.uuidString, "name": workflow.name, "trigger": workflow.triggerRaw, "action": workflow.actionRaw,
+             "enabledSince": date(workflow.enabledSince), "titleContains": workflow.titleContains, "minimumMinutes": workflow.minimumMinutes,
+             "dailyHour": workflow.dailyHour, "dailyMinute": workflow.dailyMinute, "requiresApproval": workflow.requiresApproval]
+        }
+        let automationRuns = try context.fetch(FetchDescriptor<AutomationRun>()).map { run -> [String: Any] in
+            ["id": run.uid.uuidString, "workflow": run.workflowName, "title": run.title, "action": run.actionRaw,
+             "date": date(run.date), "status": run.statusRaw, "detail": run.detail, "pendingContent": run.payload]
         }
         let root: [String: Any] = [
             "exportedAt": iso.string(from: Date()),
@@ -121,7 +143,10 @@ enum DataManager {
             "conversations": conversations,
             "notes": notes,
             "tasks": tasks,
-            "prompts": prompts
+            "recordings": recordings,
+            "prompts": prompts,
+            "automationWorkflows": workflows,
+            "automationRuns": automationRuns
         ]
         let data = try JSONSerialization.data(withJSONObject: root, options: [.prettyPrinted, .sortedKeys])
         return String(decoding: data, as: UTF8.self)
@@ -139,7 +164,14 @@ enum DataManager {
         try context.delete(model: Note.self)
         try context.delete(model: TaskItem.self)
         try context.delete(model: PromptTemplate.self)
+        try context.delete(model: Recording.self)
+        try context.delete(model: ClipboardItem.self)
+        try context.delete(model: AutomationWorkflow.self)
+        try context.delete(model: AutomationRun.self)
         try context.save()
+        RecordingStorage.deleteAll()
+        ClipboardStorage.deleteAll()
+        CommandHistory.clear()
         NotificationService.cancelAll()
         for provider in AIProviderID.allCases {
             UsageTracker.reset(provider)
@@ -150,12 +182,31 @@ enum DataManager {
         for provider in AIProviderID.allCases {
             try? KeychainStore.delete(account: provider.rawValue)
         }
+        BedrockConfig.deleteAll()
+        try? KeychainStore.delete(account: GoogleCalendarService.clientSecretAccount)
+        GoogleCalendarService.shared.disconnect()
     }
 }
 
 /// Task reminders. Only available when running as a bundled .app.
 enum NotificationService {
-    static var isAvailable: Bool { Bundle.main.bundleIdentifier != nil }
+    static var isAvailable: Bool { Bundle.main.bundleIdentifier != nil && Bundle.main.bundleURL.pathExtension == "app" }
+
+    /// A one-off alert after `seconds` (used by notch timers).
+    static func alert(id: String, heading: String, body: String, after seconds: TimeInterval) {
+        guard isAvailable, seconds >= 1 else { return }
+        let center = UNUserNotificationCenter.current()
+        center.removePendingNotificationRequests(withIdentifiers: [id])
+        center.requestAuthorization(options: [.alert, .sound]) { granted, _ in
+            guard granted else { return }
+            let content = UNMutableNotificationContent()
+            content.title = heading
+            content.body = body
+            content.sound = .default
+            center.add(UNNotificationRequest(identifier: id, content: content,
+                                             trigger: UNTimeIntervalNotificationTrigger(timeInterval: seconds, repeats: false)))
+        }
+    }
 
     static func schedule(id: String, title: String, at date: Date?) {
         guard isAvailable else { return }

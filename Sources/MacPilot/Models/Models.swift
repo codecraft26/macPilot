@@ -84,6 +84,10 @@ final class Note {
     var isPinned: Bool = false
     var createdAt: Date = Date()
     var updatedAt: Date = Date()
+    /// Calendar event this note prepares for (EventKit `calendarItemIdentifier`).
+    var eventID: String?
+    /// Recording this note was created from.
+    var recordingID: UUID?
 
     init(title: String = "", body: String = "", folder: String = "") {
         self.title = title
@@ -145,6 +149,12 @@ final class TaskItem {
     var isCompleted: Bool = false
     var completedAt: Date?
     var createdAt: Date = Date()
+    /// Apple Reminders item this task is synced with (EventKit `calendarItemIdentifier`).
+    var reminderID: String?
+    /// Task state at the last successful sync, used to tell which side changed.
+    var reminderFingerprint: String?
+    /// Apple's cross-device id for that reminder, used by iCloud sync to link the same reminder on every Mac.
+    var reminderExternalID: String?
 
     init(title: String, dueDate: Date? = nil, priority: TaskPriority = .none, category: String = "") {
         self.title = title

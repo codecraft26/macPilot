@@ -56,7 +56,7 @@ struct HotKey: Codable, Equatable {
 
 /// Actions reachable from global shortcuts (PRD section 8).
 enum ShortcutAction: String, CaseIterable, Identifiable, Codable {
-    case assistant, dictation, recording, clipboard, newNote, newTask, launcher
+    case assistant, dictation, recording, clipboard, newNote, newTask, launcher, voiceTask, textActions, askMac, screenshot
 
     var id: String { rawValue }
 
@@ -69,6 +69,10 @@ enum ShortcutAction: String, CaseIterable, Identifiable, Codable {
         case .newNote: return "New note"
         case .newTask: return "New task"
         case .launcher: return "Command launcher"
+        case .voiceTask: return "Voice to task"
+        case .textActions: return "AI on selected text"
+        case .askMac: return "Ask my Mac"
+        case .screenshot: return "Screenshot & read text"
         }
     }
 
@@ -86,6 +90,10 @@ enum ShortcutAction: String, CaseIterable, Identifiable, Codable {
         case .newNote: return HotKey(keyCode: UInt32(kVK_ANSI_N), carbonModifiers: option, keyLabel: "N")
         case .newTask: return HotKey(keyCode: UInt32(kVK_ANSI_T), carbonModifiers: option, keyLabel: "T")
         case .launcher: return HotKey(keyCode: UInt32(kVK_ANSI_K), carbonModifiers: option, keyLabel: "K")
+        case .voiceTask: return HotKey(keyCode: UInt32(kVK_ANSI_T), carbonModifiers: option | UInt32(shiftKey), keyLabel: "T")
+        case .textActions: return HotKey(keyCode: UInt32(kVK_ANSI_E), carbonModifiers: option | UInt32(shiftKey), keyLabel: "E")
+        case .askMac: return HotKey(keyCode: UInt32(kVK_ANSI_A), carbonModifiers: option | UInt32(shiftKey), keyLabel: "A")
+        case .screenshot: return HotKey(keyCode: UInt32(kVK_ANSI_S), carbonModifiers: option | UInt32(shiftKey), keyLabel: "S")
         }
     }
 }
@@ -110,8 +118,13 @@ private func hotKeyEventHandler(
     )
     guard status == noErr else { return status }
     let id = hotKeyID.id
+    let released = GetEventKind(event) == UInt32(kEventHotKeyReleased)
     Task { @MainActor in
-        HotKeyCenter.shared.fire(id)
+        if released {
+            HotKeyCenter.shared.fireRelease(id)
+        } else {
+            HotKeyCenter.shared.fire(id)
+        }
     }
     return noErr
 }
@@ -122,6 +135,7 @@ final class HotKeyCenter {
 
     private var refs: [UInt32: EventHotKeyRef] = [:]
     private var handlers: [UInt32: () -> Void] = [:]
+    private var releaseHandlers: [UInt32: () -> Void] = [:]
     private var installed = false
     private let signature: OSType = 0x4D50_4C54 // "MPLT"
 
@@ -129,13 +143,17 @@ final class HotKeyCenter {
 
     private func installIfNeeded() {
         guard !installed else { return }
-        var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
-        InstallEventHandler(GetApplicationEventTarget(), hotKeyEventHandler, 1, &spec, nil, nil)
+        // Key-up events let push-to-talk know when the shortcut is released (no Accessibility needed).
+        var specs = [
+            EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed)),
+            EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyReleased))
+        ]
+        InstallEventHandler(GetApplicationEventTarget(), hotKeyEventHandler, 2, &specs, nil, nil)
         installed = true
     }
 
     /// Returns false when macOS refuses the combination (already taken, or not allowed).
-    func register(id: UInt32, hotKey: HotKey, handler: @escaping () -> Void) -> Bool {
+    func register(id: UInt32, hotKey: HotKey, handler: @escaping () -> Void, onRelease: (() -> Void)? = nil) -> Bool {
         installIfNeeded()
         unregister(id: id)
         var ref: EventHotKeyRef?
@@ -151,6 +169,7 @@ final class HotKeyCenter {
         guard status == noErr, let ref else { return false }
         refs[id] = ref
         handlers[id] = handler
+        releaseHandlers[id] = onRelease
         return true
     }
 
@@ -159,6 +178,7 @@ final class HotKeyCenter {
             UnregisterEventHotKey(ref)
         }
         handlers[id] = nil
+        releaseHandlers[id] = nil
     }
 
     func unregisterAll() {
@@ -167,6 +187,10 @@ final class HotKeyCenter {
 
     func fire(_ id: UInt32) {
         handlers[id]?()
+    }
+
+    func fireRelease(_ id: UInt32) {
+        releaseHandlers[id]?()
     }
 }
 
@@ -198,9 +222,12 @@ final class ShortcutManager {
                 HotKeyCenter.shared.unregister(id: action.hotKeyID)
                 continue
             }
-            let ok = HotKeyCenter.shared.register(id: action.hotKeyID, hotKey: hotKey) {
-                ShortcutRouter.perform(action)
-            }
+            let ok = HotKeyCenter.shared.register(
+                id: action.hotKeyID,
+                hotKey: hotKey,
+                handler: { ShortcutRouter.perform(action) },
+                onRelease: { ShortcutRouter.release(action) }
+            )
             if !ok {
                 failures[action] = "macOS refused \(hotKey.displayString). It may be in use by another app, or macOS may not allow Option-only shortcuts; try adding ⌃ or ⌘."
             }
@@ -267,15 +294,35 @@ enum ShortcutRouter {
         case .assistant:
             windows.toggleQuickAssistant()
         case .launcher:
-            windows.showDashboard(section: .dashboard)
+            windows.toggleLauncher()
         case .newNote:
             windows.open(.notes, action: .newNote)
         case .newTask:
             windows.open(.tasks, action: .newTask)
         case .clipboard:
-            windows.open(.clipboard)
-        case .dictation, .recording:
-            windows.open(.voice)
+            windows.toggleClipboardPanel()
+        case .recording:
+            RecordingManager.shared.toggleMeeting()
+        case .dictation:
+            DictationController.shared.hotKeyDown(mode: Prefs.dictationDefaultMode)
+        case .voiceTask:
+            DictationController.shared.hotKeyDown(mode: .task)
+        case .textActions:
+            TextActionsController.shared.open()
+        case .askMac:
+            WindowManager.shared.toggleAskMac()
+        case .screenshot:
+            ScreenCaptureTool.shared.captureArea()
+        }
+    }
+
+    /// Key-up for shortcuts that care about it (push-to-talk).
+    static func release(_ action: ShortcutAction) {
+        switch action {
+        case .dictation, .voiceTask:
+            DictationController.shared.hotKeyUp()
+        default:
+            break
         }
     }
 }

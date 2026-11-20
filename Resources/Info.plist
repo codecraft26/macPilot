@@ -8,6 +8,10 @@
     <string>MacPilot</string>
     <key>CFBundleExecutable</key>
     <string>MacPilot</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+    <key>CFBundleIconName</key>
+    <string>AppIcon</string>
     <key>CFBundleIdentifier</key>
     <string>com.macpilot.app</string>
     <key>CFBundleInfoDictionaryVersion</key>
@@ -17,9 +21,9 @@
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.2.0</string>
+    <string>0.17.1</string>
     <key>CFBundleVersion</key>
-    <string>2</string>
+    <string>22</string>
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.productivity</string>
     <key>LSMinimumSystemVersion</key>
@@ -34,7 +38,9 @@
     <string>MacPilot shows your upcoming meetings and can create events after you confirm them.</string>
     <key>NSRemindersFullAccessUsageDescription</key>
     <string>MacPilot can sync tasks with Reminders after you allow it.</string>
+    <key>NSCalendarsUsageDescription</key>
+    <string>MacPilot shows your upcoming meetings and can create events after you confirm them.</string>
     <key>NSAppleEventsUsageDescription</key>
-    <string>MacPilot can paste dictated text into the app you are using.</string>
+    <string>MacPilot controls Music or Spotify from the notch, toggles Dark Mode and empties the Trash only when you ask it to.</string>
 </dict>
 </plist>

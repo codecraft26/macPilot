@@ -26,7 +26,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Menu bar app: no Dock icon until the dashboard is opened.
         NSApp.setActivationPolicy(.accessory)
         Seeder.seedIfNeeded(Persistence.container.mainContext)
+        RecordingStorage.applyRetention(days: Prefs.audioRetentionDays, context: Persistence.container.mainContext)
+        RecordingRecovery.markInterrupted(context: Persistence.container.mainContext)
+        Task {
+            // Prime Google Calendar (if connected) so the menu bar can show the next meeting.
+            await CalendarService.shared.refresh(from: Date(), to: Date().addingTimeInterval(7 * 86_400))
+        }
         ShortcutManager.shared.registerAll()
+        ProviderAutoSetup.reconcile()
+        ClipboardMonitor.shared.start()
+        ReminderSync.shared.start()
+        NotchController.shared.start()
+        NowPlaying.shared.start()
+        SnippetExpander.shared.start()
+        ICloudSync.shared.start()
+        ScreenPrivacy.start()
+        AutomationEngine.shared.start()
 
         let defaults = UserDefaults.standard
         if !defaults.bool(forKey: PrefKey.hasLaunchedBefore) {

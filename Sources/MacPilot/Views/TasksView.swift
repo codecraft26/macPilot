@@ -3,7 +3,7 @@ import SwiftUI
 
 @MainActor
 enum TaskActions {
-    static func toggle(_ task: TaskItem, context: ModelContext) {
+    static func toggle(_ task: TaskItem, context: ModelContext, sync: Bool = true) {
         task.isCompleted.toggle()
         task.completedAt = task.isCompleted ? Date() : nil
         if task.isCompleted {
@@ -20,10 +20,12 @@ enum TaskActions {
             NotificationService.schedule(id: task.notificationID, title: task.title, at: task.dueDate)
         }
         try? context.save()
+        if sync { ReminderSync.shared.scheduleSync() }
     }
 
     static func delete(_ task: TaskItem, context: ModelContext) {
         NotificationService.cancel(id: task.notificationID)
+        ReminderSync.noteDeleted(task)
         context.delete(task)
         try? context.save()
     }
@@ -87,6 +89,16 @@ struct TasksView: View {
                 .frame(width: 360)
                 Spacer()
                 Text(completionSummary).font(.caption).foregroundStyle(.secondary)
+                if ReminderSync.isEnabled {
+                    Button {
+                        Task { await ReminderSync.shared.sync() }
+                    } label: {
+                        Label(ReminderSync.shared.isSyncing ? "Syncing…" : "Reminders", systemImage: "arrow.triangle.2.circlepath")
+                    }
+                    .controlSize(.small)
+                    .disabled(ReminderSync.shared.isSyncing)
+                    .help(ReminderSync.shared.lastError ?? ReminderSync.shared.lastSummary ?? "Sync with Apple Reminders")
+                }
             }
             .padding(16)
 
@@ -97,9 +109,9 @@ struct TasksView: View {
             Divider()
 
             if filtered.isEmpty {
-                Text(filter == .completed ? "No completed tasks yet." : "Nothing here. Add a task above.")
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                EmptyStateView(systemImage: filter == .completed ? "checkmark.seal" : "checklist",
+                               title: filter == .completed ? "No completed tasks yet" : "Nothing here",
+                               message: filter == .completed ? "Finished tasks show up here." : "Add a task above, or press ⌥T from any app.")
             } else {
                 List {
                     ForEach(filtered) { task in

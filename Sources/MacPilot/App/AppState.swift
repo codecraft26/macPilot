@@ -3,7 +3,7 @@ import Observation
 
 /// The ten top-level areas from the PRD navigation (section 7).
 enum AppSection: String, CaseIterable, Identifiable, Hashable {
-    case dashboard, assistant, voice, calendar, notes, tasks, clipboard, developer, automations, settings
+    case dashboard, assistant, voice, calendar, notes, tasks, clipboard, tools, developer, automations, settings
 
     var id: String { rawValue }
 
@@ -16,6 +16,7 @@ enum AppSection: String, CaseIterable, Identifiable, Hashable {
         case .notes: return "Notes & Knowledge"
         case .tasks: return "Tasks & Reminders"
         case .clipboard: return "Clipboard"
+        case .tools: return "File Tools"
         case .developer: return "Developer Workspace"
         case .automations: return "Automations"
         case .settings: return "Settings"
@@ -31,6 +32,7 @@ enum AppSection: String, CaseIterable, Identifiable, Hashable {
         case .notes: return "note.text"
         case .tasks: return "checklist"
         case .clipboard: return "doc.on.clipboard"
+        case .tools: return "arrow.triangle.2.circlepath.doc.on.clipboard"
         case .developer: return "chevron.left.forwardslash.chevron.right"
         case .automations: return "gearshape.2"
         case .settings: return "gear"
@@ -42,6 +44,10 @@ enum AppSection: String, CaseIterable, Identifiable, Hashable {
 enum PendingAction: Equatable {
     case newNote
     case newTask
+    case openNote(UUID)
+    case openRecording(UUID)
+    case quickAddEvent(String)
+    case openTool(String)
 }
 
 @Observable
@@ -51,8 +57,12 @@ final class AppState {
 
     var selectedSection: AppSection? = .dashboard
     var pendingAction: PendingAction?
-    /// Drives the menu bar recording indicator. Set by the recorder (Phase 3).
+    /// Drives the menu bar recording indicator. Set by `RecordingManager`.
     var isRecording = false
+    /// Text for the quick assistant to ask as soon as it opens (from the launcher).
+    var pendingQuickPrompt: String?
+    /// Incremented each time a clipboard/launcher panel opens so it can reset its search.
+    var panelSession = 0
 
     private init() {}
 }
