@@ -43,6 +43,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ScreenPrivacy.start()
         FloatingBuddy.shared.start()
         LaunchAtLogin.setUpOnce()
+        MeetingAutoRecord.shared.start()
         AutomationEngine.shared.start()
 
         let defaults = UserDefaults.standard

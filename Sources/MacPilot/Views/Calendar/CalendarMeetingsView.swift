@@ -164,6 +164,7 @@ struct CalendarPane: View {
             .labelsHidden()
             .frame(width: 190)
             calendarsMenu
+            autoRecordMenu
             Spacer()
             TextField("Quick add: “Lunch with Sam Friday 1pm”", text: $quickAdd)
                 .textFieldStyle(.roundedBorder)
@@ -203,6 +204,30 @@ struct CalendarPane: View {
             Label("Calendars", systemImage: "line.3.horizontal.decrease.circle")
         }
         .fixedSize()
+    }
+
+    /// Which meetings MacPilot records by itself.
+    private var autoRecordMenu: some View {
+        let auto = MeetingAutoRecord.shared
+        return Menu {
+            Toggle("Record all meetings automatically", isOn: Binding(get: { auto.rules.recordAll }, set: { auto.setRecordAll($0) }))
+            Toggle("Only events with attendees or a video link", isOn: Binding(get: { auto.rules.onlyRealMeetings }, set: { auto.setOnlyRealMeetings($0) }))
+            Toggle("Stop recording when the meeting ends", isOn: Binding(get: { auto.stopAtEnd }, set: { auto.stopAtEnd = $0 }))
+            Section("Always record meetings in") {
+                ForEach(calendar.calendars) { item in
+                    Toggle(item.source == .google && !item.account.isEmpty ? "\(item.title) (\(item.account))" : item.title,
+                           isOn: Binding(get: { auto.records(calendarID: item.id) }, set: { auto.setCalendar(item.id, record: $0) }))
+                }
+            }
+            Section {
+                Text("Or right-click any meeting → “Record automatically when it starts”.")
+            }
+        } label: {
+            let active = auto.rules.recordAll || !auto.rules.calendars.isEmpty || !auto.rules.marked.isEmpty
+            Label(active ? "Auto-record on" : "Auto-record", systemImage: active ? "record.circle.fill" : "record.circle")
+        }
+        .fixedSize()
+        .help("Choose which meetings MacPilot records automatically")
     }
 
     private var periodTitle: String {
@@ -457,6 +482,7 @@ private struct DayEventRow: View {
                 HStack {
                     Text(event.title).font(.headline)
                     if event.source == .google { GoogleBadge() }
+                    AutoRecordBadge(event: event)
                     if isConflict {
                         Label("Conflict", systemImage: "exclamationmark.triangle.fill")
                             .font(.caption)
