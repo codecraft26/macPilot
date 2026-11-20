@@ -191,9 +191,10 @@ struct CalendarPane: View {
                     }
                 }
             }
-            if !google.isEmpty {
-                Section("Google Calendar") {
-                    ForEach(google) { item in
+            // One section per Google account.
+            ForEach(Array(Set(google.map(\.account))).sorted(), id: \.self) { account in
+                Section(account.isEmpty ? "Google Calendar" : "Google · \(account)") {
+                    ForEach(google.filter { $0.account == account }) { item in
                         Toggle(item.title, isOn: Binding(get: { calendar.isVisible(item) }, set: { calendar.setVisible($0, item) }))
                     }
                 }

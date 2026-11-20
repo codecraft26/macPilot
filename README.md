@@ -9,10 +9,10 @@
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-000?logo=apple)
 ![Swift 5.10](https://img.shields.io/badge/Swift-5.10-F05138?logo=swift&logoColor=white)
 ![SwiftUI](https://img.shields.io/badge/UI-SwiftUI-0A84FF)
-![Version](https://img.shields.io/badge/version-0.19.0-6E5BF7)
+![Version](https://img.shields.io/badge/version-0.20.0-6E5BF7)
 ![Universal](https://img.shields.io/badge/Apple%20silicon%20%2B%20Intel-universal-555)
 
-[**⬇ Download MacPilot 0.19.0 (.dmg)**](releases/MacPilot-0.19.0.dmg) · [What's new](#whats-new) · [Features](#features) · [Floating buddy](#-floating-buddy) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
+[**⬇ Download MacPilot 0.20.0 (.dmg)**](releases/MacPilot-0.20.0.dmg) · [What's new](#whats-new) · [Features](#features) · [Floating buddy](#-floating-buddy) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
 
 <img src="docs/screenshots/mac/dashboard.png" width="860" alt="MacPilot dashboard with today's briefing">
 
@@ -21,6 +21,9 @@
 MacPilot brings Raycast-style speed and an AI assistant to everything you do on a Mac: ask Claude (Anthropic or Amazon Bedrock), OpenAI or a local Ollama model from anywhere, record and summarize meetings, dictate into any app, manage notes, tasks and your calendar, search your clipboard, convert files, and sync it all between your Macs — with a friendly floating buddy on your desktop and live status in the MacBook notch. **Bring your own keys** — there is no MacPilot account or server; data stays on your Mac and credentials in the Keychain. Cloud features send only the relevant content to the provider you choose.
 
 ## What's new
+
+**0.20** — several Google accounts
+- 📅 Connect **as many Google accounts as you like** (personal, work, clients…). Every calendar from every account shows up together, grouped by account, each with its own show/hide toggle; create and edit events in any of them.
 
 **0.19** — Pilot talks back, and a file shelf in the notch
 - 🗣 **Talk to Pilot:** click the buddy (or say **“Hey Pilot”**) and speak. It answers out loud with an on-device voice and runs commands: “add a task call mom tomorrow at 5”, “what's next today?”, “start recording”, “set a timer for 25 minutes”, “new note …”, “open my calendar” — anything else goes to your AI.
@@ -65,9 +68,9 @@ MacPilot brings Raycast-style speed and an AI assistant to everything you do on 
 |---|---|
 | ![Recordings](docs/screenshots/mac/recordings.png) | ![Meeting follow-up](docs/screenshots/features/meeting-follow-up.png) |
 | Record mic + system audio (optionally the screen as video). Transcribe with Amazon Transcribe, OpenAI or on-device Whisper, with speakers, live captions and subtitle export. Get a summary, decisions, action items and a follow-up email. | Open the follow-up as a Mail draft to the attendees, turn action items into tasks (synced to Reminders), and schedule the next meeting. |
-| **Calendar (Apple + Google)** | **Notes** |
+| **Calendar (Apple + several Google accounts)** | **Notes** |
 | ![Calendar](docs/screenshots/mac/calendar.png) | ![Notes](docs/screenshots/mac/notes.png) |
-| Week and day views, conflict warnings, natural-language quick add (“lunch with Sam tomorrow 1pm”), meeting prep notes and “record this meeting”. | Markdown notes with folders, tags, pins, AI summaries and notes created from meetings. **⌥N** from anywhere. |
+| Week and day views across Apple Calendar and any number of Google accounts, conflict warnings, natural-language quick add (“lunch with Sam tomorrow 1pm”), meeting prep notes and “record this meeting”. | Markdown notes with folders, tags, pins, AI summaries and notes created from meetings. **⌥N** from anywhere. |
 | **Tasks & Reminders** | **Dictation (⌥D)** |
 | ![Tasks](docs/screenshots/mac/tasks.png) | ![Dictating in the notch](docs/screenshots/mac/notch-dictating.png) |
 | Due dates, priorities, recurring tasks and notifications, with two-way Apple Reminders sync. **⌥⇧T**: say a task and it's added. | Hold ⌥D and talk; release to paste clean text at the cursor in any app. Styles for messages, email and code. |
@@ -87,6 +90,10 @@ MacPilot turns the MacBook notch into a live status area. Hover or click it to e
 **File shelf:** drag files from Finder (or anywhere) toward the notch — it opens as a drop zone. Parked files stay there (only a reference; the files don't move) until you drag them out into Mail, Slack, a browser upload or any app. Double-click opens one; right-click for Ask AI, AirDrop, Show in Finder and Remove; the shelf's buttons ask AI about all of them, AirDrop all or clear it. Turn it off in **Settings → Recording & Calendar → Notch**.
 
 Expanded: date and time, next meeting with **Join** and **Record**, open tasks, now playing with playback controls, quick timers (“25m focus”), and one-tap buttons for Ask AI, Dictate, Record, Clipboard, Launcher and Note. On Macs without a notch it shows as a small pill under the menu bar.
+
+**Multiple Google accounts:** connect personal, work and client accounts side by side. Each account lists all its calendars (shared and subscribed ones too) with show/hide toggles; a calendar shared between two of your accounts appears once.
+
+![Google accounts](docs/screenshots/mac/settings-google-accounts.png)
 
 ### ⚡ Raycast-style tools
 
@@ -116,7 +123,7 @@ Expanded: date and time, next meeting with **Join** and **Record**, open tasks, 
 
 ## Install
 
-1. [Download `MacPilot-0.19.0.dmg`](releases/MacPilot-0.19.0.dmg) (universal: Apple silicon and Intel, macOS 14+).
+1. [Download `MacPilot-0.20.0.dmg`](releases/MacPilot-0.20.0.dmg) (universal: Apple silicon and Intel, macOS 14+).
 2. Open it and drag **MacPilot** into **Applications**.
 3. The build is ad-hoc signed (not notarized), so the first launch needs one approval: right-click MacPilot → **Open** → **Open**, or **System Settings → Privacy & Security → Open Anyway**. If macOS still refuses:
    ```bash
@@ -125,7 +132,7 @@ Expanded: date and time, next meeting with **Join** and **Record**, open tasks, 
 4. MacPilot lives in the menu bar and **opens automatically when you log in** (turn that off in **Settings → Shortcuts → Startup** or the menu bar's “Open at Login”; macOS also lists it under System Settings → General → Login Items).
 5. Add an API key (Anthropic, OpenAI or AWS) in **Settings → Providers**, and grant Microphone, Accessibility and Screen Recording when you use features that need them.
 
-SHA-256 of the DMG: `9383d2d280821bf8ce46a262d494bb460f3aabbe707f2d21f4709f6d1a5ac940`
+SHA-256 of the DMG: `27f9378ed80878967cf71858cd2b5083bd9e9e8f577d83582e28b36940e6cb49`
 
 ## Status
 
@@ -142,6 +149,7 @@ SHA-256 of the DMG: `9383d2d280821bf8ce46a262d494bb460f3aabbe707f2d21f4709f6d1a5
 | 9 | File tools, PDF page editor, iCloud sync, notch | Done |
 | 10 | Floating buddy, open at login, hidden from screen sharing | Done |
 | 11 | Voice buddy (“Hey Pilot”, spoken answers, voice commands), notch file shelf | Done |
+| 12 | Multiple Google accounts with all their calendars | Done |
 
 ## Requirements
 
@@ -254,6 +262,14 @@ Workflows can create a note or task and can optionally require approval first. *
 - Create, edit and delete events with an alert. **Quick add** (“Lunch with Sam Friday 1pm”) is read by the analysis provider (or by macOS date detection if no provider is available) and always opens the editor so you confirm before anything is saved.
 - **Google Calendar (optional):** in **Settings → Recording & Calendar**, paste the client ID and secret of a Google Cloud OAuth client of type *Desktop app* (Google Calendar API enabled), press **Connect** and approve in your browser. Google calendars then appear next to Apple ones (marked with a G), with the same views, conflict checks, quick add, Record and Prep notes. Sign-in uses PKCE with a loopback redirect; the refresh token and client secret stay in the Keychain. Alternatively add the Google account under System Settings → Internet Accounts and it shows up through Apple Calendar.
 - Each event has **Record** (a meeting linked to the event, with its attendees) and **Prep notes** (a note linked to the event; its text is included when the meeting is analyzed). The dashboard shows upcoming meetings with a live countdown.
+
+## Google Calendar: several accounts
+
+In **Settings → Recording & Calendar → Google Calendar**, enter your OAuth client ID once and press **Connect Google Calendar**. To add more accounts, press **Add another Google account** — Google's account chooser opens in your browser, so you can pick a different account (or add one). For each account MacPilot lists every calendar it can see — your own, shared and subscribed (holidays, team calendars) — with color, a read-only marker and a show/hide toggle, plus **Show all / Hide all** and **Disconnect…** per account.
+
+- The calendar view's **Calendars** menu groups Google calendars by account; the event editor shows which account each calendar belongs to, and events can be moved between calendars and accounts.
+- A calendar shared with two of your accounts is listed once, from the account that can edit it, so events don't appear twice.
+- Each account's refresh token is stored separately in the Keychain. Disconnecting one revokes only its access. A connection made with an earlier version is kept and becomes your first account.
 
 ## Notch
 

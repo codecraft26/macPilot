@@ -482,6 +482,20 @@ final class UISnapshots: XCTestCase {
         appearance = NSAppearance(named: .aqua)
 
         buddyShot()
+        func cal(_ id: String, _ title: String, _ account: String, _ hex: String, writable: Bool = true) -> CalendarInfo {
+            GoogleMapping.calendar(["id": id, "summary": title, "backgroundColor": hex, "accessRole": writable ? "owner" : "reader"], account: account)!
+        }
+        GoogleCalendarService.shared.setPreview(accounts: ["you@gmail.com", "you@company.com"], calendars: [
+            cal("you@gmail.com", "Personal", "you@gmail.com", "#7986cb"),
+            cal("family@group.calendar.google.com", "Family", "you@gmail.com", "#33b679"),
+            cal("en.indian#holiday@group.v.calendar.google.com", "Holidays in India", "you@gmail.com", "#f6bf26", writable: false),
+            cal("you@company.com", "Work", "you@company.com", "#039be5"),
+            cal("team@group.calendar.google.com", "Team standups", "you@company.com", "#e67c73"),
+            cal("oncall@group.calendar.google.com", "On-call rota", "you@company.com", "#8e24aa", writable: false)
+        ])
+        macShot("settings-google-accounts", size: CGSize(width: 860, height: 560), title: "Settings",
+                Form { GoogleCalendarSettingsSection() }.formStyle(.grouped))
+        GoogleCalendarService.shared.setPreview(accounts: [], calendars: [])
 
         // Notch
         NowPlaying.shared.setPreview(NowPlaying.Track(title: "Weightless", artist: "Marconi Union", album: "Ambient", player: .music),

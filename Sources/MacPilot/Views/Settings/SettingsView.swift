@@ -731,7 +731,51 @@ struct RecordingSettingsView: View {
 
 // MARK: - Google Calendar
 
-private struct GoogleCalendarSettingsSection: View {
+/// One connected Google account: its calendars with show/hide toggles, and Disconnect.
+private struct GoogleAccountCalendars: View {
+    let account: String
+    private let google = GoogleCalendarService.shared
+    private let calendar = CalendarService.shared
+    @State private var confirmDisconnect = false
+
+    var body: some View {
+        let calendars = google.calendars(of: account)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                GoogleBadge()
+                Text(account).font(.headline)
+                Text("\(calendars.count) calendar\(calendars.count == 1 ? "" : "s")").font(.caption).foregroundStyle(.secondary)
+                Spacer()
+                if !calendars.isEmpty {
+                    Button("Show all") { calendars.forEach { calendar.setVisible(true, $0) } }.buttonStyle(.link)
+                    Button("Hide all") { calendars.forEach { calendar.setVisible(false, $0) } }.buttonStyle(.link)
+                }
+                Button("Disconnect…", role: .destructive) { confirmDisconnect = true }
+            }
+            if calendars.isEmpty {
+                Text("No calendars loaded yet — press Refresh calendars.").font(.caption).foregroundStyle(.secondary)
+            }
+            ForEach(calendars) { item in
+                Toggle(isOn: Binding(get: { calendar.isVisible(item) }, set: { calendar.setVisible($0, item) })) {
+                    HStack(spacing: 6) {
+                        Circle().fill(item.color.color).frame(width: 9, height: 9)
+                        Text(item.title)
+                        if !item.isWritable { Text("read only").font(.caption).foregroundStyle(.secondary) }
+                    }
+                }
+                .padding(.leading, 22)
+            }
+        }
+        .padding(.vertical, 4)
+        .confirmationDialog("Disconnect \(account)?", isPresented: $confirmDisconnect) {
+            Button("Disconnect", role: .destructive) { google.disconnect(account) }
+        } message: {
+            Text("Its calendars disappear from MacPilot and its access is revoked. Your events stay in Google Calendar.")
+        }
+    }
+}
+
+struct GoogleCalendarSettingsSection: View {
     private let google = GoogleCalendarService.shared
     private let calendar = CalendarService.shared
     @State private var clientID = GoogleCalendarService.shared.clientID
@@ -744,24 +788,23 @@ private struct GoogleCalendarSettingsSection: View {
         Section {
             if google.isConnected {
                 HStack {
-                    Label(google.accountEmail.isEmpty ? "Connected" : "Connected as \(google.accountEmail)", systemImage: "checkmark.circle.fill")
+                    Label("\(google.accounts.count) Google account\(google.accounts.count == 1 ? "" : "s") connected", systemImage: "checkmark.circle.fill")
                         .foregroundStyle(.green)
                     Spacer()
                     Button("Refresh calendars") { Task { await google.refreshCalendars() } }
-                    Button("Disconnect", role: .destructive) { google.disconnect() }
-                }
-                let calendars = calendar.calendars.filter { $0.source == .google }
-                if calendars.isEmpty {
-                    Text("No calendars loaded yet.").font(.caption).foregroundStyle(.secondary)
-                }
-                ForEach(calendars) { item in
-                    Toggle(isOn: Binding(get: { calendar.isVisible(item) }, set: { calendar.setVisible($0, item) })) {
-                        HStack(spacing: 6) {
-                            Circle().fill(item.color.color).frame(width: 9, height: 9)
-                            Text(item.title)
-                            if !item.isWritable { Text("read only").font(.caption).foregroundStyle(.secondary) }
+                    Button {
+                        Task { await google.connect() }
+                    } label: {
+                        if google.isSigningIn {
+                            HStack(spacing: 6) { ProgressView().controlSize(.small); Text("Waiting for Google…") }
+                        } else {
+                            Label("Add another Google account", systemImage: "plus")
                         }
                     }
+                    .disabled(google.isSigningIn)
+                }
+                ForEach(google.accounts, id: \.self) { account in
+                    GoogleAccountCalendars(account: account)
                 }
             } else {
                 TextField("OAuth client ID", text: $clientID, prompt: Text("1234-abc.apps.googleusercontent.com"))
@@ -806,7 +849,7 @@ private struct GoogleCalendarSettingsSection: View {
                 Text(message).font(.caption).foregroundStyle(.secondary)
             }
         } header: {
-            Text("Google Calendar (optional)")
+            Text("Google Calendar (optional, any number of accounts)")
         } footer: {
             Text("MacPilot talks to Google directly with your own OAuth client; the refresh token and client secret are kept in your Keychain. Simpler alternative: add your Google account under System Settings → Internet Accounts and turn on Calendars — it then shows up through Apple Calendar with no setup here (don't use both, or events appear twice).")
                 .font(.caption)
