@@ -14,7 +14,7 @@
 
 [**⬇ Download MacPilot 0.17.1 (.dmg)**](releases/MacPilot-0.17.1.dmg) · [Features](#features) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
 
-<img src="docs/screenshots/features/briefing-dashboard.png" width="820" alt="MacPilot dashboard with today's briefing">
+<img src="docs/screenshots/mac/dashboard.png" width="860" alt="MacPilot dashboard with today's briefing">
 
 </div>
 
@@ -26,39 +26,67 @@ MacPilot brings Raycast-style speed and an AI assistant to everything you do on 
 
 | AI on selected text (⌥⇧E) | Ask my Mac (⌥⇧A) |
 |---|---|
-| ![Text actions](docs/screenshots/features/text-actions.png) | ![Ask my Mac](docs/screenshots/features/ask-my-mac.png) |
-| Select text in any app → fix grammar, rewrite, shorten, change tone, translate, explain, reply, or your own command. Return replaces the selection. | Ask questions across your meetings, notes, tasks and clipboard. Ranked on-device; answers cite numbered sources you can open. |
-| **Screenshot & read text (⌥⇧S)** | **Assistant from anywhere (⌥Space)** |
-| ![Screenshot tool](docs/screenshots/features/screenshot-tool.png) | ![Quick assistant](docs/screenshots/after/assistant.png) |
-| Capture an area, OCR its text, ask AI about it, copy, save, or pin it on screen. | Floating chat with Claude, OpenAI or Ollama. The 👁 button reads the window you were using: “summarize this”, “explain this error”. |
+| ![Text actions](docs/screenshots/mac/text-actions.png) | ![Ask my Mac](docs/screenshots/mac/ask-my-mac.png) |
+| Select text in any app → fix grammar, rewrite, shorten, change tone, bullets, summarize, explain, reply, translate — or your own AI command. Return replaces the selection. | Ask questions across your meetings, notes, tasks and clipboard. Ranked on-device; the answer cites numbered sources you can open. |
+| **Assistant from anywhere (⌥Space)** | **Screenshot & read text (⌥⇧S)** |
+| ![Quick assistant](docs/screenshots/mac/quick-assistant.png) | ![Screenshot tool](docs/screenshots/mac/screenshot-tool.png) |
+| Floating chat with Claude (Anthropic or Bedrock), OpenAI or Ollama. The 👁 button reads the window you were using: “summarize this”, “explain this error”. | Capture an area like ⌘⇧4, read its text (OCR), ask AI about it, copy, save, or pin it on screen. |
+| **AI chat with history & prompt library** | **Morning briefing, light & dark** |
+| ![Assistant](docs/screenshots/mac/assistant.png) | ![Dashboard dark](docs/screenshots/mac/dashboard-dark.png) |
+| Full chat window with streaming, code blocks, attachments, saved prompts and per-chat model choice. | The dashboard opens with an AI summary of today's meetings, due/overdue tasks and open action items, plus a suggested focus. |
 
 ### 🎙 Meetings, voice and calendar
 
-| Meeting summaries & one-click follow-up | Calendar (Apple + Google) |
+| Recording, transcripts & meeting intelligence | One-click follow-up |
 |---|---|
-| ![Meeting follow-up](docs/screenshots/features/meeting-follow-up.png) | ![Calendar week](docs/screenshots/after/calendar-week.png) |
-| Record mic + system audio (and optionally the screen), transcribe with Amazon Transcribe, OpenAI, or on-device Whisper; get summary, decisions, action items and a follow-up email — then send it as a Mail draft and turn action items into tasks. | Week/day views with conflict warnings, natural-language quick add, meeting prep and “record this meeting”. **⌥D dictation** types anywhere (hold to talk). |
+| ![Recordings](docs/screenshots/mac/recordings.png) | ![Meeting follow-up](docs/screenshots/features/meeting-follow-up.png) |
+| Record mic + system audio (optionally the screen as video). Transcribe with Amazon Transcribe, OpenAI or on-device Whisper, with speakers, live captions and subtitle export. Get a summary, decisions, action items and a follow-up email. | Open the follow-up as a Mail draft to the attendees, turn action items into tasks (synced to Reminders), and schedule the next meeting. |
+| **Calendar (Apple + Google)** | **Notes** |
+| ![Calendar](docs/screenshots/mac/calendar.png) | ![Notes](docs/screenshots/mac/notes.png) |
+| Week and day views, conflict warnings, natural-language quick add (“lunch with Sam tomorrow 1pm”), meeting prep notes and “record this meeting”. | Markdown notes with folders, tags, pins, AI summaries and notes created from meetings. **⌥N** from anywhere. |
+| **Tasks & Reminders** | **Dictation (⌥D)** |
+| ![Tasks](docs/screenshots/mac/tasks.png) | ![Dictating in the notch](docs/screenshots/mac/notch-dictating.png) |
+| Due dates, priorities, recurring tasks and notifications, with two-way Apple Reminders sync. **⌥⇧T**: say a task and it's added. | Hold ⌥D and talk; release to paste clean text at the cursor in any app. Styles for messages, email and code. |
+
+### 🟣 The notch
+
+MacPilot turns the MacBook notch into a live status area. Hover or click it to expand.
+
+| Recording | Meeting about to start |
+|---|---|
+| ![Notch recording](docs/screenshots/mac/notch-recording.png) | ![Notch meeting](docs/screenshots/mac/notch-meeting.png) |
+| **Now playing (Music / Spotify)** | **Dictation** |
+| ![Notch music](docs/screenshots/mac/notch-music.png) | ![Notch dictation](docs/screenshots/mac/notch-dictating.png) |
+
+![Notch expanded](docs/screenshots/mac/notch-expanded.png)
+
+Expanded: date and time, next meeting with **Join** and **Record**, open tasks, now playing with playback controls, quick timers (“25m focus”), and one-tap buttons for Ask AI, Dictate, Record, Clipboard, Launcher and Note. On Macs without a notch it shows as a small pill under the menu bar.
 
 ### ⚡ Raycast-style tools
 
 | Command launcher (⌥K) | Clipboard history (⌥C) |
 |---|---|
-| ![Launcher](docs/screenshots/after/launcher.png) | ![Clipboard panel](docs/screenshots/after/clipboard-panel.png) |
-| Apps, files, calculator & unit conversions, window management, system commands, quick links (`jira 123`, `yt lofi`), snippets and your AI commands. | Text, links, images, files and colors with fuzzy search, pins, favorites and paste-into-app. Password managers and secrets are never saved. |
+| ![Launcher](docs/screenshots/mac/launcher.png) | ![Clipboard panel](docs/screenshots/mac/clipboard-panel.png) |
+| Apps, files, calculator and unit conversions, window management, system commands, quick links (`jira 123`, `yt lofi`), snippets and your AI commands. Learns what you use. | Text, links, images, files and colors with fuzzy search, pins, favorites and paste-into-app. Password managers and secrets are never saved. |
+| **Clipboard library** | **Snippets, quick links & AI commands** |
+| ![Clipboard](docs/screenshots/mac/clipboard.png) | ![Snippets settings](docs/screenshots/features/settings-snippets.png) |
+| Full history with folders, retention rules and AI actions: explain, summarize, fix grammar, translate, format JSON. | Type `;sig` or `;date` anywhere to expand it. Save prompts like “Commit message” or “Find bugs” as commands. |
 
-| Snippets, quick links & AI commands | Notch |
+### 📄 Files, developer tools and sync
+
+| PDF page editor | File converters |
 |---|---|
-| ![Snippets settings](docs/screenshots/features/settings-snippets.png) | ![Notch](docs/screenshots/after/notch-expanded.png) |
-| Type `;sig` or `;date` anywhere to expand. Save prompts like “Commit message” or “Find bugs” as commands. | Recording status, next meeting countdown, now playing and timers live around the MacBook notch. |
+| ![PDF page editor](docs/screenshots/mac/pdf-page-editor.png) | ![File tools](docs/screenshots/mac/file-tools.png) |
+| Rotate, drag to reorder, delete, duplicate, extract, add page numbers and a watermark, with undo. | PDF ↔ Word, merge, split, compress, password-protect, PDF ↔ images, HEIC/PNG/JPEG conversion, resize, OCR, video → MP4, extract audio. All on-device. |
+| **Developer workspace** | **iCloud sync between your Macs** |
+| ![Developer](docs/screenshots/mac/developer.png) | ![Sync settings](docs/screenshots/features/settings-sync.png) |
+| Git status and AI commit messages, JSON/YAML formatter, regex tester, JWT and Base64 decoders, UUIDs, timestamps and color tools. | Notes, tasks, meetings, chats, prompts, snippets and AI commands sync through iCloud Drive. Tasks linked to Reminders never duplicate. |
+| **Settings: bring your own keys** | |
+| ![Settings](docs/screenshots/mac/settings.png) | Anthropic, OpenAI, **Claude on Amazon Bedrock** (access key or Bedrock API key), Amazon Transcribe with automatic S3 setup and cleanup, Ollama and local Whisper. Keys live in the Keychain, and every shortcut can be changed. |
 
-### 📄 File tools, sync and privacy
+**Also included:** automations (triggers → actions with approvals and run history), usage and cost tracking per provider, export to Markdown/SRT/MP4, and windows that stay **hidden from screen sharing and screen recordings**.
 
-| PDF page editor & converters | iCloud sync between your Macs |
-|---|---|
-| ![PDF page editor](docs/screenshots/features/pdf-page-editor.png) | ![Sync settings](docs/screenshots/features/settings-sync.png) |
-| Rotate, reorder, delete, extract, number and watermark pages; PDF ↔ Word, merge, split, compress, protect, images ↔ PDF, OCR, video → MP4. All on-device. | Notes, tasks, meetings, chats, prompts and snippets sync through iCloud Drive. Tasks linked to Reminders never duplicate. |
-
-Plus: a **morning briefing** on the dashboard, two-way **Apple Reminders** sync, **automations** with approvals, a **developer workspace** (git, JSON/regex/JWT tools), dark mode, and windows that stay **hidden from screen sharing**.
+> **About these screenshots:** they're rendered from MacPilot's real SwiftUI screens with sample data, inside a real macOS window frame on a generated desktop (`SNAPSHOT_DIR=docs/screenshots/mac swift test --filter testRenderMacScreens`). Live blur isn't captured, so floating panels show a plain background instead of the frosted glass you see on screen.
 
 ## Install
 
@@ -85,16 +113,6 @@ SHA-256 of the DMG: `056fbf9a35cdd72e21d3e6e6cca18f05c4894654f617b544e2f2af182d9
 | 7 | Automations, local Whisper, distribution | Done (ZIP/DMG packaging) |
 | 8 | AI everywhere: text actions, Ask my Mac, screenshots, briefing, AI commands | Done |
 | 9 | File tools, PDF page editor, iCloud sync, notch | Done |
-
-## More screenshots
-
-| Dashboard (dark) | Recordings |
-|---|---|
-| ![Dashboard dark](docs/screenshots/after/dashboard-dark.png) | ![Recordings](docs/screenshots/after/recordings.png) |
-| **File tools** | **Text actions menu** |
-| ![File tools](docs/screenshots/after/file-tools.png) | ![Text actions menu](docs/screenshots/features/text-actions-menu.png) |
-
-Screenshots are rendered offscreen from the real views with sample data (`SNAPSHOT_DIR=docs/screenshots/features swift test --filter UISnapshots`), so window chrome and background blur are not shown.
 
 ## Requirements
 

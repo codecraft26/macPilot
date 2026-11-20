@@ -29,6 +29,14 @@ final class NowPlaying {
 
     private init() {}
 
+    #if DEBUG
+    func setPreview(_ track: Track?, playing: Bool, artwork: NSImage?) {
+        self.track = track
+        isPlaying = playing
+        self.artwork = artwork
+    }
+    #endif
+
     func start() {
         guard observers.isEmpty else { return }
         let center = DistributedNotificationCenter.default()

@@ -273,4 +273,222 @@ final class UISnapshots: XCTestCase {
             snapshot("meeting-follow-up", size: CGSize(width: 900, height: 860), RecordingDetailView(recording: meeting, onDelete: {}))
         }
     }
+
+    // MARK: Mac-style shots (real window frame, desktop background, shadow)
+
+    /// A soft desktop background (generated, so it can ship in the repo).
+    private func drawDesktop(in rect: NSRect) {
+        NSGradient(colors: [NSColor(calibratedRed: 0.36, green: 0.30, blue: 0.85, alpha: 1),
+                            NSColor(calibratedRed: 0.62, green: 0.36, blue: 0.86, alpha: 1),
+                            NSColor(calibratedRed: 0.98, green: 0.60, blue: 0.55, alpha: 1)])!
+            .draw(in: rect, angle: -35)
+        NSColor.white.withAlphaComponent(0.08).setFill()
+        NSBezierPath(ovalIn: NSRect(x: rect.width * 0.55, y: -rect.height * 0.3, width: rect.width * 0.8, height: rect.height * 1.1)).fill()
+    }
+
+    /// Draws macOS's menu bar across the top of `rect` (flipped = false coordinates).
+    private func drawMenuBar(in rect: NSRect, height: CGFloat = 28) {
+        let bar = NSRect(x: rect.minX, y: rect.maxY - height, width: rect.width, height: height)
+        NSColor.white.withAlphaComponent(0.28).setFill()
+        bar.fill()
+        let font = NSFont.systemFont(ofSize: 13, weight: .regular)
+        var x: CGFloat = 18
+        let apple = NSAttributedString(string: "\u{F8FF}", attributes: [.font: NSFont.systemFont(ofSize: 15), .foregroundColor: NSColor.black])
+        apple.draw(at: NSPoint(x: x, y: bar.minY + 5))
+        x += 30
+        for (index, item) in ["MacPilot", "File", "Edit", "View", "Window", "Help"].enumerated() {
+            let text = NSAttributedString(string: item, attributes: [.font: index == 0 ? NSFont.boldSystemFont(ofSize: 13) : font, .foregroundColor: NSColor.black])
+            text.draw(at: NSPoint(x: x, y: bar.minY + 6))
+            x += text.size().width + 20
+        }
+        let clock = NSAttributedString(string: "Fri 20 Nov  9:41 AM", attributes: [.font: font, .foregroundColor: NSColor.black])
+        clock.draw(at: NSPoint(x: rect.maxX - clock.size().width - 18, y: bar.minY + 6))
+        if let icon = NSImage(systemSymbolName: "paperplane.fill", accessibilityDescription: nil) {
+            icon.draw(in: NSRect(x: rect.maxX - clock.size().width - 46, y: bar.minY + 7, width: 15, height: 15))
+        }
+    }
+
+    /// Renders `view` in a real titled NSWindow (title bar + traffic lights), or as a rounded floating panel,
+    /// then places it on the desktop with a menu bar and a window shadow.
+    private func macShot<V: View>(_ name: String, size: CGSize, title: String? = nil, panel: Bool = false, _ view: V) {
+        let root = view
+            .background(Color(nsColor: .windowBackgroundColor))
+            .environment(AppState.shared)
+            .modelContainer(container)
+        let hosting = NSHostingView(rootView: root)
+        let style: NSWindow.StyleMask = panel ? [.borderless] : [.titled, .closable, .miniaturizable, .resizable]
+        let window = NSWindow(contentRect: CGRect(origin: .zero, size: size), styleMask: style, backing: .buffered, defer: false)
+        window.title = title ?? ""
+        window.appearance = appearance
+        window.contentView = hosting
+        hosting.layoutSubtreeIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.6))
+        // Sidebar selection uses vibrancy, which renders black offscreen: draw it as a solid accent row instead.
+        func solidSelection(_ view: NSView) {
+            if let table = view as? NSTableView {
+                if table.style != .sourceList {
+                    // Content lists: paint the selected row as a soft accent highlight instead of the black vibrancy block.
+                    for row in table.selectedRowIndexes {
+                        guard let rowView = table.rowView(atRow: row, makeIfNecessary: false) else { continue }
+                        rowView.isSelected = false
+                        rowView.wantsLayer = true
+                        rowView.layer?.backgroundColor = NSColor.controlAccentColor.withAlphaComponent(0.16).cgColor
+                        rowView.layer?.cornerRadius = 6
+                    }
+                    return
+                }
+                table.style = .sourceList
+                table.selectionHighlightStyle = .regular
+            }
+            if let effect = view as? NSVisualEffectView { effect.blendingMode = .withinWindow; effect.state = .inactive }
+            view.subviews.forEach(solidSelection)
+        }
+        solidSelection(window.contentView?.superview ?? hosting)
+        RunLoop.main.run(until: Date().addingTimeInterval(0.2))
+        let frameView = panel ? hosting : (hosting.superview ?? hosting)
+        frameView.layoutSubtreeIfNeeded()
+        guard let rep = frameView.bitmapImageRepForCachingDisplay(in: frameView.bounds) else { return }
+        frameView.cacheDisplay(in: frameView.bounds, to: rep)
+        let windowImage = NSImage(size: frameView.bounds.size)
+        windowImage.addRepresentation(rep)
+
+        let margin: CGFloat = 70, menuBar: CGFloat = 28
+        let canvas = NSSize(width: frameView.bounds.width + margin * 2, height: frameView.bounds.height + margin * 2 + menuBar)
+        let output = NSImage(size: canvas, flipped: false) { rect in
+            self.drawDesktop(in: rect)
+            self.drawMenuBar(in: rect, height: menuBar)
+            let frame = NSRect(x: margin, y: margin, width: frameView.bounds.width, height: frameView.bounds.height)
+            let radius: CGFloat = panel ? 14 : 10
+            NSGraphicsContext.saveGraphicsState()
+            let shadow = NSShadow()
+            shadow.shadowColor = NSColor.black.withAlphaComponent(0.45)
+            shadow.shadowBlurRadius = 36
+            shadow.shadowOffset = NSSize(width: 0, height: -14)
+            shadow.set()
+            NSColor.windowBackgroundColor.setFill()
+            NSBezierPath(roundedRect: frame, xRadius: radius, yRadius: radius).fill()
+            NSGraphicsContext.restoreGraphicsState()
+            NSGraphicsContext.saveGraphicsState()
+            NSBezierPath(roundedRect: frame, xRadius: radius, yRadius: radius).addClip()
+            windowImage.draw(in: frame)
+            NSGraphicsContext.restoreGraphicsState()
+            NSColor.black.withAlphaComponent(0.25).setStroke()
+            let border = NSBezierPath(roundedRect: frame.insetBy(dx: 0.5, dy: 0.5), xRadius: radius, yRadius: radius)
+            border.lineWidth = 1
+            border.stroke()
+            return true
+        }
+        guard let tiff = output.tiffRepresentation, let bitmap = NSBitmapImageRep(data: tiff),
+              let png = bitmap.representation(using: .png, properties: [:]) else { return }
+        try? png.write(to: directory.appendingPathComponent("\(name).png"))
+    }
+
+    /// The notch as it looks on a MacBook: desktop, menu bar split by the camera housing, MacPilot's notch on top.
+    private func notchShot(_ name: String, activity: NotchActivity, expanded: Bool) {
+        let size = NotchController.panelSize
+        let geometry = NotchGeometry(notch: CGRect(x: size.width / 2 - 100, y: 0, width: 200, height: 32), hasHardwareNotch: true)
+        NotchController.shared.setPreview(geometry: geometry, activity: activity, expanded: expanded)
+        let hosting = NSHostingView(rootView: NotchView().environment(AppState.shared).modelContainer(container))
+        hosting.frame = CGRect(origin: .zero, size: size)
+        let window = NSWindow(contentRect: hosting.frame, styleMask: [.borderless], backing: .buffered, defer: false)
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.appearance = NSAppearance(named: .darkAqua)
+        window.contentView = hosting
+        hosting.layoutSubtreeIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.6))
+        guard let rep = hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds) else { return }
+        hosting.cacheDisplay(in: hosting.bounds, to: rep)
+        let notchImage = NSImage(size: size)
+        notchImage.addRepresentation(rep)
+
+        let canvas = NSSize(width: 1100, height: expanded ? 300 : 150)
+        let output = NSImage(size: canvas, flipped: false) { rect in
+            self.drawDesktop(in: rect)
+            self.drawMenuBar(in: rect, height: 32)
+            // Camera housing.
+            NSColor.black.setFill()
+            NSBezierPath(roundedRect: NSRect(x: rect.midX - 100, y: rect.maxY - 32, width: 200, height: 40), xRadius: 10, yRadius: 10).fill()
+            notchImage.draw(in: NSRect(x: rect.midX - size.width / 2, y: rect.maxY - size.height, width: size.width, height: size.height))
+            return true
+        }
+        guard let tiff = output.tiffRepresentation, let bitmap = NSBitmapImageRep(data: tiff),
+              let png = bitmap.representation(using: .png, properties: [:]) else { return }
+        try? png.write(to: directory.appendingPathComponent("\(name).png"))
+    }
+
+    func testRenderMacScreens() {
+        VisualEffectBackground.hiddenForSnapshots = true
+        defer { VisualEffectBackground.hiddenForSnapshots = false }
+        let window = CGSize(width: 1180, height: 740)
+        AppState.shared.selectedSection = .dashboard
+        DailyBriefing.shared.setPreview("""
+        A focused day: two meetings before lunch and one overdue task to clear first.
+
+        **Meetings**
+        - 10:00 Design review with Sam and Priya
+        - 11:30 Customer call — Acme renewal
+
+        **Suggested focus**
+        - Send the Q4 roadmap before the design review so it can be discussed there.
+        """)
+        macShot("dashboard", size: CGSize(width: 1180, height: 820), title: "MacPilot", RootView())
+        macShot("assistant", size: window, title: "AI Assistant", AssistantView())
+        macShot("quick-assistant", size: CGSize(width: 680, height: 460), panel: true, QuickAssistantView())
+        macShot("recordings", size: window, title: "Voice & Transcription", VoiceView())
+        macShot("calendar", size: window, title: "Calendar & Meetings", sampleGrid(week: true))
+        if let note = try? container.mainContext.fetch(FetchDescriptor<Note>()).first(where: { $0.title == "Product ideas" }) {
+            note.body = """
+            # Product ideas
+
+            ## Next release
+            - **Smart clipboard** — group copies by project
+            - Meeting recap emails sent automatically
+            - [ ] Prototype the notch timer presets
+
+            ## Research
+            > Users want one shortcut for everything.
+
+            Links: [Design doc](https://example.com) · #roadmap #ideas
+            """
+            note.tagsRaw = "roadmap, ideas"
+            AppState.shared.pendingAction = .openNote(note.uid)
+        }
+        macShot("notes", size: window, title: "Notes & Knowledge", NotesView())
+        macShot("tasks", size: window, title: "Tasks & Reminders", TasksView())
+        macShot("clipboard", size: window, title: "Clipboard", ClipboardView())
+        macShot("clipboard-panel", size: CGSize(width: 780, height: 480), panel: true, ClipboardPanelView())
+        macShot("launcher", size: CGSize(width: 680, height: 440), panel: true, LauncherView())
+        macShot("file-tools", size: window, title: "File Tools", FileToolsView())
+        macShot("pdf-page-editor", size: window, title: "File Tools", PDFPageEditorView(onBack: {}, initialURL: samplePDF()))
+        macShot("developer", size: window, title: "Developer Workspace", DeveloperView())
+        macShot("settings", size: CGSize(width: 980, height: 700), title: "Settings", SettingsView())
+
+        TextActionsController.shared.setPreview(
+            selection: "hey team, i think we shoud move the launch to next week becuase the onboarding isnt ready",
+            action: .professional,
+            result: "Hi team, I suggest we move the launch to next week. The onboarding flow isn't ready yet, and we want new users to have a smooth first experience.")
+        macShot("text-actions", size: CGSize(width: 520, height: 470), panel: true, TextActionsView())
+        AskMyMacController.shared.setPreview(
+            question: "What did we decide about the launch date?",
+            answer: "You agreed to **ship clipboard history in 0.6** and move Google Calendar sync to the next sprint [1]. Priya owns the release notes, due Friday [1][2].",
+            sources: [KnowledgeSource(id: "1", kind: .meeting, title: "Weekly product sync", date: Date().addingTimeInterval(-86_400), text: "", itemID: UUID()),
+                      KnowledgeSource(id: "2", kind: .task, title: "Write release notes (Priya)", date: Date(), text: "", itemID: UUID())])
+        macShot("ask-my-mac", size: CGSize(width: 640, height: 420), panel: true, AskMyMacView())
+        ScreenCaptureTool.shared.setPreview(image: sampleCapture(), text: "func loadUser() async throws -> User {\nerror: keyNotFound(\"createdAt\")")
+        macShot("screenshot-tool", size: CGSize(width: 640, height: 440), panel: true, ScreenshotView())
+        appearance = NSAppearance(named: .darkAqua)
+        macShot("dashboard-dark", size: CGSize(width: 1180, height: 820), title: "MacPilot", RootView())
+        appearance = NSAppearance(named: .aqua)
+
+        // Notch
+        NowPlaying.shared.setPreview(NowPlaying.Track(title: "Weightless", artist: "Marconi Union", album: "Ambient", player: .music),
+                                     playing: true, artwork: NSImage(systemSymbolName: "music.note", accessibilityDescription: nil))
+        notchShot("notch-recording", activity: .recording(paused: false), expanded: false)
+        notchShot("notch-meeting", activity: .meetingSoon(title: "Design review", start: Date().addingTimeInterval(480)), expanded: false)
+        notchShot("notch-dictating", activity: .dictating, expanded: false)
+        notchShot("notch-music", activity: .nowPlaying, expanded: false)
+        notchShot("notch-expanded", activity: .idle, expanded: true)
+        NowPlaying.shared.setPreview(nil, playing: false, artwork: nil)
+    }
 }
