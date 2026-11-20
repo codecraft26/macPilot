@@ -106,6 +106,7 @@ struct MenuBarContent: View {
         Button(FloatingBuddy.shared.isVisible ? "Hide Floating Buddy" : "Show Floating Buddy") {
             FloatingBuddy.shared.toggle()
         }
+        Toggle("Open at Login", isOn: Binding(get: { LaunchAtLogin.isEnabled }, set: { LaunchAtLogin.set($0) }))
         Button("Developer Workspace") {
             WindowManager.shared.showDashboard(section: .developer)
         }

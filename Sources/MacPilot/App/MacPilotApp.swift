@@ -42,6 +42,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ICloudSync.shared.start()
         ScreenPrivacy.start()
         FloatingBuddy.shared.start()
+        LaunchAtLogin.setUpOnce()
         AutomationEngine.shared.start()
 
         let defaults = UserDefaults.standard

@@ -339,9 +339,28 @@ private struct LocalWhisperSettingsView: View {
 struct ShortcutsSettingsView: View {
     private let manager = ShortcutManager.shared
     @AppStorage(PrefKey.buddyEnabled) private var buddyEnabled = true
+    @State private var openAtLogin = LaunchAtLogin.isEnabled
+    @State private var loginMessage: String?
 
     var body: some View {
         Form {
+            Section {
+                Toggle("Open MacPilot when I log in", isOn: $openAtLogin)
+                    .onChange(of: openAtLogin) { _, on in
+                        loginMessage = LaunchAtLogin.set(on)
+                        openAtLogin = LaunchAtLogin.isEnabled || (on && LaunchAtLogin.needsApproval)
+                        if LaunchAtLogin.needsApproval {
+                            loginMessage = "Allow MacPilot in System Settings → General → Login Items."
+                        }
+                    }
+                if let loginMessage {
+                    Text(loginMessage).font(.caption).foregroundStyle(.orange)
+                }
+                Text("Starts in the menu bar so your shortcuts, notch, buddy, clipboard history and sync are ready right away.")
+                    .font(.caption).foregroundStyle(.secondary)
+            } header: {
+                Text("Startup")
+            }
             Section {
                 Toggle("Show the floating buddy on the desktop", isOn: $buddyEnabled)
                     .onChange(of: buddyEnabled) { _, on in FloatingBuddy.shared.setEnabled(on) }
