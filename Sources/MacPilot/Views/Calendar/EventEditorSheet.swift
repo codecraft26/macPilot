@@ -36,7 +36,7 @@ struct EventEditorSheet: View {
                     set: { draft.calendarID = $0 }
                 )) {
                     ForEach(calendar.writableCalendars) { item in
-                        Text(item.source == .google ? "\(item.title) (Google)" : item.title).tag(item.id)
+                        Text(item.source == .google ? "\(item.title) (Google\(item.account.isEmpty ? "" : " · \(item.account)"))" : item.title).tag(item.id)
                     }
                 }
                 Picker("Alert", selection: $draft.alarmMinutes) {

@@ -9,16 +9,35 @@
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-000?logo=apple)
 ![Swift 5.10](https://img.shields.io/badge/Swift-5.10-F05138?logo=swift&logoColor=white)
 ![SwiftUI](https://img.shields.io/badge/UI-SwiftUI-0A84FF)
-![Version](https://img.shields.io/badge/version-0.17.1-6E5BF7)
+![Version](https://img.shields.io/badge/version-0.20.0-6E5BF7)
 ![Universal](https://img.shields.io/badge/Apple%20silicon%20%2B%20Intel-universal-555)
 
-[**⬇ Download MacPilot 0.17.1 (.dmg)**](releases/MacPilot-0.17.1.dmg) · [Features](#features) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
+[**⬇ Download MacPilot 0.20.0 (.dmg)**](releases/MacPilot-0.20.0.dmg) · [What's new](#whats-new) · [Features](#features) · [Floating buddy](#-floating-buddy) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
 
-<img src="docs/screenshots/features/briefing-dashboard.png" width="820" alt="MacPilot dashboard with today's briefing">
+<img src="docs/screenshots/mac/dashboard.png" width="860" alt="MacPilot dashboard with today's briefing">
 
 </div>
 
-MacPilot brings Raycast-style speed and an AI assistant to everything you do on a Mac: ask Claude (Anthropic or Amazon Bedrock), OpenAI or a local Ollama model from anywhere, record and summarize meetings, dictate into any app, manage notes, tasks and your calendar, search your clipboard, convert files, and sync it all between your Macs. **Bring your own keys** — there is no MacPilot account or server; data stays on your Mac and credentials in the Keychain. Cloud features send only the relevant content to the provider you choose.
+MacPilot brings Raycast-style speed and an AI assistant to everything you do on a Mac: ask Claude (Anthropic or Amazon Bedrock), OpenAI or a local Ollama model from anywhere, record and summarize meetings, dictate into any app, manage notes, tasks and your calendar, search your clipboard, convert files, and sync it all between your Macs — with a friendly floating buddy on your desktop and live status in the MacBook notch. **Bring your own keys** — there is no MacPilot account or server; data stays on your Mac and credentials in the Keychain. Cloud features send only the relevant content to the provider you choose.
+
+## What's new
+
+**0.20** — several Google accounts
+- 📅 Connect **as many Google accounts as you like** (personal, work, clients…). Every calendar from every account shows up together, grouped by account, each with its own show/hide toggle; create and edit events in any of them.
+
+**0.19** — Pilot talks back, and a file shelf in the notch
+- 🗣 **Talk to Pilot:** click the buddy (or say **“Hey Pilot”**) and speak. It answers out loud with an on-device voice and runs commands: “add a task call mom tomorrow at 5”, “what's next today?”, “start recording”, “set a timer for 25 minutes”, “new note …”, “open my calendar” — anything else goes to your AI.
+- 📥 **Notch file shelf:** drag files onto the notch to park them, then drag them out into any app, AirDrop them, or ask AI about them.
+
+**0.18** — the floating buddy
+- 🤖 **Pilot**, an animated desktop helper: click to ask AI; buttons for voice note, dictation and new note; ⋯ for Ask my Mac, screenshot, clipboard and launcher. Reacts while you dictate or record.
+- **×** on hover hides it; bring it back from the menu bar (“Show Floating Buddy”), ⌥K or Settings. The menu always shows the current Show/Hide state.
+- 🚀 **Opens at login** so everything is ready after a restart (toggle in Settings → Shortcuts → Startup or the menu bar).
+
+**0.15 – 0.17**
+- ✨ AI on selected text (⌥⇧E), Ask my Mac (⌥⇧A), screenshot & OCR (⌥⇧S), screen-aware ⌥Space, your own AI commands
+- 🌅 Morning briefing, one-click meeting follow-up, PDF page editor, snippets and quick links
+- ☁️ iCloud sync between Macs, hidden from screen sharing
 
 ## Features
 
@@ -26,51 +45,94 @@ MacPilot brings Raycast-style speed and an AI assistant to everything you do on 
 
 | AI on selected text (⌥⇧E) | Ask my Mac (⌥⇧A) |
 |---|---|
-| ![Text actions](docs/screenshots/features/text-actions.png) | ![Ask my Mac](docs/screenshots/features/ask-my-mac.png) |
-| Select text in any app → fix grammar, rewrite, shorten, change tone, translate, explain, reply, or your own command. Return replaces the selection. | Ask questions across your meetings, notes, tasks and clipboard. Ranked on-device; answers cite numbered sources you can open. |
-| **Screenshot & read text (⌥⇧S)** | **Assistant from anywhere (⌥Space)** |
-| ![Screenshot tool](docs/screenshots/features/screenshot-tool.png) | ![Quick assistant](docs/screenshots/after/assistant.png) |
-| Capture an area, OCR its text, ask AI about it, copy, save, or pin it on screen. | Floating chat with Claude, OpenAI or Ollama. The 👁 button reads the window you were using: “summarize this”, “explain this error”. |
+| ![Text actions](docs/screenshots/mac/text-actions.png) | ![Ask my Mac](docs/screenshots/mac/ask-my-mac.png) |
+| Select text in any app → fix grammar, rewrite, shorten, change tone, bullets, summarize, explain, reply, translate — or your own AI command. Return replaces the selection. | Ask questions across your meetings, notes, tasks and clipboard. Ranked on-device; the answer cites numbered sources you can open. |
+| **Assistant from anywhere (⌥Space)** | **Screenshot & read text (⌥⇧S)** |
+| ![Quick assistant](docs/screenshots/mac/quick-assistant.png) | ![Screenshot tool](docs/screenshots/mac/screenshot-tool.png) |
+| Floating chat with Claude (Anthropic or Bedrock), OpenAI or Ollama. The 👁 button reads the window you were using: “summarize this”, “explain this error”. | Capture an area like ⌘⇧4, read its text (OCR), ask AI about it, copy, save, or pin it on screen. |
+| **AI chat with history & prompt library** | **Morning briefing, light & dark** |
+| ![Assistant](docs/screenshots/mac/assistant.png) | ![Dashboard dark](docs/screenshots/mac/dashboard-dark.png) |
+| Full chat window with streaming, code blocks, attachments, saved prompts and per-chat model choice. | The dashboard opens with an AI summary of today's meetings, due/overdue tasks and open action items, plus a suggested focus. |
+
+### 🤖 Floating buddy that talks back
+
+| Talk to Pilot | States |
+|---|---|
+| ![Pilot answering](docs/screenshots/mac/buddy-talking.png) | ![Floating buddy](docs/screenshots/mac/buddy.png) |
+
+**Pilot**, MacPilot's little desktop helper, floats above your windows. **Click it (or say “Hey Pilot”) and speak**: it shows what it heard, answers out loud with an on-device voice, and can act for you — *“add a task call mom tomorrow at 5”*, *“what's next today?”*, *“start recording”* / *“stop recording”*, *“take a voice note”*, *“set a timer for 25 minutes”*, *“new note buy a gift for Sam”*, *“open my calendar”*, *“dictate”*. Anything else is answered by your AI in a sentence or two, and follow-up questions keep the context. Its buttons record a **voice note**, start **dictation** into the app you're using, or open a **new note**; ⋯ adds Ask my Mac, screenshot, clipboard and launcher. It blinks while idle, smiles when you hover, shows a live waveform while you dictate and a red REC light while recording. Drag it anywhere (it remembers the spot) and right-click for more. To remove it, hover and click its **×** button (or use the menu bar, ⌥K or **Settings → Shortcuts**); bring it back from any of those. Like every MacPilot window, it's hidden from screen sharing.
 
 ### 🎙 Meetings, voice and calendar
 
-| Meeting summaries & one-click follow-up | Calendar (Apple + Google) |
+| Recording, transcripts & meeting intelligence | One-click follow-up |
 |---|---|
-| ![Meeting follow-up](docs/screenshots/features/meeting-follow-up.png) | ![Calendar week](docs/screenshots/after/calendar-week.png) |
-| Record mic + system audio (and optionally the screen), transcribe with Amazon Transcribe, OpenAI, or on-device Whisper; get summary, decisions, action items and a follow-up email — then send it as a Mail draft and turn action items into tasks. | Week/day views with conflict warnings, natural-language quick add, meeting prep and “record this meeting”. **⌥D dictation** types anywhere (hold to talk). |
+| ![Recordings](docs/screenshots/mac/recordings.png) | ![Meeting follow-up](docs/screenshots/features/meeting-follow-up.png) |
+| Record mic + system audio (optionally the screen as video). Transcribe with Amazon Transcribe, OpenAI or on-device Whisper, with speakers, live captions and subtitle export. Get a summary, decisions, action items and a follow-up email. | Open the follow-up as a Mail draft to the attendees, turn action items into tasks (synced to Reminders), and schedule the next meeting. |
+| **Calendar (Apple + several Google accounts)** | **Notes** |
+| ![Calendar](docs/screenshots/mac/calendar.png) | ![Notes](docs/screenshots/mac/notes.png) |
+| Week and day views across Apple Calendar and any number of Google accounts, conflict warnings, natural-language quick add (“lunch with Sam tomorrow 1pm”), meeting prep notes and “record this meeting”. | Markdown notes with folders, tags, pins, AI summaries and notes created from meetings. **⌥N** from anywhere. |
+| **Tasks & Reminders** | **Dictation (⌥D)** |
+| ![Tasks](docs/screenshots/mac/tasks.png) | ![Dictating in the notch](docs/screenshots/mac/notch-dictating.png) |
+| Due dates, priorities, recurring tasks and notifications, with two-way Apple Reminders sync. **⌥⇧T**: say a task and it's added. | Hold ⌥D and talk; release to paste clean text at the cursor in any app. Styles for messages, email and code. |
+
+### 🟣 The notch
+
+MacPilot turns the MacBook notch into a live status area. Hover or click it to expand.
+
+| File shelf: drop files on the notch | Expanded |
+|---|---|
+| ![Notch shelf](docs/screenshots/mac/notch-shelf.png) | ![Notch expanded](docs/screenshots/mac/notch-expanded.png) |
+| **Recording** | **Meeting about to start** |
+| ![Notch recording](docs/screenshots/mac/notch-recording.png) | ![Notch meeting](docs/screenshots/mac/notch-meeting.png) |
+| **Now playing (Music / Spotify)** | **Dictation** |
+| ![Notch music](docs/screenshots/mac/notch-music.png) | ![Notch dictation](docs/screenshots/mac/notch-dictating.png) |
+
+**File shelf:** drag files from Finder (or anywhere) toward the notch — it opens as a drop zone. Parked files stay there (only a reference; the files don't move) until you drag them out into Mail, Slack, a browser upload or any app. Double-click opens one; right-click for Ask AI, AirDrop, Show in Finder and Remove; the shelf's buttons ask AI about all of them, AirDrop all or clear it. Turn it off in **Settings → Recording & Calendar → Notch**.
+
+Expanded: date and time, next meeting with **Join** and **Record**, open tasks, now playing with playback controls, quick timers (“25m focus”), and one-tap buttons for Ask AI, Dictate, Record, Clipboard, Launcher and Note. On Macs without a notch it shows as a small pill under the menu bar.
+
+**Multiple Google accounts:** connect personal, work and client accounts side by side. Each account lists all its calendars (shared and subscribed ones too) with show/hide toggles; a calendar shared between two of your accounts appears once.
+
+![Google accounts](docs/screenshots/mac/settings-google-accounts.png)
 
 ### ⚡ Raycast-style tools
 
 | Command launcher (⌥K) | Clipboard history (⌥C) |
 |---|---|
-| ![Launcher](docs/screenshots/after/launcher.png) | ![Clipboard panel](docs/screenshots/after/clipboard-panel.png) |
-| Apps, files, calculator & unit conversions, window management, system commands, quick links (`jira 123`, `yt lofi`), snippets and your AI commands. | Text, links, images, files and colors with fuzzy search, pins, favorites and paste-into-app. Password managers and secrets are never saved. |
+| ![Launcher](docs/screenshots/mac/launcher.png) | ![Clipboard panel](docs/screenshots/mac/clipboard-panel.png) |
+| Apps, files, calculator and unit conversions, window management, system commands, quick links (`jira 123`, `yt lofi`), snippets and your AI commands. Learns what you use. | Text, links, images, files and colors with fuzzy search, pins, favorites and paste-into-app. Password managers and secrets are never saved. |
+| **Clipboard library** | **Snippets, quick links & AI commands** |
+| ![Clipboard](docs/screenshots/mac/clipboard.png) | ![Snippets settings](docs/screenshots/features/settings-snippets.png) |
+| Full history with folders, retention rules and AI actions: explain, summarize, fix grammar, translate, format JSON. | Type `;sig` or `;date` anywhere to expand it. Save prompts like “Commit message” or “Find bugs” as commands. |
 
-| Snippets, quick links & AI commands | Notch |
+### 📄 Files, developer tools and sync
+
+| PDF page editor | File converters |
 |---|---|
-| ![Snippets settings](docs/screenshots/features/settings-snippets.png) | ![Notch](docs/screenshots/after/notch-expanded.png) |
-| Type `;sig` or `;date` anywhere to expand. Save prompts like “Commit message” or “Find bugs” as commands. | Recording status, next meeting countdown, now playing and timers live around the MacBook notch. |
+| ![PDF page editor](docs/screenshots/mac/pdf-page-editor.png) | ![File tools](docs/screenshots/mac/file-tools.png) |
+| Rotate, drag to reorder, delete, duplicate, extract, add page numbers and a watermark, with undo. | PDF ↔ Word, merge, split, compress, password-protect, PDF ↔ images, HEIC/PNG/JPEG conversion, resize, OCR, video → MP4, extract audio. All on-device. |
+| **Developer workspace** | **iCloud sync between your Macs** |
+| ![Developer](docs/screenshots/mac/developer.png) | ![Sync settings](docs/screenshots/features/settings-sync.png) |
+| Git status and AI commit messages, JSON/YAML formatter, regex tester, JWT and Base64 decoders, UUIDs, timestamps and color tools. | Notes, tasks, meetings, chats, prompts, snippets and AI commands sync through iCloud Drive. Tasks linked to Reminders never duplicate. |
+| **Settings: bring your own keys** | |
+| ![Settings](docs/screenshots/mac/settings.png) | Anthropic, OpenAI, **Claude on Amazon Bedrock** (access key or Bedrock API key), Amazon Transcribe with automatic S3 setup and cleanup, Ollama and local Whisper. Keys live in the Keychain, and every shortcut can be changed. |
 
-### 📄 File tools, sync and privacy
+**Also included:** automations (triggers → actions with approvals and run history), usage and cost tracking per provider, export to Markdown/SRT/MP4, and windows that stay **hidden from screen sharing and screen recordings**.
 
-| PDF page editor & converters | iCloud sync between your Macs |
-|---|---|
-| ![PDF page editor](docs/screenshots/features/pdf-page-editor.png) | ![Sync settings](docs/screenshots/features/settings-sync.png) |
-| Rotate, reorder, delete, extract, number and watermark pages; PDF ↔ Word, merge, split, compress, protect, images ↔ PDF, OCR, video → MP4. All on-device. | Notes, tasks, meetings, chats, prompts and snippets sync through iCloud Drive. Tasks linked to Reminders never duplicate. |
-
-Plus: a **morning briefing** on the dashboard, two-way **Apple Reminders** sync, **automations** with approvals, a **developer workspace** (git, JSON/regex/JWT tools), dark mode, and windows that stay **hidden from screen sharing**.
+> **About these screenshots:** they're rendered from MacPilot's real SwiftUI screens with sample data, inside a real macOS window frame on a generated desktop (`SNAPSHOT_DIR=docs/screenshots/mac swift test --filter testRenderMacScreens`). Live blur isn't captured, so floating panels show a plain background instead of the frosted glass you see on screen.
 
 ## Install
 
-1. [Download `MacPilot-0.17.1.dmg`](releases/MacPilot-0.17.1.dmg) (universal: Apple silicon and Intel, macOS 14+).
+1. [Download `MacPilot-0.20.0.dmg`](releases/MacPilot-0.20.0.dmg) (universal: Apple silicon and Intel, macOS 14+).
 2. Open it and drag **MacPilot** into **Applications**.
 3. The build is ad-hoc signed (not notarized), so the first launch needs one approval: right-click MacPilot → **Open** → **Open**, or **System Settings → Privacy & Security → Open Anyway**. If macOS still refuses:
    ```bash
    xattr -dr com.apple.quarantine /Applications/MacPilot.app
    ```
-4. MacPilot lives in the menu bar. Add an API key (Anthropic, OpenAI or AWS) in **Settings → Providers**, and grant Microphone, Accessibility and Screen Recording when you use features that need them.
+4. MacPilot lives in the menu bar and **opens automatically when you log in** (turn that off in **Settings → Shortcuts → Startup** or the menu bar's “Open at Login”; macOS also lists it under System Settings → General → Login Items).
+5. Add an API key (Anthropic, OpenAI or AWS) in **Settings → Providers**, and grant Microphone, Accessibility and Screen Recording when you use features that need them.
 
-SHA-256 of the DMG: `056fbf9a35cdd72e21d3e6e6cca18f05c4894654f617b544e2f2af182d9bf4dd`
+SHA-256 of the DMG: `27f9378ed80878967cf71858cd2b5083bd9e9e8f577d83582e28b36940e6cb49`
 
 ## Status
 
@@ -85,16 +147,9 @@ SHA-256 of the DMG: `056fbf9a35cdd72e21d3e6e6cca18f05c4894654f617b544e2f2af182d9
 | 7 | Automations, local Whisper, distribution | Done (ZIP/DMG packaging) |
 | 8 | AI everywhere: text actions, Ask my Mac, screenshots, briefing, AI commands | Done |
 | 9 | File tools, PDF page editor, iCloud sync, notch | Done |
-
-## More screenshots
-
-| Dashboard (dark) | Recordings |
-|---|---|
-| ![Dashboard dark](docs/screenshots/after/dashboard-dark.png) | ![Recordings](docs/screenshots/after/recordings.png) |
-| **File tools** | **Text actions menu** |
-| ![File tools](docs/screenshots/after/file-tools.png) | ![Text actions menu](docs/screenshots/features/text-actions-menu.png) |
-
-Screenshots are rendered offscreen from the real views with sample data (`SNAPSHOT_DIR=docs/screenshots/features swift test --filter UISnapshots`), so window chrome and background blur are not shown.
+| 10 | Floating buddy, open at login, hidden from screen sharing | Done |
+| 11 | Voice buddy (“Hey Pilot”, spoken answers, voice commands), notch file shelf | Done |
+| 12 | Multiple Google accounts with all their calendars | Done |
 
 ## Requirements
 
@@ -208,6 +263,14 @@ Workflows can create a note or task and can optionally require approval first. *
 - **Google Calendar (optional):** in **Settings → Recording & Calendar**, paste the client ID and secret of a Google Cloud OAuth client of type *Desktop app* (Google Calendar API enabled), press **Connect** and approve in your browser. Google calendars then appear next to Apple ones (marked with a G), with the same views, conflict checks, quick add, Record and Prep notes. Sign-in uses PKCE with a loopback redirect; the refresh token and client secret stay in the Keychain. Alternatively add the Google account under System Settings → Internet Accounts and it shows up through Apple Calendar.
 - Each event has **Record** (a meeting linked to the event, with its attendees) and **Prep notes** (a note linked to the event; its text is included when the meeting is analyzed). The dashboard shows upcoming meetings with a live countdown.
 
+## Google Calendar: several accounts
+
+In **Settings → Recording & Calendar → Google Calendar**, enter your OAuth client ID once and press **Connect Google Calendar**. To add more accounts, press **Add another Google account** — Google's account chooser opens in your browser, so you can pick a different account (or add one). For each account MacPilot lists every calendar it can see — your own, shared and subscribed (holidays, team calendars) — with color, a read-only marker and a show/hide toggle, plus **Show all / Hide all** and **Disconnect…** per account.
+
+- The calendar view's **Calendars** menu groups Google calendars by account; the event editor shows which account each calendar belongs to, and events can be moved between calendars and accounts.
+- A calendar shared with two of your accounts is listed once, from the account that can edit it, so events don't appear twice.
+- Each account's refresh token is stored separately in the Keychain. Disconnecting one revokes only its access. A connection made with an earlier version is kept and becomes your first account.
+
 ## Notch
 
 On MacBooks with a notch, MacPilot lives around the camera like a Dynamic Island: a red **REC** dot and timer while recording, a waveform while dictating, and a countdown when a meeting starts within 15 minutes. Point at the notch to expand it: recording controls with live captions, the next meeting with **Join** (Zoom, Meet, Teams, Webex links found in the event) and **Record**, and quick actions — Ask AI, Dictate, Record, Clipboard, Launcher, Note. On other screens it appears at the top centre only while something is happening. It also shows **music** from Music or Spotify (artwork, title, equalizer, play/pause/next — macOS asks once to let MacPilot control the player), **timers** (type `timer 25m` or `timer 1h30m deep work` in ⌥K: a countdown ring in the notch, +5 min, a chime and a notification when done), and short **peeks** that drop out of the notch: a meeting starting now (click to join), a task falling due, a summary that's ready (click to open) and a finished timer. Turn it off or change it in **Settings → Recording & Calendar → Notch**.
@@ -234,6 +297,14 @@ Turn on **Settings → Recording & Calendar → Reminders → Sync tasks with Ap
 Select text in any app and press **⌥⇧E**. Pick an action — fix spelling & grammar, rewrite more clearly, make shorter or longer, more professional or friendly, bullet points, summarize, explain, draft a reply, translate — or type your own instruction. **⌘1–9** runs an action, **Return** replaces the selection in the original app (the clipboard is restored afterwards), **⌘Return** copies. Needs Accessibility; apps that don't expose the selection (browsers, Electron) are read with a quick ⌘C. Uses the analysis provider from Settings (e.g. Claude on Bedrock).
 
 **Your own AI commands:** save prompts like “Tweet from selection”, “Commit message” or “Find bugs” in **Settings → Snippets & Links → AI commands**. They appear in ⌥⇧E under “Your commands” and as ⌥K commands that run on the current selection.
+
+## Floating buddy
+
+**Talking to Pilot:** click it and speak (it chimes, listens until you pause, then answers). Speech recognition runs on this Mac when your Mac supports it; questions that aren't commands go to the AI provider you chose for analysis. Turn spoken replies off in **Settings → Shortcuts → Floating buddy → Answer out loud** (the answer still shows in the bubble). **“Hey Pilot”** is off by default: when you turn it on, MacPilot keeps listening with **on-device recognition only** (it won't run on Macs that can't do that), and pauses while you record or dictate. macOS asks once for Microphone and Speech Recognition permission. Click the bubble to stop it talking.
+
+A small always-on-top character (bottom-right by default). Click: Ask AI (⌥Space). Buttons: record/stop a voice note, dictate (tap to start hands-free, tap again to paste), new note, and ⋯ for Ask my Mac, screenshot, clipboard and launcher. Right-click for record meeting, new task, dashboard and Hide. Drag to move; the position is remembered.
+
+**Hide or show it:** hover and click the **×** at its top-right corner to hide it (it stays hidden after restarts). Bring it back from the menu bar (the item reads “Show Floating Buddy” while it's hidden and “Hide Floating Buddy” while it's visible), ⌥K → “Show / hide floating buddy”, or **Settings → Shortcuts → Floating buddy**. The idle animation runs at a low frame rate to save battery, and the buddy is hidden from screen sharing and screenshots like every MacPilot window.
 
 ## Morning briefing
 

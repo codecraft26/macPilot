@@ -165,6 +165,7 @@ private struct ExpandedNotch: View {
             mainCard
             if NotchTimers.shared.current != nil { TimerCard() }
             if NowPlaying.shared.track != nil { MediaCard() }
+            if !NotchShelf.shared.items.isEmpty || NotchShelf.shared.isDropTargeted { ShelfCard() }
             quickActions
         }
         .foregroundStyle(.white)
@@ -423,6 +424,81 @@ private struct TimerCard: View {
                 }
                 .notchCard()
             }
+        }
+    }
+}
+
+/// Files parked on the notch. Drop files here; drag them out to any app.
+private struct ShelfCard: View {
+    private let shelf = NotchShelf.shared
+    @State private var targeted = false
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if shelf.items.isEmpty {
+                Image(systemName: "tray.and.arrow.down.fill").font(.title3).foregroundStyle(DS.accent)
+                Text("Drop files to park them here").font(.headline)
+                Spacer()
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(shelf.items, id: \.self) { url in
+                            ShelfFile(url: url)
+                        }
+                    }
+                }
+                Divider().frame(height: 30).overlay(.white.opacity(0.2))
+                NotchButton(systemImage: "sparkles", label: "Ask AI about these files") { shelf.askAI(shelf.items) }
+                NotchButton(systemImage: "dot.radiowaves.left.and.right", label: "AirDrop all") { shelf.airDrop(shelf.items) }
+                NotchButton(systemImage: "xmark", label: "Clear shelf") { shelf.clear() }
+            }
+        }
+        .frame(height: 38)
+        .notchCard()
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(DS.accent, style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
+                .opacity(targeted || shelf.isDropTargeted ? 1 : 0)
+        )
+        .onDrop(of: [.fileURL], isTargeted: $targeted) { providers in
+            for provider in providers {
+                _ = provider.loadObject(ofClass: URL.self) { url, _ in
+                    guard let url else { return }
+                    Task { @MainActor in NotchShelf.shared.add([url]) }
+                }
+            }
+            NotchShelf.shared.isDropTargeted = false
+            return true
+        }
+    }
+}
+
+private struct ShelfFile: View {
+    let url: URL
+    private let shelf = NotchShelf.shared
+    @State private var hovering = false
+
+    var body: some View {
+        VStack(spacing: 2) {
+            Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
+                .resizable().frame(width: 26, height: 26)
+            Text(url.deletingPathExtension().lastPathComponent)
+                .font(.system(size: 9, weight: .medium)).lineLimit(1).truncationMode(.tail)
+                .frame(width: 60)
+        }
+        .padding(2)
+        .background(RoundedRectangle(cornerRadius: 6).fill(.white.opacity(hovering ? 0.14 : 0)))
+        .onHover { hovering = $0 }
+        .onDrag { NSItemProvider(contentsOf: url) ?? NSItemProvider() }
+        .onTapGesture(count: 2) { shelf.open(url) }
+        .help("\(url.lastPathComponent) — drag out to use it, double-click to open, right-click for more")
+        .contextMenu {
+            Button("Open") { shelf.open(url) }
+            Button("Ask AI about it") { shelf.askAI([url]) }
+            Button("AirDrop…") { shelf.airDrop([url]) }
+            Button("Show in Finder") { shelf.reveal([url]) }
+            Divider()
+            Button("Remove from shelf") { shelf.remove(url) }
         }
     }
 }

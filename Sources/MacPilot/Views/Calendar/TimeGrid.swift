@@ -12,8 +12,13 @@ struct EventActions {
     func menu(for event: CalendarEvent) -> some View {
         Button("Edit…") { edit(event) }
         Button("Prep notes") { prep(event) }
-        Button("Record meeting") { record(event) }
+        Button("Record now") { record(event) }
             .disabled(RecordingManager.shared.isActive)
+        if !event.isAllDay {
+            let auto = MeetingAutoRecord.shared
+            Toggle("Record automatically when it starts", isOn: Binding(get: { auto.willRecord(event) },
+                                                                          set: { auto.setRecord($0, for: event) }))
+        }
         if event.isEditable {
             Divider()
             Button("Delete…", role: .destructive) { delete(event) }
@@ -227,6 +232,25 @@ struct TimeGrid: View {
     }
 }
 
+/// Red dot: will be recorded automatically. Waveform: has a recording.
+struct AutoRecordBadge: View {
+    let event: CalendarEvent
+
+    var body: some View {
+        let auto = MeetingAutoRecord.shared
+        HStack(spacing: 2) {
+            if auto.wasRecorded(event) {
+                Image(systemName: "waveform").font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary)
+                    .help("Recorded — open it in Meetings")
+            }
+            if auto.willRecord(event) && event.end > Date() {
+                Image(systemName: "record.circle.fill").font(.system(size: 10)).foregroundStyle(.red)
+                    .help("Will be recorded automatically")
+            }
+        }
+    }
+}
+
 private struct EventBlock: View {
     let event: CalendarEvent
     let isConflict: Bool
@@ -241,6 +265,8 @@ private struct EventBlock: View {
                 HStack(spacing: 3) {
                     if event.source == .google { GoogleBadge() }
                     Text(event.title).font(.caption.weight(.semibold)).lineLimit(compact ? 1 : 2)
+                    Spacer(minLength: 0)
+                    AutoRecordBadge(event: event)
                 }
                 if !compact {
                     Text("\(event.start.formatted(date: .omitted, time: .shortened)) – \(event.end.formatted(date: .omitted, time: .shortened))")

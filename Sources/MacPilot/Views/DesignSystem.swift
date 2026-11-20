@@ -195,11 +195,19 @@ extension View {
 struct VisualEffectBackground: NSViewRepresentable {
     var material: NSVisualEffectView.Material = .popover
 
+    #if DEBUG
+    /// Offscreen screenshots can't render behind-window blur (it comes out flat gray), so they hide it.
+    nonisolated(unsafe) static var hiddenForSnapshots = false
+    #endif
+
     func makeNSView(context: Context) -> NSVisualEffectView {
         let view = NSVisualEffectView()
         view.material = material
         view.blendingMode = .behindWindow
         view.state = .active
+        #if DEBUG
+        view.isHidden = Self.hiddenForSnapshots
+        #endif
         return view
     }
 
