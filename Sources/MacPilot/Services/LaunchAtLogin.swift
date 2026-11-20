@@ -1,5 +1,15 @@
 import Foundation
+import Observation
 import ServiceManagement
+
+/// Observable copy of the login-item state, so menus and Settings show the current value.
+@Observable
+@MainActor
+final class LoginItemState {
+    static let shared = LoginItemState()
+    private(set) var enabled = LaunchAtLogin.isEnabled
+    func refresh() { enabled = LaunchAtLogin.isEnabled }
+}
 
 /// Open MacPilot automatically when you log in (System Settings → General → Login Items shows it too).
 @MainActor
@@ -19,8 +29,10 @@ enum LaunchAtLogin {
         guard isInstalledApp else { return "Install MacPilot in Applications first." }
         do {
             if enabled { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
+            LoginItemState.shared.refresh()
             return nil
         } catch {
+            LoginItemState.shared.refresh()
             return error.localizedDescription
         }
     }

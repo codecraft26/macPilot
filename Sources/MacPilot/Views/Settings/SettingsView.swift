@@ -339,14 +339,16 @@ private struct LocalWhisperSettingsView: View {
 struct ShortcutsSettingsView: View {
     private let manager = ShortcutManager.shared
     @AppStorage(PrefKey.buddyEnabled) private var buddyEnabled = true
-    @State private var openAtLogin = LaunchAtLogin.isEnabled
+    @State private var openAtLogin = LoginItemState.shared.enabled
     @State private var loginMessage: String?
 
     var body: some View {
         Form {
             Section {
                 Toggle("Open MacPilot when I log in", isOn: $openAtLogin)
+                    .onChange(of: LoginItemState.shared.enabled) { _, on in openAtLogin = on }
                     .onChange(of: openAtLogin) { _, on in
+                        guard on != LoginItemState.shared.enabled else { return }
                         loginMessage = LaunchAtLogin.set(on)
                         openAtLogin = LaunchAtLogin.isEnabled || (on && LaunchAtLogin.needsApproval)
                         if LaunchAtLogin.needsApproval {

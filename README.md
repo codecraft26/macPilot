@@ -9,10 +9,10 @@
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-000?logo=apple)
 ![Swift 5.10](https://img.shields.io/badge/Swift-5.10-F05138?logo=swift&logoColor=white)
 ![SwiftUI](https://img.shields.io/badge/UI-SwiftUI-0A84FF)
-![Version](https://img.shields.io/badge/version-0.18.2-6E5BF7)
+![Version](https://img.shields.io/badge/version-0.18.3-6E5BF7)
 ![Universal](https://img.shields.io/badge/Apple%20silicon%20%2B%20Intel-universal-555)
 
-[**⬇ Download MacPilot 0.18.2 (.dmg)**](releases/MacPilot-0.18.2.dmg) · [Features](#features) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
+[**⬇ Download MacPilot 0.18.3 (.dmg)**](releases/MacPilot-0.18.3.dmg) · [Features](#features) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
 
 <img src="docs/screenshots/mac/dashboard.png" width="860" alt="MacPilot dashboard with today's briefing">
 
@@ -96,7 +96,7 @@ Expanded: date and time, next meeting with **Join** and **Record**, open tasks, 
 
 ## Install
 
-1. [Download `MacPilot-0.18.2.dmg`](releases/MacPilot-0.18.2.dmg) (universal: Apple silicon and Intel, macOS 14+).
+1. [Download `MacPilot-0.18.3.dmg`](releases/MacPilot-0.18.3.dmg) (universal: Apple silicon and Intel, macOS 14+).
 2. Open it and drag **MacPilot** into **Applications**.
 3. The build is ad-hoc signed (not notarized), so the first launch needs one approval: right-click MacPilot → **Open** → **Open**, or **System Settings → Privacy & Security → Open Anyway**. If macOS still refuses:
    ```bash
@@ -105,7 +105,7 @@ Expanded: date and time, next meeting with **Join** and **Record**, open tasks, 
 4. MacPilot lives in the menu bar and **opens automatically when you log in** (turn that off in **Settings → Shortcuts → Startup** or the menu bar's “Open at Login”; macOS also lists it under System Settings → General → Login Items).
 5. Add an API key (Anthropic, OpenAI or AWS) in **Settings → Providers**, and grant Microphone, Accessibility and Screen Recording when you use features that need them.
 
-SHA-256 of the DMG: `43fec2e58dca55b06d1b86b42d4084014c25d2ac6490086fd97f364586f78cf9`
+SHA-256 of the DMG: `38a4de948c5b201342e0eba9afa66ff2de94419b3700bbcece097a782032f04f`
 
 ## Status
 

@@ -15,7 +15,8 @@ final class FloatingBuddy {
     private let originKey = "buddy.origin"
 
     static var isEnabled: Bool { UserDefaults.standard.bool(forKey: PrefKey.buddyEnabled) }
-    var isVisible: Bool { panel?.isVisible ?? false }
+    /// Observable, so the menu bar ("Show/Hide Floating Buddy") and Settings update immediately.
+    private(set) var isVisible = false
 
     func start() {
         if Self.isEnabled { show() }
@@ -23,7 +24,7 @@ final class FloatingBuddy {
 
     func setEnabled(_ enabled: Bool) {
         UserDefaults.standard.set(enabled, forKey: PrefKey.buddyEnabled)
-        if enabled { show() } else { panel?.orderOut(nil) }
+        if enabled { show() } else { panel?.orderOut(nil); isVisible = false }
     }
 
     func toggle() { setEnabled(!isVisible) }
@@ -46,6 +47,7 @@ final class FloatingBuddy {
             self.panel = panel
         }
         panel?.orderFrontRegardless()
+        isVisible = true
         ScreenPrivacy.applyAll()
     }
 
