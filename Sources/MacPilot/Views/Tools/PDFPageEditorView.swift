@@ -6,6 +6,8 @@ import UniformTypeIdentifiers
 /// Visual page editor: rotate, reorder (drag), delete pages, add page numbers and a watermark.
 struct PDFPageEditorView: View {
     var onBack: () -> Void
+    /// Opens this PDF right away (used for previews).
+    var initialURL: URL?
 
     @State private var url: URL?
     @State private var document: PDFDocument?
@@ -30,16 +32,18 @@ struct PDFPageEditorView: View {
                 Spacer()
             } else {
                 HStack(spacing: 0) {
-                    pageGrid
+                    pageGrid.frame(maxWidth: .infinity, maxHeight: .infinity)
                     Divider()
                     sidebar.frame(width: 280)
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .fileImporter(isPresented: $showingImporter, allowedContentTypes: [.pdf]) { result in
             if case .success(let url) = result { load(url) }
         }
         .onDeleteCommand(perform: deleteSelected)
+        .onAppear { if let initialURL, document == nil { load(initialURL) } }
     }
 
     // MARK: Toolbar
@@ -90,6 +94,7 @@ struct PDFPageEditorView: View {
                 }
             }
             .padding(DS.Space.l)
+            .frame(maxWidth: .infinity)
         }
         .background(DS.subtleFill)
         .contentShape(Rectangle())

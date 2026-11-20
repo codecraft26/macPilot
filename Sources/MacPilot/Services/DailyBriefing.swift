@@ -62,6 +62,14 @@ final class DailyBriefing {
         }
     }
 
+    #if DEBUG
+    func setPreview(_ text: String) {
+        self.text = text
+        generatedAt = Date()
+        phase = .idle
+    }
+    #endif
+
     private func save() {
         generatedAt = Date()
         UserDefaults.standard.set(text, forKey: textKey)

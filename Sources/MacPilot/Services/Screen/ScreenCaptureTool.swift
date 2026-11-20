@@ -71,6 +71,15 @@ final class ScreenCaptureTool {
         }
     }
 
+    #if DEBUG
+    func setPreview(image: NSImage, text: String) {
+        self.image = image
+        self.text = text
+        isReading = false
+        message = nil
+    }
+    #endif
+
     // MARK: Actions
 
     func copyText() {

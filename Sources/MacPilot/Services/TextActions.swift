@@ -109,6 +109,16 @@ final class TextActionsController {
         start(instruction: command.instruction)
     }
 
+    #if DEBUG
+    func setPreview(selection: String, action: TextAction, result: String) {
+        self.selection = selection
+        lastAction = action
+        canReplace = action.replacesSelection
+        self.result = result
+        phase = .done
+    }
+    #endif
+
     func reset() {
         task?.cancel()
         result = ""

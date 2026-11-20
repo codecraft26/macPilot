@@ -141,6 +141,16 @@ final class AskMyMacController {
     private(set) var phase: Phase = .idle
     private var task: Task<Void, Never>?
 
+    #if DEBUG
+    func setPreview(question: String, answer: String, sources: [KnowledgeSource]) {
+        self.question = question
+        askedQuestion = question
+        self.answer = answer
+        self.sources = sources
+        phase = .done
+    }
+    #endif
+
     func reset() {
         task?.cancel()
         question = ""
