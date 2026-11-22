@@ -113,6 +113,10 @@ struct RecordingDetailView: View {
         guard let raw = appState.pendingRecordingTab else { return }
         appState.pendingRecordingTab = nil
         if let requested = DetailTab(rawValue: raw) { tab = requested }
+        if let seconds = appState.pendingTranscriptSeek {
+            appState.pendingTranscriptSeek = nil
+            player.seek(to: seconds)
+        }
     }
 
     private func exportVideo() {

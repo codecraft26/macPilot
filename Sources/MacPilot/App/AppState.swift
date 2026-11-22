@@ -62,6 +62,8 @@ final class AppState {
     var pendingAction: PendingAction?
     /// Tab to show when a recording opens from a calendar event ("Summary", "Transcript").
     var pendingRecordingTab: String?
+    /// Seconds to jump to in a transcript opened from search.
+    var pendingTranscriptSeek: Double?
     /// Drives the menu bar recording indicator. Set by `RecordingManager`.
     var isRecording = false
     /// Text for the quick assistant to ask as soon as it opens (from the launcher).

@@ -90,6 +90,15 @@ enum LauncherCatalog {
                                         primary: { NSWorkspace.shared.open(url) }))
         }
 
+        // "?" or "/" opens universal search with the rest of the text.
+        if trimmed.hasPrefix("?") || trimmed.hasPrefix("/") {
+            let rest = String(trimmed.dropFirst()).trimmingCharacters(in: .whitespaces)
+            return [LauncherItem(id: "search.all", title: rest.isEmpty ? "Search everything…" : "Search everything: \(rest)",
+                                 subtitle: "Notes, meetings, memory, files, mail, calendar… (in:mail from: after:)",
+                                 icon: .system("magnifyingglass"), section: "Search",
+                                 primary: { UniversalSearchPanel.shared.show(query: rest) })]
+        }
+
         // Typed-text actions first.
         if !trimmed.isEmpty {
             results.append(LauncherItem(id: "ask", title: "Ask AI: \(trimmed)", icon: .system("sparkles"), section: "AI",
