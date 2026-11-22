@@ -104,6 +104,8 @@ private struct CompactNotch: View {
             }
         case .nowPlaying:
             ArtworkThumb(image: NowPlaying.shared.artwork, size: 20)
+        case .network:
+            Text("↓ " + NetworkMath.compact(NetworkMonitor.shared.down)).foregroundStyle(.green)
         case .idle:
             EmptyView()
         }
@@ -129,6 +131,8 @@ private struct CompactNotch: View {
             }
         case .nowPlaying:
             EqualizerBars(playing: NowPlaying.shared.isPlaying).frame(width: 18, height: 14)
+        case .network:
+            Text("↑ " + NetworkMath.compact(NetworkMonitor.shared.up)).foregroundStyle(.cyan)
         case .idle:
             EmptyView()
         }
@@ -166,6 +170,7 @@ private struct ExpandedNotch: View {
             if NotchTimers.shared.current != nil { TimerCard() }
             if NowPlaying.shared.track != nil { MediaCard() }
             if !NotchShelf.shared.items.isEmpty || NotchShelf.shared.isDropTargeted { ShelfCard() }
+            if UserDefaults.standard.bool(forKey: PrefKey.notchNetworkCard) { NotchNetworkCard() }
             quickActions
         }
         .foregroundStyle(.white)
@@ -373,33 +378,48 @@ private struct PeekBanner: View {
     }
 
     var body: some View {
-        Button {
-            if let action = peek.action { NotchController.shared.perform(action) } else { NotchController.shared.dismissPeek() }
-        } label: {
-            HStack(spacing: 10) {
-                Image(systemName: peek.systemImage)
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(.white)
-                    .frame(width: 30, height: 30)
-                    .background(Circle().fill(color.gradient))
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(peek.title).font(.system(size: 13, weight: .semibold)).lineLimit(1)
-                    if !peek.subtitle.isEmpty {
-                        Text(peek.subtitle).font(.system(size: 11)).foregroundStyle(.white.opacity(0.7)).lineLimit(1)
+        HStack(spacing: 10) {
+            Button {
+                if let action = peek.action { NotchController.shared.perform(action) } else { NotchController.shared.dismissPeek() }
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: peek.systemImage)
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 30, height: 30)
+                        .background(Circle().fill(color.gradient))
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(peek.title).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+                        if !peek.subtitle.isEmpty {
+                            Text(peek.subtitle).font(.system(size: 11)).foregroundStyle(.white.opacity(0.7)).lineLimit(1)
+                        }
+                    }
+                    Spacer(minLength: 0)
+                    if peek.action != nil && peek.buttonTitle == nil {
+                        Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(.white.opacity(0.6))
                     }
                 }
-                Spacer(minLength: 0)
-                if peek.action != nil {
-                    Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(.white.opacity(0.6))
-                }
+                .contentShape(Rectangle())
             }
-            .foregroundStyle(.white)
-            .padding(.top, notchHeight + 6)
-            .padding(.bottom, 10)
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+            .accessibilityLabel(peek.title)
+            if let title = peek.buttonTitle, let action = peek.buttonAction {
+                Button {
+                    NotchController.shared.perform(action)
+                } label: {
+                    Text(title)
+                        .font(.system(size: 12, weight: .bold))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Capsule().fill(color.opacity(0.9)))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(title)
+            }
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(peek.title)
+        .foregroundStyle(.white)
+        .padding(.top, notchHeight + 6)
+        .padding(.bottom, 10)
     }
 }
 
@@ -448,6 +468,12 @@ private struct ShelfCard: View {
                     }
                 }
                 Divider().frame(height: 30).overlay(.white.opacity(0.2))
+                if !ConversionTool.matching(shelf.items).isEmpty {
+                    NotchButton(systemImage: "arrow.triangle.2.circlepath", label: "Convert…") {
+                        NotchController.shared.collapse()
+                        ConvertPicker.shared.show(shelf.items)
+                    }
+                }
                 NotchButton(systemImage: "sparkles", label: "Ask AI about these files") { shelf.askAI(shelf.items) }
                 NotchButton(systemImage: "dot.radiowaves.left.and.right", label: "AirDrop all") { shelf.airDrop(shelf.items) }
                 NotchButton(systemImage: "xmark", label: "Clear shelf") { shelf.clear() }
@@ -495,11 +521,45 @@ private struct ShelfFile: View {
         .contextMenu {
             Button("Open") { shelf.open(url) }
             Button("Ask AI about it") { shelf.askAI([url]) }
+            Button("Convert…") {
+                NotchController.shared.collapse()
+                ConvertPicker.shared.show([url])
+            }
+            .disabled(ConversionTool.matching([url]).isEmpty)
             Button("AirDrop…") { shelf.airDrop([url]) }
             Button("Show in Finder") { shelf.reveal([url]) }
             Divider()
             Button("Remove from shelf") { shelf.remove(url) }
         }
+    }
+}
+
+/// Live throughput with a 60-second sparkline.
+private struct NotchNetworkCard: View {
+    private let network = NetworkMonitor.shared
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "network").font(.title3).foregroundStyle(.cyan).frame(width: 26)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 10) {
+                    Text("↓ " + NetworkMath.rate(network.down)).foregroundStyle(.green)
+                    Text("↑ " + NetworkMath.rate(network.up)).foregroundStyle(.cyan)
+                }
+                .font(.system(size: 13, weight: .semibold).monospacedDigit())
+                Text([network.interfaceDisplayName, network.localIP].filter { !$0.isEmpty }.joined(separator: " · "))
+                    .font(.caption).foregroundStyle(.white.opacity(0.7)).lineLimit(1)
+            }
+            Spacer(minLength: 8)
+            NetworkSparkline(samples: network.history, downColor: .green, upColor: .cyan)
+                .frame(width: 150, height: 30)
+            NotchButton(systemImage: "speedometer", label: SpeedTest.shared.isRunning ? "Speed test running…" : "Run a speed test") {
+                Task { await SpeedTest.shared.run() }
+            }
+            .disabled(SpeedTest.shared.isRunning)
+        }
+        .frame(height: 38)
+        .notchCard()
     }
 }
 

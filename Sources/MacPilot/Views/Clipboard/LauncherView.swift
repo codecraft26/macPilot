@@ -158,6 +158,18 @@ enum LauncherCatalog {
                          icon: .system("icloud"), section: "MacPilot", primary: {
                              if ICloudSync.isEnabled { ICloudSync.shared.syncNow() } else { windows.open(.settings) }
                          }),
+            LauncherItem(id: "cmd.speedtest", title: SpeedTest.shared.isRunning ? "Speed test running…" : "Speed test",
+                         subtitle: SpeedTest.shared.latest.map { "Last: \($0.summary)" } ?? "Download, upload and latency (networkQuality)",
+                         icon: .system("speedometer"), section: "Network",
+                         primary: {
+                             Task { await SpeedTest.shared.run() }
+                             NotchController.shared.peek(NotchPeek(systemImage: "speedometer", tint: .blue, title: "Running a speed test…",
+                                                                   subtitle: "About 20 seconds", duration: 4))
+                         }),
+            LauncherItem(id: "cmd.network", title: "Network: ↓ \(NetworkMath.rate(NetworkMonitor.shared.down))  ↑ \(NetworkMath.rate(NetworkMonitor.shared.up))",
+                         subtitle: [NetworkMonitor.shared.interfaceDisplayName, NetworkMonitor.shared.localIP].filter { !$0.isEmpty }.joined(separator: " · ") + " · ↩ copy IP",
+                         icon: .system("network"), section: "Network",
+                         primary: { PasteService.write(text: NetworkMonitor.shared.localIP) }),
             LauncherItem(id: "sys.lock", title: "Lock Screen", icon: .system("lock"), section: "System", primary: { SystemCommands.lockScreen() }),
             LauncherItem(id: "sys.sleepdisplay", title: "Sleep Display", icon: .system("display"), section: "System", primary: { SystemCommands.sleepDisplay() }),
             LauncherItem(id: "sys.screensaver", title: "Start Screen Saver", icon: .system("sparkles.tv"), section: "System", primary: { SystemCommands.startScreenSaver() }),

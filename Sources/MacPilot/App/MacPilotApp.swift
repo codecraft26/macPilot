@@ -44,6 +44,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         FloatingBuddy.shared.start()
         LaunchAtLogin.setUpOnce()
         MeetingAutoRecord.shared.start()
+        NetworkMonitor.shared.start()
+        // Finder → right-click → Quick Actions / Services → "Convert with MacPilot".
+        NSApp.servicesProvider = FinderServiceProvider.shared
+        NSUpdateDynamicServices()
         AutomationEngine.shared.start()
 
         let defaults = UserDefaults.standard

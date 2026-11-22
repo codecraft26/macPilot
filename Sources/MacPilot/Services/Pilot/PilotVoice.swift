@@ -204,6 +204,13 @@ final class PilotVoice: NSObject {
             say("Start talking after the sound. I'll type it where your cursor is.")
             try? await Task.sleep(for: .seconds(2.5))
             FloatingBuddy.shared.toggleDictation()
+        case .speedTest:
+            say("Running a speed test. It takes about twenty seconds.")
+            if let result = await SpeedTest.shared.run() {
+                say(result.spoken)
+            } else {
+                say(SpeedTest.shared.lastError ?? "The speed test didn't finish.")
+            }
         case .chat(let text):
             await answer(text)
         }

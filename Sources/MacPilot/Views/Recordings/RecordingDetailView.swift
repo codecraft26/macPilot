@@ -96,13 +96,23 @@ struct RecordingDetailView: View {
         }
         .onAppear {
             if !recording.hasAnalysis && !recording.segments.isEmpty { tab = .transcript }
+            takePendingTab()
         }
+        .onChange(of: recording.uid) { _, _ in takePendingTab() }
+        .onChange(of: appState.pendingRecordingTab) { _, _ in takePendingTab() }
         .onDisappear { player.stop() }
         .confirmationDialog("Delete \(recording.title)?", isPresented: $confirmDelete) {
             Button("Delete recording and audio", role: .destructive, action: onDelete)
         } message: {
             Text("The audio files, transcript and summary are removed. This cannot be undone.")
         }
+    }
+
+    /// A calendar event's Transcript / Summary link asks for a specific tab.
+    private func takePendingTab() {
+        guard let raw = appState.pendingRecordingTab else { return }
+        appState.pendingRecordingTab = nil
+        if let requested = DetailTab(rawValue: raw) { tab = requested }
     }
 
     private func exportVideo() {

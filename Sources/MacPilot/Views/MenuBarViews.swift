@@ -5,11 +5,18 @@ import SwiftUI
 struct MenuBarLabel: View {
     @Environment(AppState.self) private var appState
     private let recorder = RecordingManager.shared
+    @AppStorage(PrefKey.menuBarNetwork) private var showNetwork = false
 
     var body: some View {
         // While audio is captured the icon is a red (orange when paused) record symbol, never hidden.
         if appState.isRecording {
             Image(nsImage: MenuBarIcon.recording(paused: recorder.isPaused))
+        } else if showNetwork {
+            let network = NetworkMonitor.shared
+            HStack(spacing: 4) {
+                Image(nsImage: MenuBarIcon.idle)
+                Text("↓\(NetworkMath.compact(network.down)) ↑\(NetworkMath.compact(network.up))").monospacedDigit()
+            }
         } else {
             Image(nsImage: MenuBarIcon.idle)
         }

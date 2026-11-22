@@ -41,6 +41,7 @@ struct DashboardView: View {
                     recordingsCard
                     recentChatsCard
                 }
+                NetworkDashboardCard()
                 ProviderStatusCard()
             }
             .padding(DS.Space.l)

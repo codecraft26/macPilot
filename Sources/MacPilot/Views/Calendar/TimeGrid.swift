@@ -14,10 +14,16 @@ struct EventActions {
         Button("Prep notes") { prep(event) }
         Button("Record now") { record(event) }
             .disabled(RecordingManager.shared.isActive)
-        if !event.isAllDay {
-            let auto = MeetingAutoRecord.shared
+        let auto = MeetingAutoRecord.shared
+        if !event.isAllDay && event.end > Date() {
             Toggle("Record automatically when it starts", isOn: Binding(get: { auto.willRecord(event) },
                                                                           set: { auto.setRecord($0, for: event) }))
+        }
+        if auto.wasRecorded(event) {
+            Divider()
+            Button("Open recording") { auto.openRecording(for: event) }
+            Button("Open transcript") { auto.openRecording(for: event, tab: "Transcript") }
+            Button("Open summary") { auto.openRecording(for: event, tab: "Summary") }
         }
         if event.isEditable {
             Divider()

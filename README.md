@@ -9,10 +9,10 @@
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-000?logo=apple)
 ![Swift 5.10](https://img.shields.io/badge/Swift-5.10-F05138?logo=swift&logoColor=white)
 ![SwiftUI](https://img.shields.io/badge/UI-SwiftUI-0A84FF)
-![Version](https://img.shields.io/badge/version-0.20.0-6E5BF7)
+![Version](https://img.shields.io/badge/version-0.21.0-6E5BF7)
 ![Universal](https://img.shields.io/badge/Apple%20silicon%20%2B%20Intel-universal-555)
 
-[**⬇ Download MacPilot 0.20.0 (.dmg)**](releases/MacPilot-0.20.0.dmg) · [What's new](#whats-new) · [Features](#features) · [Floating buddy](#-floating-buddy) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
+[**⬇ Download MacPilot 0.21.0 (.dmg)**](releases/MacPilot-0.21.0.dmg) · [What's new](#whats-new) · [Features](#features) · [Network](#network-speed-and-speed-test) · [Finder convert](#finder-convert-with-macpilot) · [Floating buddy](#-floating-buddy) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
 
 <img src="docs/screenshots/mac/dashboard.png" width="860" alt="MacPilot dashboard with today's briefing">
 
@@ -21,6 +21,12 @@
 MacPilot brings Raycast-style speed and an AI assistant to everything you do on a Mac: ask Claude (Anthropic or Amazon Bedrock), OpenAI or a local Ollama model from anywhere, record and summarize meetings, dictate into any app, manage notes, tasks and your calendar, search your clipboard, convert files, and sync it all between your Macs — with a friendly floating buddy on your desktop and live status in the MacBook notch. **Bring your own keys** — there is no MacPilot account or server; data stays on your Mac and credentials in the Keychain. Cloud features send only the relevant content to the provider you choose.
 
 ## What's new
+
+**0.21** — network speed, Finder convert, meetings that record themselves
+- 📶 **Live network speed:** ↓/↑ throughput in the notch (optional compact readout, plus a 1-minute graph when expanded), a dashboard card with a graph, interface and local IP, and an optional menu bar readout.
+- 🚀 **Speed test:** download, upload and latency with macOS's own `networkQuality`, with progress and the last 20 results. Run it from the dashboard, ⌥K → “Speed test”, the notch, or say *“run a speed test”* to Pilot.
+- 🗂 **Finder → right-click → Convert with MacPilot:** pick a conversion that fits the selected files (several at once); results are saved next to the originals. Parked files on the notch shelf have **Convert…** too.
+- 🔴 **Meeting auto-record:** choose Off, All meetings, Meetings with a video link, or Selected calendars, and switch single meetings on or off. A notch alert with **Stop** appears when recording starts, with an optional reminder to tell attendees. Past events show a recorded badge with **Recording · Transcript · Summary** links, and a **Recorded** filter shows only those.
 
 **0.20** — several Google accounts
 - 📅 Connect **as many Google accounts as you like** (personal, work, clients…). Every calendar from every account shows up together, grouped by account, each with its own show/hide toggle; create and edit events in any of them.
@@ -60,7 +66,7 @@ MacPilot brings Raycast-style speed and an AI assistant to everything you do on 
 |---|---|
 | ![Pilot answering](docs/screenshots/mac/buddy-talking.png) | ![Floating buddy](docs/screenshots/mac/buddy.png) |
 
-**Pilot**, MacPilot's little desktop helper, floats above your windows. **Click it (or say “Hey Pilot”) and speak**: it shows what it heard, answers out loud with an on-device voice, and can act for you — *“add a task call mom tomorrow at 5”*, *“what's next today?”*, *“start recording”* / *“stop recording”*, *“take a voice note”*, *“set a timer for 25 minutes”*, *“new note buy a gift for Sam”*, *“open my calendar”*, *“dictate”*. Anything else is answered by your AI in a sentence or two, and follow-up questions keep the context. Its buttons record a **voice note**, start **dictation** into the app you're using, or open a **new note**; ⋯ adds Ask my Mac, screenshot, clipboard and launcher. It blinks while idle, smiles when you hover, shows a live waveform while you dictate and a red REC light while recording. Drag it anywhere (it remembers the spot) and right-click for more. To remove it, hover and click its **×** button (or use the menu bar, ⌥K or **Settings → Shortcuts**); bring it back from any of those. Like every MacPilot window, it's hidden from screen sharing.
+**Pilot**, MacPilot's little desktop helper, floats above your windows. **Click it (or say “Hey Pilot”) and speak**: it shows what it heard, answers out loud with an on-device voice, and can act for you — *“add a task call mom tomorrow at 5”*, *“what's next today?”*, *“start recording”* / *“stop recording”*, *“take a voice note”*, *“set a timer for 25 minutes”*, *“new note buy a gift for Sam”*, *“open my calendar”*, *“run a speed test”*, *“dictate”*. Anything else is answered by your AI in a sentence or two, and follow-up questions keep the context. Its buttons record a **voice note**, start **dictation** into the app you're using, or open a **new note**; ⋯ adds Ask my Mac, screenshot, clipboard and launcher. It blinks while idle, smiles when you hover, shows a live waveform while you dictate and a red REC light while recording. Drag it anywhere (it remembers the spot) and right-click for more. To remove it, hover and click its **×** button (or use the menu bar, ⌥K or **Settings → Shortcuts**); bring it back from any of those. Like every MacPilot window, it's hidden from screen sharing.
 
 ### 🎙 Meetings, voice and calendar
 
@@ -95,6 +101,10 @@ Expanded: date and time, next meeting with **Join** and **Record**, open tasks, 
 
 ![Google accounts](docs/screenshots/mac/settings-google-accounts.png)
 
+### 📶 Network speed and speed test
+
+Live ↓/↑ throughput sampled once a second from the network interface counters (no traffic is generated, barely any CPU): a compact readout next to the notch, a 60-second sparkline when the notch is expanded, a dashboard card with a graph, the active interface (Wi-Fi, Ethernet…) and local IP, and an optional menu bar readout. **Speed test** runs macOS's built-in `networkQuality` for download, upload and latency and keeps the last 20 results.
+
 ### ⚡ Raycast-style tools
 
 | Command launcher (⌥K) | Clipboard history (⌥C) |
@@ -123,7 +133,7 @@ Expanded: date and time, next meeting with **Join** and **Record**, open tasks, 
 
 ## Install
 
-1. [Download `MacPilot-0.20.0.dmg`](releases/MacPilot-0.20.0.dmg) (universal: Apple silicon and Intel, macOS 14+).
+1. [Download `MacPilot-0.21.0.dmg`](releases/MacPilot-0.21.0.dmg) (universal: Apple silicon and Intel, macOS 14+).
 2. Open it and drag **MacPilot** into **Applications**.
 3. The build is ad-hoc signed (not notarized), so the first launch needs one approval: right-click MacPilot → **Open** → **Open**, or **System Settings → Privacy & Security → Open Anyway**. If macOS still refuses:
    ```bash
@@ -224,7 +234,21 @@ SIGN_IDENTITY="Apple Development: Your Name (TEAMID)" ./scripts/build-app.sh
 
 All shortcuts can be changed in **Settings → Shortcuts**. Some macOS versions refuse global shortcuts that use only ⌥ (or ⌥⇧); if that happens, Settings shows the error and you can add ⌃ or ⌘.
 
+## Network speed and speed test
+
+- **Live throughput:** MacPilot reads the byte counters of your active interfaces once a second (`getifaddrs`; loopback, VPN tunnels and AirDrop links are skipped so nothing is counted twice) and shows download ↓ and upload ↑ rates.
+- **Where it shows:** the expanded notch has a network card with a 1-minute graph and a speed test button; turn on **Network speed: show ↓/↑ next to the notch** for a compact readout whenever nothing else is showing. The dashboard's **Network** card has a live graph, interface name and local IP (⌥K → “Network” copies the IP). **Network speed in the menu bar** adds a small readout next to the MacPilot icon (off by default). All in **Settings → Recording & Calendar → Notch**.
+- **Speed test:** uses `networkQuality -c` (built into macOS 12+) for download and upload in Mbps and idle latency in ms, with a progress bar (a test takes about 20 seconds). The last 20 results are kept on this Mac (dashboard → Network → History). Start it from the dashboard, the notch, ⌥K → **Speed test**, or tell Pilot *“run a speed test”* — it reads the result out loud.
+
+## Finder: Convert with MacPilot
+
+Select one or more files in Finder, right-click and choose **Quick Actions → Convert with MacPilot** (on some macOS versions **Services → Convert with MacPilot**). A small window lists only the File Tools conversions that fit the selection — e.g. PDF → Word, compress or OCR for a PDF; merge for two or more PDFs; convert, resize or images → PDF for photos; MP4 or extract audio for videos — with the same options as File Tools. Results are saved next to the originals (never overwriting). Files parked on the notch shelf have the same **Convert…** button and right-click item.
+
+If the item doesn't appear: open **System Settings → Keyboard → Keyboard Shortcuts… → Services**, find **Convert with MacPilot** under *Files and Folders* and tick it. MacPilot needs to be in /Applications and opened once; if it's still missing, log out and back in (or run `/System/Library/CoreServices/pbs -update`).
+
 ## Recording and meetings
+
+**Automatic recording:** in **Calendar → Auto-record**, choose **Off** (only meetings you mark), **All meetings**, **Meetings with a video link** (Zoom, Meet, Teams, Webex…) or **Meetings in selected calendars**, and optionally only events with attendees or a video link. Right-click any meeting → **Record automatically when it starts** to switch a single meeting on or off whatever the rule says. Recording starts a minute before the meeting and (optionally) stops when it ends. When it starts, the notch drops an alert with a **Stop** button; **Remind me to tell attendees they're recorded** (on by default) adds that reminder to the alert and notification. Upcoming meetings that will be recorded show a red dot; past ones that were recorded show a waveform badge with **Recording · Transcript · Summary** links (also in the right-click menu), and the **Recorded** toggle in the calendar toolbar shows only recorded events.
 
 **One-click follow-up:** on a meeting with a summary, **Do the follow-up** opens the follow-up email as a Mail draft addressed to the attendees (you review and send), adds the action items as tasks (skipping ones already added; they sync to Reminders), and **Schedule next meeting…** opens a pre-filled event to confirm.
 
@@ -273,7 +297,7 @@ In **Settings → Recording & Calendar → Google Calendar**, enter your OAuth c
 
 ## Notch
 
-On MacBooks with a notch, MacPilot lives around the camera like a Dynamic Island: a red **REC** dot and timer while recording, a waveform while dictating, and a countdown when a meeting starts within 15 minutes. Point at the notch to expand it: recording controls with live captions, the next meeting with **Join** (Zoom, Meet, Teams, Webex links found in the event) and **Record**, and quick actions — Ask AI, Dictate, Record, Clipboard, Launcher, Note. On other screens it appears at the top centre only while something is happening. It also shows **music** from Music or Spotify (artwork, title, equalizer, play/pause/next — macOS asks once to let MacPilot control the player), **timers** (type `timer 25m` or `timer 1h30m deep work` in ⌥K: a countdown ring in the notch, +5 min, a chime and a notification when done), and short **peeks** that drop out of the notch: a meeting starting now (click to join), a task falling due, a summary that's ready (click to open) and a finished timer. Turn it off or change it in **Settings → Recording & Calendar → Notch**.
+On MacBooks with a notch, MacPilot lives around the camera like a Dynamic Island: a red **REC** dot and timer while recording, a waveform while dictating, and a countdown when a meeting starts within 15 minutes. Point at the notch to expand it: recording controls with live captions, the next meeting with **Join** (Zoom, Meet, Teams, Webex links found in the event) and **Record**, and quick actions — Ask AI, Dictate, Record, Clipboard, Launcher, Note. On other screens it appears at the top centre only while something is happening. It also shows **music** from Music or Spotify (artwork, title, equalizer, play/pause/next — macOS asks once to let MacPilot control the player), **timers** (type `timer 25m` or `timer 1h30m deep work` in ⌥K: a countdown ring in the notch, +5 min, a chime and a notification when done), and short **peeks** that drop out of the notch: a meeting starting now (click to join), a task falling due, a summary that's ready (click to open) and a finished timer. It can also show **network speed** (↓/↑ next to the notch and a 1-minute graph when expanded, see [Network](#network-speed-and-speed-test)) and **Convert…** for files on the shelf. Turn it off or change it in **Settings → Recording & Calendar → Notch**.
 
 | Recording | Meeting soon | Expanded |
 |---|---|---|
@@ -345,7 +369,7 @@ A **File Tools** section (also searchable from ⌥K) with on-device converters �
 
 **Edit PDF pages** shows every page as a thumbnail: rotate left/right, drag to reorder, delete, duplicate, reverse, select odd/even pages, extract the selection to a new PDF, add page numbers (position, format, start number) and a text watermark, with undo. Page text stays selectable.
 
-Drop files on a tool (or choose them), set options, press Convert; results are saved next to the originals (never overwriting) with Open and Show in Finder. PDF → Word keeps the text and basic formatting; complex layouts, tables and images are simplified.
+Drop files on a tool (or choose them), set options, press Convert; results are saved next to the originals (never overwriting) with Open and Show in Finder. PDF → Word keeps the text and basic formatting; complex layouts, tables and images are simplified. You can also start a conversion from Finder (right-click → **Convert with MacPilot**, see [Finder convert](#finder-convert-with-macpilot)) or from files parked on the notch.
 
 ![File Tools](docs/screenshots/after/file-tools.png)
 

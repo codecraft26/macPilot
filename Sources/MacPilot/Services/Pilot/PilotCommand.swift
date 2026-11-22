@@ -11,6 +11,7 @@ enum PilotCommand: Equatable {
     case timer(seconds: Int, label: String)
     case open(AppSection)
     case dictate
+    case speedTest
     case hide
     case cancel
     /// Anything else: answered by the AI.
@@ -56,6 +57,9 @@ enum PilotCommand: Equatable {
         }
         if let note = rest(after: #"^(?:new|take|make|create|write)\s+(?:a\s+)?note(?:\s+(?:that|saying))?(?:\s*:)?\s*(.*)$"#) ?? rest(after: #"^note that\s+(.+)$"#) {
             return .newNote(note)
+        }
+        if lower.range(of: #"(run|do|start|test)\s+(a\s+|the\s+|my\s+)?(internet\s+|network\s+|wi-?fi\s+)?speed(\s*test)?|how fast is (my|the) (internet|connection|wi-?fi|network)|internet speed|speed ?test"#, options: .regularExpression) != nil {
+            return .speedTest
         }
         if lower.range(of: #"^(start\s+)?dictat(e|ion)|^type (what i say|for me)"#, options: .regularExpression) != nil { return .dictate }
         if let target = rest(after: #"^(?:open|show|go to)\s+(?:my\s+|the\s+)?(.+)$"#)?.lowercased() {

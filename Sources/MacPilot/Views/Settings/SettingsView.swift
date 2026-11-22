@@ -1403,6 +1403,9 @@ private struct NotchSettingsSection: View {
     @AppStorage(PrefKey.notchExpandOnHover) private var expandOnHover = true
     @AppStorage(PrefKey.notchMeetingCountdown) private var countdown = true
     @AppStorage(PrefKey.notchShelfEnabled) private var shelf = true
+    @AppStorage(PrefKey.notchNetworkReadout) private var networkReadout = false
+    @AppStorage(PrefKey.notchNetworkCard) private var networkCard = true
+    @AppStorage(PrefKey.menuBarNetwork) private var menuBarNetwork = false
 
     var body: some View {
         Section {
@@ -1411,6 +1414,9 @@ private struct NotchSettingsSection: View {
             Toggle("Expand when the pointer is on it", isOn: $expandOnHover).disabled(!enabled)
             Toggle("Count down to meetings starting in 15 minutes", isOn: $countdown).disabled(!enabled)
             Toggle("File shelf: drop files on the notch to park them", isOn: $shelf).disabled(!enabled)
+            Toggle("Network speed: show ↓/↑ next to the notch when nothing else is", isOn: $networkReadout).disabled(!enabled)
+            Toggle("Network card with a 1-minute graph when expanded", isOn: $networkCard).disabled(!enabled)
+            Toggle("Network speed in the menu bar", isOn: $menuBarNetwork)
         } header: {
             Text("Notch")
         } footer: {

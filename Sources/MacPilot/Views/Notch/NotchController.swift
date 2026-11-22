@@ -35,6 +35,8 @@ enum NotchActivity: Equatable {
     case timer
     case meetingSoon(title: String, start: Date)
     case nowPlaying
+    /// Live ↓/↑ throughput (optional, Settings → Notch).
+    case network
 }
 
 /// A short message that drops out of the notch for a few seconds.
@@ -46,6 +48,9 @@ struct NotchPeek: Equatable, Identifiable {
     var subtitle: String = ""
     var duration: Double = 4.5
     var action: NotchPeekAction?
+    /// An extra button on the right of the banner (e.g. "Stop" for an automatic recording).
+    var buttonTitle: String?
+    var buttonAction: NotchPeekAction?
 
     static func == (lhs: NotchPeek, rhs: NotchPeek) -> Bool { lhs.id == rhs.id }
 }
@@ -56,6 +61,7 @@ enum NotchPeekAction: Equatable {
     case openRecording(UUID, kind: RecordingKind)
     case joinMeeting(URL)
     case openTasks
+    case stopRecording
 }
 
 /// A Dynamic Island–style area around the MacBook notch: live status when something is happening,
@@ -158,6 +164,7 @@ final class NotchController {
         if NotchTimers.shared.current != nil { count += 1 }
         if NowPlaying.shared.track != nil { count += 1 }
         if !NotchShelf.shared.items.isEmpty || NotchShelf.shared.isDropTargeted { count += 1 }
+        if UserDefaults.standard.bool(forKey: PrefKey.notchNetworkCard) { count += 1 }
         return count
     }
 
@@ -187,6 +194,8 @@ final class NotchController {
             NSWorkspace.shared.open(url)
         case .openTasks:
             WindowManager.shared.showDashboard(section: .tasks)
+        case .stopRecording:
+            Task { await RecordingManager.shared.stop() }
         }
     }
 
@@ -280,6 +289,8 @@ final class NotchController {
             next = .meetingSoon(title: event.title, start: event.start)
         } else if NowPlaying.shared.isPlaying {
             next = .nowPlaying
+        } else if UserDefaults.standard.bool(forKey: PrefKey.notchNetworkReadout) {
+            next = .network
         }
         if next != activity {
             withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) { activity = next }

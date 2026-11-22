@@ -70,6 +70,7 @@ struct CalendarPane: View {
     @State private var isParsing = false
     @State private var quickAddError: String?
     @State private var deleting: CalendarEvent?
+    @State private var recordedOnly = false
 
     private let calendar = CalendarService.shared
     private var cal: Calendar { Calendar.current }
@@ -165,6 +166,11 @@ struct CalendarPane: View {
             .frame(width: 190)
             calendarsMenu
             autoRecordMenu
+            Toggle(isOn: $recordedOnly) {
+                Label("Recorded", systemImage: "waveform")
+            }
+            .toggleStyle(.button)
+            .help("Show only events that have a meeting recording")
             Spacer()
             TextField("Quick add: “Lunch with Sam Friday 1pm”", text: $quickAdd)
                 .textFieldStyle(.roundedBorder)
@@ -210,10 +216,16 @@ struct CalendarPane: View {
     private var autoRecordMenu: some View {
         let auto = MeetingAutoRecord.shared
         return Menu {
-            Toggle("Record all meetings automatically", isOn: Binding(get: { auto.rules.recordAll }, set: { auto.setRecordAll($0) }))
+            Picker("Record automatically", selection: Binding(get: { auto.rules.mode }, set: { auto.setMode($0) })) {
+                ForEach(MeetingAutoRecord.Mode.allCases) { Text($0.label).tag($0) }
+            }
+            .pickerStyle(.inline)
+            Divider()
             Toggle("Only events with attendees or a video link", isOn: Binding(get: { auto.rules.onlyRealMeetings }, set: { auto.setOnlyRealMeetings($0) }))
+                .disabled(auto.rules.mode == .off || auto.rules.mode == .videoLink)
             Toggle("Stop recording when the meeting ends", isOn: Binding(get: { auto.stopAtEnd }, set: { auto.stopAtEnd = $0 }))
-            Section("Always record meetings in") {
+            Toggle("Remind me to tell attendees they're recorded", isOn: Binding(get: { auto.remindToTell }, set: { auto.remindToTell = $0 }))
+            Section("Selected calendars") {
                 ForEach(calendar.calendars) { item in
                     Toggle(item.source == .google && !item.account.isEmpty ? "\(item.title) (\(item.account))" : item.title,
                            isOn: Binding(get: { auto.records(calendarID: item.id) }, set: { auto.setCalendar(item.id, record: $0) }))
@@ -223,7 +235,7 @@ struct CalendarPane: View {
                 Text("Or right-click any meeting → “Record automatically when it starts”.")
             }
         } label: {
-            let active = auto.rules.recordAll || !auto.rules.calendars.isEmpty || !auto.rules.marked.isEmpty
+            let active = auto.rules.isActive
             Label(active ? "Auto-record on" : "Auto-record", systemImage: active ? "record.circle.fill" : "record.circle")
         }
         .fixedSize()
@@ -317,6 +329,11 @@ struct CalendarPane: View {
         return (0..<7).compactMap { cal.date(byAdding: .day, value: $0, to: start) }
     }
 
+    /// Applies the "Recorded" filter.
+    private func filtered(_ events: [CalendarEvent]) -> [CalendarEvent] {
+        recordedOnly ? MeetingAutoRecord.shared.recordedOnly(events) : events
+    }
+
     // Day
 
     private var eventActions: EventActions {
@@ -329,7 +346,7 @@ struct CalendarPane: View {
     }
 
     private var dayView: some View {
-        let events = calendar.events(on: anchor)
+        let events = filtered(calendar.events(on: anchor))
         let conflicts = calendar.conflictingIDs(in: events)
         let tasks = tasksDue(on: anchor)
         return HStack(spacing: 0) {
@@ -380,7 +397,7 @@ struct CalendarPane: View {
 
     private var weekView: some View {
         let days = weekDays
-        let all = calendar.events(from: days.first ?? anchor, to: cal.date(byAdding: .day, value: 1, to: days.last ?? anchor) ?? anchor)
+        let all = filtered(calendar.events(from: days.first ?? anchor, to: cal.date(byAdding: .day, value: 1, to: days.last ?? anchor) ?? anchor))
         return TimeGrid(days: days, events: all, conflicts: calendar.conflictingIDs(in: all), actions: eventActions) { day in
             anchor = day
             mode = .day
@@ -393,7 +410,7 @@ struct CalendarPane: View {
         let interval = cal.dateInterval(of: .month, for: anchor) ?? DateInterval(start: anchor, duration: 86_400 * 30)
         let gridStart = cal.dateInterval(of: .weekOfYear, for: interval.start)?.start ?? interval.start
         let days = (0..<42).compactMap { cal.date(byAdding: .day, value: $0, to: gridStart) }
-        let events = calendar.events(from: days.first ?? gridStart, to: cal.date(byAdding: .day, value: 1, to: days.last ?? gridStart) ?? gridStart)
+        let events = filtered(calendar.events(from: days.first ?? gridStart, to: cal.date(byAdding: .day, value: 1, to: days.last ?? gridStart) ?? gridStart))
         let symbols = cal.shortWeekdaySymbols
         let first = cal.firstWeekday - 1
         let ordered = Array(symbols[first...] + symbols[..<first])
@@ -497,6 +514,7 @@ private struct DayEventRow: View {
                 if !attendees.isEmpty {
                     Label(attendees, systemImage: "person.2").font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 }
+                RecordingLinks(event: event)
             }
             Spacer()
             Button(action: onPrep) {
@@ -516,6 +534,27 @@ private struct DayEventRow: View {
     private var timeRange: String {
         if event.isAllDay { return "All day" }
         return "\(event.start.formatted(date: .omitted, time: .shortened)) – \(event.end.formatted(date: .omitted, time: .shortened))"
+    }
+}
+
+/// Recording · Transcript · Summary links for an event that was recorded.
+struct RecordingLinks: View {
+    let event: CalendarEvent
+
+    var body: some View {
+        let auto = MeetingAutoRecord.shared
+        if auto.wasRecorded(event), let recording = auto.recording(for: event) {
+            HStack(spacing: 10) {
+                Label("Recorded", systemImage: "waveform").foregroundStyle(.secondary)
+                Button("Recording") { auto.openRecording(for: event) }
+                Button("Transcript") { auto.openRecording(for: event, tab: "Transcript") }
+                    .disabled(recording.segments.isEmpty)
+                Button("Summary") { auto.openRecording(for: event, tab: "Summary") }
+                    .disabled(recording.summary.isEmpty)
+            }
+            .buttonStyle(.link)
+            .font(.caption)
+        }
     }
 }
 
