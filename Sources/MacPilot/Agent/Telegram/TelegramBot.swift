@@ -211,6 +211,8 @@ final class TelegramBot {
         case "/newjob": await createJob(argument, update: update)
         case "/remind": await createReminder(argument, update: update)
         case "/focus": await send(chat, await focusCommand(argument))
+        case "/ports": await listPorts(chat)
+        case "/killport": await requestKill(argument, update: update)
         case "/loops": await send(chat, MemorySettings.load().enabled || !OpenLoops.shared.store.loops().isEmpty
                                   ? "Open loops (last 7 days):\n" + OpenLoops.shared.summary(days: 7)
                                   : "Memory is off on the Mac (Settings → Memory), so there are no open loops yet.")
@@ -243,6 +245,7 @@ final class TelegramBot {
     /status — active task, queue, connection, screen lock
     /tasks — recent tasks
     /jobs — scheduled jobs (pause, resume, run now)
+    /ports — listening ports; /killport <port> — stop one (asks first)
     /focus [25|50|off] — Focus status, start or end it
     /loops — what you promised or were asked this week
     /remind <words> — e.g. “/remind check PR reviews when I open Xcode”
@@ -419,6 +422,10 @@ final class TelegramBot {
         guard pairing.isPaired(userID: update.userID, chatID: update.chatID) else {
             engine.audit("Telegram: rejected button press from unpaired user \(update.userID)", kind: .policy)
             await answerCallback(callbackID, "Not paired with this Mac.")
+            return
+        }
+        if data.hasPrefix("k:") {
+            await answerCallback(callbackID, await portButton(data, update: update))
             return
         }
         if data.hasPrefix("r:") {
@@ -672,6 +679,72 @@ final class TelegramBot {
             if !focus.missingShortcuts.isEmpty { text += "\nmacOS Focus shortcuts aren't set up on the Mac, so only MacPilot's own alerts are held." }
             return text + "\nUse /focus 25, /focus 50 or /focus off."
         }
+    }
+
+    // MARK: Ports
+
+    struct PortTicket: Equatable {
+        var port: Int
+        var pid: Int32
+        var userID: Int64
+        var force: Bool
+        var expiresAt: Date
+    }
+    /// Stop / Force kill buttons by nonce, bound to the paired user and the exact PID.
+    private(set) var portTickets: [String: PortTicket] = [:]
+    var ports: PortKiller = .shared
+
+    private func listPorts(_ chat: Int64) async {
+        await ports.refresh()
+        let list = ports.ports.filter { $0.proto == "TCP" }
+        guard !list.isEmpty else { await send(chat, "Nothing is listening on TCP ports."); return }
+        let lines = list.prefix(25).map { "\($0.port) · \($0.process) (PID \($0.pid))" + ($0.projectName.isEmpty ? "" : " · \($0.projectName)") + (PortProtection.reason($0) == nil ? "" : " 🔒") }
+        await send(chat, "Listening ports:\n" + lines.joined(separator: "\n") + "\n\nStop one with /killport <port> (asks first; 🔒 = protected).")
+    }
+
+    private func requestKill(_ argument: String, update: TelegramIncoming) async {
+        guard let number = Int(argument.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ":", with: "")), (1...65_535).contains(number) else {
+            await send(update.chatID, "Which port? e.g. /killport 3000")
+            return
+        }
+        await ports.refresh()
+        guard let owner = ports.owners(of: number).first(where: { $0.proto == "TCP" }) ?? ports.owners(of: number).first else {
+            await send(update.chatID, "Nothing is listening on port \(number).")
+            return
+        }
+        if let reason = PortProtection.reason(owner) {
+            await send(update.chatID, "\(owner.process) (PID \(owner.pid)) on port \(number) can't be stopped: \(reason)")
+            return
+        }
+        await sendPortButtons(owner, update: update, force: false)
+    }
+
+    private func sendPortButtons(_ owner: ListeningPort, update: TelegramIncoming, force: Bool) async {
+        let nonce = TelegramRandom.string(length: 10, alphabet: Array("abcdefghijkmnpqrstuvwxyz23456789"))
+        portTickets[nonce] = PortTicket(port: owner.port, pid: owner.pid, userID: update.userID, force: force, expiresAt: now().addingTimeInterval(AgentPolicy.approvalLifetime))
+        let text = force
+            ? "\(owner.process) (PID \(owner.pid)) is still running after 3 seconds. Force kill it? Unsaved work in it will be lost."
+            : "Stop \(owner.process) (PID \(owner.pid)) on port \(owner.port)?\n\(owner.command.prefix(300))" + (owner.cwd.isEmpty ? "" : "\nin \(owner.cwd)")
+        let keyboard: [String: Any] = ["inline_keyboard": [[["text": force ? "⚠️ Force kill" : "✅ Stop it", "callback_data": "k:y:\(nonce)"],
+                                                            ["text": "Cancel", "callback_data": "k:n:\(nonce)"]]]]
+        _ = try? await transport?.call("sendMessage", ["chat_id": update.chatID, "text": AgentRedactor.redact(text), "reply_markup": keyboard])
+    }
+
+    private func portButton(_ data: String, update: TelegramIncoming) async -> String {
+        let parts = data.split(separator: ":").map(String.init)
+        guard parts.count == 3, let ticket = portTickets[parts[2]] else { return "These buttons are out of date." }
+        guard ticket.userID == update.userID else { return "Only the person who asked can approve this." }
+        portTickets[parts[2]] = nil
+        guard now() < ticket.expiresAt else { return "This approval expired (10 minutes)." }
+        guard parts[1] == "y" else { return "Cancelled — nothing was stopped." }
+        await ports.refresh()
+        guard let owner = ports.owners(of: ticket.port).first(where: { $0.pid == ticket.pid }) else {
+            return "PID \(ticket.pid) is no longer on port \(ticket.port); nothing was stopped."
+        }
+        let outcome = ticket.force ? await ports.forceKill(owner) : await ports.terminate(owner)
+        engine.audit("Telegram: user \(update.userID) \(ticket.force ? "force-killed" : "stopped") \(owner.process) (PID \(owner.pid)) on port \(ticket.port): \(outcome.message)", kind: .policy)
+        if outcome == .stillRunning { await sendPortButtons(owner, update: update, force: true) }
+        return "\(owner.process): \(outcome.message)"
     }
 
     // MARK: Sending

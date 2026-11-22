@@ -2,13 +2,14 @@ import AppKit
 import SwiftUI
 
 private enum DevTab: String, CaseIterable, Identifiable {
-    case repos = "Repositories", ai = "AI Tools", terminal = "Terminal", api = "API", json = "JSON"
+    case repos = "Repositories", ai = "AI Tools", terminal = "Terminal", ports = "Ports", api = "API", json = "JSON"
     var id: String { rawValue }
     var systemImage: String {
         switch self {
         case .repos: return "arrow.triangle.branch"
         case .ai: return "sparkles"
         case .terminal: return "terminal"
+        case .ports: return "point.3.connected.trianglepath.dotted"
         case .api: return "network"
         case .json: return "curlybraces"
         }
@@ -16,7 +17,14 @@ private enum DevTab: String, CaseIterable, Identifiable {
 }
 
 struct DeveloperView: View {
-    @State private var tab: DevTab = .repos
+    @State private var tab: DevTab = DeveloperView.takePendingPorts() ? .ports : .repos
+
+    /// Set by ⌥K / the dashboard to open the Ports tool.
+    static var openPortsNext = false
+    private static func takePendingPorts() -> Bool {
+        defer { openPortsNext = false }
+        return openPortsNext
+    }
     @State private var repos = DeveloperStore.repositories
     @State private var selectedRepo: String? = DeveloperStore.repositories.first
 
@@ -28,7 +36,7 @@ struct DeveloperView: View {
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
-                .frame(maxWidth: 560)
+                .frame(maxWidth: 640)
                 Spacer()
                 if tab == .repos || tab == .terminal || tab == .ai {
                     Picker("Repository", selection: $selectedRepo) {
@@ -47,6 +55,7 @@ struct DeveloperView: View {
                 case .repos: RepositoryPane(repo: selectedRepo, onRemove: removeRepository, onAdd: addRepository)
                 case .ai: DevAIPane(repo: selectedRepo)
                 case .terminal: TerminalPane(repo: selectedRepo)
+                case .ports: PortsView()
                 case .api: APIRequestPane()
                 case .json: JSONToolPane()
                 }

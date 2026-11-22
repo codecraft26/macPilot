@@ -52,7 +52,15 @@ enum AgentTools {
                       required: ["command"]),
         AgentToolSpec(name: "system_status", description: "Read-only facts about this Mac: macOS version, uptime, CPU load, memory, free disk space, network.",
                       properties: [:], required: [])
-    ] + webSpecs + computerSpecs + memorySpecs
+    ] + webSpecs + computerSpecs + memorySpecs + portSpecs
+
+    /// Listening ports: listing is read-only; stopping a process always needs an exact approval.
+    static let portSpecs: [AgentToolSpec] = [
+        AgentToolSpec(name: "list_ports", description: "List listening TCP/UDP ports with process, PID, user, command and project folder.",
+                      properties: ["filter": ["type": "string", "description": "Optional port number or process name."]], required: []),
+        AgentToolSpec(name: "kill_port", description: "Stop the process listening on a port (SIGTERM; with force true, SIGKILL if it's still running after 3 s). Always needs the user's approval; system processes, other users' processes and MacPilot are never stopped.",
+                      properties: ["port": ["type": "integer"], "force": ["type": "boolean"]], required: ["port"])
+    ]
 
     /// Read-only memory tools: only the snippets they return reach the model.
     static let memorySpecs: [AgentToolSpec] = [
@@ -188,6 +196,13 @@ enum AgentTools {
             guard !key.isEmpty else { throw AgentPolicyError.invalidArguments("empty key") }
             return NormalizedAction(tool: tool, arguments: ["key": String(key.prefix(100)), "value": String(try string("value")!.prefix(1_000))],
                                     risk: .low, summary: "Compare “\(key.prefix(40))” with the last run")
+        case "list_ports":
+            return NormalizedAction(tool: tool, arguments: ["filter": String((try string("filter", required: false) ?? "").prefix(60))], risk: .low, summary: "List listening ports")
+        case "kill_port":
+            guard let port = Int(try string("port")!), (1...65_535).contains(port) else { throw AgentPolicyError.invalidArguments("port must be 1–65535") }
+            let force = (arguments["force"] as? Bool) ?? ((arguments["force"] as? String) == "true")
+            // The engine adds the exact process (PID, command) before asking, so the approval binds to it.
+            return NormalizedAction(tool: tool, arguments: ["port": String(port), "force": force ? "true" : "false"], risk: .high, summary: "Stop what's on port \(port)")
         case "recall_memory":
             let query = try string("query")!.trimmingCharacters(in: .whitespaces)
             guard !query.isEmpty else { throw AgentPolicyError.invalidArguments("empty query") }

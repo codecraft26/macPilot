@@ -20,6 +20,7 @@ final class AgentEngine {
     var browser: BrowserDriving = AgentBrowser.shared
     var gui: GUIDriving = AXGUIDriver.shared
     var session: SessionMonitor = .shared
+    var ports: PortKiller = .shared
     var email: EmailSending = SystemEmailSender()
     /// Built-in work for native tasks (the job finder), by task ID. Not persisted.
     private var nativeWork: [UUID: (AgentNativeContext) async throws -> String] = [:]
@@ -406,7 +407,9 @@ final class AgentEngine {
         action.startedAt = now()
         save()
         let result: AgentToolResult
-        if ["recall_memory", "list_open_loops"].contains(normalized.tool) {
+        if ["list_ports", "kill_port"].contains(normalized.tool) {
+            result = await executePorts(normalized)
+        } else if ["recall_memory", "list_open_loops"].contains(normalized.tool) {
             result = executeMemory(normalized)
         } else if ["web_search", "fetch_page", "extract", "compare_with_last_run", "send_email"].contains(normalized.tool) {
             result = await executeService(normalized, task: task, adapter: adapter)
@@ -422,6 +425,28 @@ final class AgentEngine {
         save()
         emit(.actionFinished(actionID: action.uid, taskID: task.uid))
         return result
+    }
+
+    // MARK: Ports
+
+    private func executePorts(_ action: NormalizedAction) async -> AgentToolResult {
+        await ports.refresh()
+        if action.tool == "list_ports" {
+            let list = ports.filtered(action.arguments["filter"] ?? "")
+            guard !list.isEmpty else { return AgentToolResult(content: "Nothing matching is listening.") }
+            return AgentToolResult(content: list.prefix(60).map {
+                "\($0.proto) \($0.address):\($0.port) · \($0.process) (PID \($0.pid), \($0.user))" + ($0.cwd.isEmpty ? "" : " · \($0.cwd)") + (PortProtection.reason($0) == nil ? "" : " · protected")
+            }.joined(separator: "\n"))
+        }
+        let number = Int(action.arguments["port"] ?? "") ?? 0
+        // Only the exact approved process: if another one took the port since, nothing is stopped.
+        guard let pid = Int32(action.arguments["pid"] ?? ""), let owner = ports.owners(of: number).first(where: { $0.pid == pid }) else {
+            return AgentToolResult(content: "The process that was approved is no longer on port \(number); nothing was stopped.", isError: true)
+        }
+        var outcome = await ports.terminate(owner)
+        if outcome == .stillRunning, action.arguments["force"] == "true" { outcome = await ports.forceKill(owner) }
+        log(AgentEngine.systemLogID, .policy, "Port \(number): \(owner.process) (PID \(pid)) — \(outcome.message)")
+        return AgentToolResult(content: "\(owner.process) (PID \(pid)) on port \(number): \(outcome.message)", isError: outcome != .stopped && outcome != .forceKilled)
     }
 
     // MARK: Memory
@@ -472,6 +497,18 @@ final class AgentEngine {
             // Bind an approval to the exact page and element as well as the arguments.
             if let page = browser.currentURL?.absoluteString, verb != "open" { action.arguments["page"] = page }
             if let element { action.arguments["element"] = "\(element.tag)|\(element.label)|\(element.formAction)|\(element.isSubmit)|\(element.isPassword)|\(element.isPayment)" }
+        case "kill_port":
+            let number = Int(action.arguments["port"] ?? "") ?? 0
+            await ports.refresh()
+            guard let owner = ports.owners(of: number).first(where: { $0.proto == "TCP" }) ?? ports.owners(of: number).first else {
+                throw PolicyBlock(message: "Nothing is listening on port \(number).")
+            }
+            if let reason = PortProtection.reason(owner) { throw PolicyBlock(message: "\(owner.process) (PID \(owner.pid)) can't be stopped: \(reason)") }
+            action.arguments["pid"] = String(owner.pid)
+            action.arguments["process"] = owner.process
+            action.arguments["command"] = String(owner.command.prefix(300))
+            action.risk = .high
+            action.summary = "\(action.arguments["force"] == "true" ? "Stop (force if needed)" : "Stop") \(owner.process) (PID \(owner.pid)) on port \(number)"
         case "gui":
             let verb = action.arguments["action"] ?? ""
             var app: GUIApp?

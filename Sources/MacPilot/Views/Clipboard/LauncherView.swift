@@ -99,6 +99,26 @@ enum LauncherCatalog {
                                  primary: { UniversalSearchPanel.shared.show(query: rest) })]
         }
 
+        // "kill port 3000" / "what's on port 5432"
+        if let command = PortKiller.command(trimmed) {
+            switch command {
+            case .kill(let number):
+                let owner = PortKiller.shared.owners(of: number).first
+                instant.append(LauncherItem(id: "port.kill.\(number)", title: "Stop what's on port \(number)…",
+                                            subtitle: owner.map { "\($0.process) · PID \($0.pid) — asks before stopping" } ?? "Checks the port, then asks before stopping",
+                                            icon: .system("xmark.octagon"), section: "Ports",
+                                            primary: { Task { await PortActions.confirmAndStop(port: number) } }))
+            case .show(let number):
+                let owners = PortKiller.shared.owners(of: number)
+                instant.append(LauncherItem(id: "port.show.\(number)",
+                                            title: owners.first.map { "Port \(number): \($0.process) (PID \($0.pid))" } ?? "Port \(number): open Ports to check",
+                                            subtitle: owners.first.map { $0.projectName.isEmpty ? $0.command : "\($0.projectName) · \($0.command)" } ?? "Lists what's listening",
+                                            icon: .system("point.3.connected.trianglepath.dotted"), section: "Ports",
+                                            primary: { DeveloperView.openPortsNext = true; windows.showDashboard(section: .developer) }))
+            }
+            Task { await PortKiller.shared.refresh() }
+        }
+
         // Typed-text actions first.
         if !trimmed.isEmpty {
             results.append(LauncherItem(id: "ask", title: "Ask AI: \(trimmed)", icon: .system("sparkles"), section: "AI",

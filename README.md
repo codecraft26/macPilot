@@ -9,10 +9,10 @@
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-000?logo=apple)
 ![Swift 5.10](https://img.shields.io/badge/Swift-5.10-F05138?logo=swift&logoColor=white)
 ![SwiftUI](https://img.shields.io/badge/UI-SwiftUI-0A84FF)
-![Version](https://img.shields.io/badge/version-0.28.0-6E5BF7)
+![Version](https://img.shields.io/badge/version-0.29.0-6E5BF7)
 ![Universal](https://img.shields.io/badge/Apple%20silicon%20%2B%20Intel-universal-555)
 
-[**⬇ Download MacPilot 0.28.0 (.dmg)**](releases/MacPilot-0.28.0.dmg) · [What's new](#whats-new) · [Features](#features) · [Agent](#ai-agent) · [Telegram](#telegram-bot) · [Jobs](#scheduled-jobs) · [Job finder](#job-finder) · [Computer use](#computer-use) · [Smart reminders](#smart-reminders) · [Memory](#memory-and-open-loops) · [Focus](#smart-do-not-disturb) · [Search](#universal-search) · [Network](#network-speed-and-speed-test) · [Finder convert](#finder-convert-with-macpilot) · [Floating buddy](#-floating-buddy) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
+[**⬇ Download MacPilot 0.29.0 (.dmg)**](releases/MacPilot-0.29.0.dmg) · [What's new](#whats-new) · [Features](#features) · [Agent](#ai-agent) · [Telegram](#telegram-bot) · [Jobs](#scheduled-jobs) · [Job finder](#job-finder) · [Computer use](#computer-use) · [Smart reminders](#smart-reminders) · [Memory](#memory-and-open-loops) · [Focus](#smart-do-not-disturb) · [Search](#universal-search) · [Ports](#port-killer) · [Network](#network-speed-and-speed-test) · [Finder convert](#finder-convert-with-macpilot) · [Floating buddy](#-floating-buddy) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
 
 <img src="docs/screenshots/mac/dashboard.png" width="860" alt="MacPilot dashboard with today's briefing">
 
@@ -21,6 +21,10 @@
 MacPilot brings Raycast-style speed and an AI assistant to everything you do on a Mac: ask Claude (Anthropic or Amazon Bedrock), OpenAI or a local Ollama model from anywhere, record and summarize meetings, dictate into any app, manage notes, tasks and your calendar, search your clipboard, convert files, and sync it all between your Macs — with a friendly floating buddy on your desktop and live status in the MacBook notch. **Bring your own keys** — there is no MacPilot account or server; data stays on your Mac and credentials in the Keychain. Cloud features send only the relevant content to the provider you choose.
 
 ## What's new
+
+**0.29** — port killer
+- 🔌 **See what's listening and free a port:** Developer → Ports (and a dashboard card) lists every listening TCP/UDP port with the app, PID, user, command and project folder, refreshing live, with quick chips for :3000, :5173, :8080, :5432 and :6379.
+- ✋ **Stop safely:** always asks first, sends SIGTERM, and only offers Force kill if it's still running after 3 seconds. System processes, other users' processes and MacPilot itself are protected (no sudo). Also from ⌥K (“kill port 3000”, “what's on port 5432”), Telegram `/ports` and `/killport`, and the agent.
 
 **0.28** — Smart Do Not Disturb and universal search
 - 🌙 **Smart Do Not Disturb:** Focus turns on by itself in meetings, on calls, while you share your screen, or during deep work in Xcode (or apps you pick) — and back off afterwards, with a grace period between back-to-back meetings. MacPilot holds its own alerts and gives you one summary afterwards. “Focus for 25/50 min” and **Not now** are one tap away in the menu bar, the notch, ⌥K and Telegram `/focus`.
@@ -167,7 +171,7 @@ Live ↓/↑ throughput sampled once a second from the network interface counter
 
 ## Install
 
-1. [Download `MacPilot-0.28.0.dmg`](releases/MacPilot-0.28.0.dmg) (universal: Apple silicon and Intel, macOS 14+).
+1. [Download `MacPilot-0.29.0.dmg`](releases/MacPilot-0.29.0.dmg) (universal: Apple silicon and Intel, macOS 14+).
 2. Open it and drag **MacPilot** into **Applications**.
 3. The build is ad-hoc signed (not notarized), so the first launch needs one approval: right-click MacPilot → **Open** → **Open**, or **System Settings → Privacy & Security → Open Anyway**. If macOS still refuses:
    ```bash
@@ -394,6 +398,16 @@ When several apply, the most important wins (manual, sharing, recording, meeting
 - **Actions:** Open, Reveal in Finder, Copy, Quick Look, Ask AI about this, Add to notch shelf; **Reply draft** for mail (opens a reply in Mail — nothing is sent); **Jump to timestamp** for transcript hits.
 - **Ask:** press **Tab** for a short answer written from the top results, with numbered citations. Local-only mode uses Ollama, or declines.
 - **Privacy:** everything is searched on this Mac, except Gmail (Google's API, for accounts you connected) and the optional AI answer.
+
+## Port killer
+
+**Developer → Ports** (and the **Ports** card on the dashboard) lists listening TCP and UDP ports from `lsof`: port, protocol, the app's icon and name, PID, user, the full command line and the project folder it was started in (readable for your own processes). It refreshes every 3 seconds while open; filter by port or name, or tap a chip for a common dev port (3000, 5173, 8080, 5432, 6379).
+
+- **Stopping a process always asks first.** MacPilot sends **SIGTERM** so it can shut down cleanly, waits up to 3 seconds, and only then offers **Force kill** (SIGKILL) — another confirmation.
+- **Protected:** macOS processes (by name or because they live in /System, /usr/libexec, /usr/sbin…), anything owned by root or another user (MacPilot never uses sudo), and MacPilot itself. They show a lock with the reason, and no signal is ever sent to them.
+- **⌥K:** “kill port 3000” shows what's there and opens the same confirmation; “what's on port 5432” answers inline.
+- **Telegram:** `/ports` lists them; `/killport 3000` replies with **Stop it / Cancel** buttons that only you can use, once, within 10 minutes, for that exact PID; if it's still running you get a separate **Force kill** button.
+- **Agent:** `list_ports` (low risk) and `kill_port` (high risk: the approval shows the exact process and PID; if another process takes the port in the meantime, nothing is stopped).
 
 ## Telegram bot
 
