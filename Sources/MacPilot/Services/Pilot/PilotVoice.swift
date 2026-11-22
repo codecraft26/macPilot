@@ -204,6 +204,13 @@ final class PilotVoice: NSObject {
             say("Start talking after the sound. I'll type it where your cursor is.")
             try? await Task.sleep(for: .seconds(2.5))
             FloatingBuddy.shared.toggleDictation()
+        case .openLoops:
+            let loops = OpenLoops.shared.store.loops(since: Date().addingTimeInterval(-7 * 86_400))
+            if loops.isEmpty {
+                say(MemorySettings.load().enabled ? "I haven't found any open promises from this week." : "Memory is off, so I don't know yet. Turn it on in Settings, Memory.")
+            } else {
+                say("You have \(loops.count) open loop\(loops.count == 1 ? "" : "s"). " + loops.prefix(3).map(\.what).joined(separator: ". ") + ".")
+            }
         case .smartReminder(let words):
             if let draft = await ReminderInput.parse(words) {
                 ReminderEngine.shared.add(draft, source: words)

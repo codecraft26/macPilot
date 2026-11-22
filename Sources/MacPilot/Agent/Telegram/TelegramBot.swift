@@ -210,6 +210,9 @@ final class TelegramBot {
         case "/jobs": await listJobs(chat)
         case "/newjob": await createJob(argument, update: update)
         case "/remind": await createReminder(argument, update: update)
+        case "/loops": await send(chat, MemorySettings.load().enabled || !OpenLoops.shared.store.loops().isEmpty
+                                  ? "Open loops (last 7 days):\n" + OpenLoops.shared.summary(days: 7)
+                                  : "Memory is off on the Mac (Settings → Memory), so there are no open loops yet.")
         case _ where command.hasPrefix("/"): await send(chat, "Unknown command. /help lists what I can do.")
         default:
             // "remind me … when I open Xcode" in free text becomes a smart reminder, not an agent task.
@@ -239,6 +242,7 @@ final class TelegramBot {
     /status — active task, queue, connection, screen lock
     /tasks — recent tasks
     /jobs — scheduled jobs (pause, resume, run now)
+    /loops — what you promised or were asked this week
     /remind <words> — e.g. “/remind check PR reviews when I open Xcode”
     /newjob <words> — e.g. “/newjob find remote iOS jobs every weekday at 9 email me at me@example.com”
     /cancel <id> — stop a task

@@ -22,14 +22,16 @@ struct AgentView: View {
                 Text("Tasks").tag("Tasks")
                 Text("Jobs").tag("Jobs")
                 Text("Reminders").tag("Reminders")
+                Text("Loops").tag("Loops")
             }
             .pickerStyle(.segmented)
             .labelsHidden()
-            .frame(width: 320)
+            .frame(width: 400)
             .padding(.vertical, 8)
             switch tabState.tab {
             case "Jobs": JobsView()
             case "Reminders": SmartRemindersView()
+            case "Loops": OpenLoopsView()
             default: tasksBody
             }
         }

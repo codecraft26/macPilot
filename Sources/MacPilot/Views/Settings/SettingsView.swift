@@ -11,6 +11,8 @@ struct SettingsView: View {
                 .tabItem { Label("Routing", systemImage: "arrow.triangle.branch") }
             AgentSettingsView()
                 .tabItem { Label("Agent", systemImage: "cpu") }
+            MemorySettingsView()
+                .tabItem { Label("Memory", systemImage: "brain") }
             DictationSettingsView()
                 .tabItem { Label("Dictation", systemImage: "mic.badge.plus") }
             RecordingSettingsView()

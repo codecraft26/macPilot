@@ -52,7 +52,15 @@ enum AgentTools {
                       required: ["command"]),
         AgentToolSpec(name: "system_status", description: "Read-only facts about this Mac: macOS version, uptime, CPU load, memory, free disk space, network.",
                       properties: [:], required: [])
-    ] + webSpecs + computerSpecs
+    ] + webSpecs + computerSpecs + memorySpecs
+
+    /// Read-only memory tools: only the snippets they return reach the model.
+    static let memorySpecs: [AgentToolSpec] = [
+        AgentToolSpec(name: "recall_memory", description: "Search the user's MacPilot memory (text from apps they allowed MacPilot to remember). Returns short snippets with app and time.",
+                      properties: ["query": ["type": "string"], "limit": ["type": "integer"]], required: ["query"]),
+        AgentToolSpec(name: "list_open_loops", description: "List the user's open loops (commitments and requests found in memory), optionally for the last N days.",
+                      properties: ["days": ["type": "integer"]], required: [])
+    ]
 
     /// Web and email tools. Fetched content is untrusted data.
     static let webSpecs: [AgentToolSpec] = [
@@ -180,6 +188,14 @@ enum AgentTools {
             guard !key.isEmpty else { throw AgentPolicyError.invalidArguments("empty key") }
             return NormalizedAction(tool: tool, arguments: ["key": String(key.prefix(100)), "value": String(try string("value")!.prefix(1_000))],
                                     risk: .low, summary: "Compare “\(key.prefix(40))” with the last run")
+        case "recall_memory":
+            let query = try string("query")!.trimmingCharacters(in: .whitespaces)
+            guard !query.isEmpty else { throw AgentPolicyError.invalidArguments("empty query") }
+            let limit = min(15, max(1, Int(try string("limit", required: false) ?? "") ?? 8))
+            return NormalizedAction(tool: tool, arguments: ["query": String(query.prefix(200)), "limit": String(limit)], risk: .low, summary: "Recall “\(query.prefix(60))” from memory")
+        case "list_open_loops":
+            let days = min(365, max(1, Int(try string("days", required: false) ?? "") ?? 14))
+            return NormalizedAction(tool: tool, arguments: ["days": String(days)], risk: .low, summary: "List open loops (last \(days) days)")
         case "browser", "gui":
             let verb = (try string("action")!).lowercased()
             let known = tool == "browser" ? BrowserPolicy.allActions : GUIPolicy.allActions

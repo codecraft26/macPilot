@@ -1,0 +1,14 @@
+Here are the loops I found:
+{
+  "loops": [
+    {"snippet_id": 1, "who": "Priya", "what": "Send the Q3 deck to Priya", "due": "2026-09-25", "confidence": 0.92},
+    {"snippet_id": 2, "who": "Sam", "what": "Review Sam's pull request #482", "due": null, "confidence": 0.81},
+    {"snippet_id": 99, "who": "Ghost", "what": "From a snippet that wasn't in the batch", "due": null, "confidence": 0.9},
+    {"snippet_id": 3, "who": "", "what": "", "confidence": 0.7},
+    {"snippet_id": "2", "who": "Team", "what": "Book the offsite venue", "due": "2026-10-01T17:00:00Z", "confidence": 1.7}
+  ],
+  "completions": [
+    {"loop_id": "loop-a", "snippet_id": 3, "confidence": 0.95, "evidence": "Mail: Re: Q3 deck — attached"},
+    {"loop_id": "unknown", "snippet_id": 3, "confidence": 0.9, "evidence": "x"}
+  ]
+}

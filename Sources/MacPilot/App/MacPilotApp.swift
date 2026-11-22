@@ -6,6 +6,11 @@ import SwiftUI
 struct MacPilotApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
+    init() {
+        // `MacPilot --mcp-stdio`: run only the memory MCP server for a client that launched us (no UI).
+        if CommandLine.arguments.contains("--mcp-stdio") { MemoryMCPServer.runStdio() }
+    }
+
     var body: some Scene {
         MenuBarExtra {
             MenuBarContent()
@@ -52,6 +57,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         JobScheduler.shared.onRunFinished = { job, run in TelegramBot.shared.jobFinished(job, run: run) }
         JobScheduler.shared.start()
         ReminderEngine.shared.start()
+        MemoryCapture.shared.start()
+        OpenLoops.shared.start()
+        MemoryMCPServer.shared.startIfEnabled()
         // Finder → right-click → Quick Actions / Services → "Convert with MacPilot".
         NSApp.servicesProvider = FinderServiceProvider.shared
         NSUpdateDynamicServices()

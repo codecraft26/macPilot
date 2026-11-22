@@ -9,10 +9,10 @@
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-000?logo=apple)
 ![Swift 5.10](https://img.shields.io/badge/Swift-5.10-F05138?logo=swift&logoColor=white)
 ![SwiftUI](https://img.shields.io/badge/UI-SwiftUI-0A84FF)
-![Version](https://img.shields.io/badge/version-0.26.0-6E5BF7)
+![Version](https://img.shields.io/badge/version-0.27.0-6E5BF7)
 ![Universal](https://img.shields.io/badge/Apple%20silicon%20%2B%20Intel-universal-555)
 
-[**⬇ Download MacPilot 0.26.0 (.dmg)**](releases/MacPilot-0.26.0.dmg) · [What's new](#whats-new) · [Features](#features) · [Agent](#ai-agent) · [Telegram](#telegram-bot) · [Jobs](#scheduled-jobs) · [Job finder](#job-finder) · [Computer use](#computer-use) · [Smart reminders](#smart-reminders) · [Network](#network-speed-and-speed-test) · [Finder convert](#finder-convert-with-macpilot) · [Floating buddy](#-floating-buddy) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
+[**⬇ Download MacPilot 0.27.0 (.dmg)**](releases/MacPilot-0.27.0.dmg) · [What's new](#whats-new) · [Features](#features) · [Agent](#ai-agent) · [Telegram](#telegram-bot) · [Jobs](#scheduled-jobs) · [Job finder](#job-finder) · [Computer use](#computer-use) · [Smart reminders](#smart-reminders) · [Memory](#memory-and-open-loops) · [Network](#network-speed-and-speed-test) · [Finder convert](#finder-convert-with-macpilot) · [Floating buddy](#-floating-buddy) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
 
 <img src="docs/screenshots/mac/dashboard.png" width="860" alt="MacPilot dashboard with today's briefing">
 
@@ -21,6 +21,11 @@
 MacPilot brings Raycast-style speed and an AI assistant to everything you do on a Mac: ask Claude (Anthropic or Amazon Bedrock), OpenAI or a local Ollama model from anywhere, record and summarize meetings, dictate into any app, manage notes, tasks and your calendar, search your clipboard, convert files, and sync it all between your Macs — with a friendly floating buddy on your desktop and live status in the MacBook notch. **Bring your own keys** — there is no MacPilot account or server; data stays on your Mac and credentials in the Keychain. Cloud features send only the relevant content to the provider you choose.
 
 ## What's new
+
+**0.27** — memory and open loops (opt-in)
+- 🧠 **Memory, off by default:** turn it on and pick apps (Mail, Messages, Slack, Notes…). MacPilot remembers the visible text of those windows — read locally through Accessibility, never screenshots — in a searchable database on your Mac, with retention, “Forget app” and “Delete everything”.
+- 🔁 **Open loops:** what you promised (“I'll send the deck Friday”) and what you were asked (“can you review X?”), with who, due date and the source snippet. Done, Snooze, Dismiss or **Remind me**; due dates can become smart reminders, and loops that look finished are marked for a one-tap confirm.
+- 🔌 Ask the agent, Pilot (“what did I promise this week?”) or Telegram `/loops`, and optionally connect other AI apps through a **local MCP server** (stdio, or HTTP on 127.0.0.1 with a token).
 
 **0.26** — smart reminders
 - 🔔 **Reminders that fire on context, not just time:** when you open or quit an app, join or leave a Wi-Fi network, wake or unlock the Mac, arrive at or leave a place, or a few minutes before your next meeting — plus ordinary and recurring times.
@@ -158,7 +163,7 @@ Live ↓/↑ throughput sampled once a second from the network interface counter
 
 ## Install
 
-1. [Download `MacPilot-0.26.0.dmg`](releases/MacPilot-0.26.0.dmg) (universal: Apple silicon and Intel, macOS 14+).
+1. [Download `MacPilot-0.27.0.dmg`](releases/MacPilot-0.27.0.dmg) (universal: Apple silicon and Intel, macOS 14+).
 2. Open it and drag **MacPilot** into **Applications**.
 3. The build is ad-hoc signed (not notarized), so the first launch needs one approval: right-click MacPilot → **Open** → **Open**, or **System Settings → Privacy & Security → Open Anyway**. If macOS still refuses:
    ```bash
@@ -328,6 +333,33 @@ After granting a permission, quit and reopen MacPilot if the checklist still sho
 - **Places:** define Home, Work and others under **Places** — by the Mac's current location (region monitoring, or significant-location changes where region monitoring isn't available) or by a **Wi-Fi network** as a proxy, which is usually more reliable on a Mac (a Mac's location is Wi-Fi based and coarse; a Mac mini rarely moves).
 - **Location permission:** recent macOS only reveals the Wi-Fi network name to apps with Location access, so Wi-Fi and place reminders ask for it (System Settings → Privacy & Security → Location Services → MacPilot). Without it, those reminders simply don't fire and the app says why; everything else works.
 - **Privacy:** your location, saved places and Wi-Fi names stay on this Mac. They are never sent to an AI model or anywhere else — only the words of the reminder are parsed.
+
+## Memory and open loops
+
+**Settings → Memory** (off by default). When you turn it on and tick apps, MacPilot keeps a private, local memory of what you saw in them and finds your open loops. **Agent → Loops** shows them.
+
+**What is read, and what never is**
+- Only apps you tick (suggested: Mail, Messages, WhatsApp, Slack, Calendar, Notes, Teams, Outlook, Reminders, Safari, Chrome). Nothing is read until you turn Memory on, and **Pause Memory Capture** in the menu bar stops it at any time.
+- The visible text of the **focused window**, read through macOS **Accessibility** (the same text a screen reader sees) — no screenshots. At most once every 30 seconds per window, and only when the text changed.
+- **Never read:** password and other secure text fields, password managers, Keychain Access, System Settings and the login window, and private/incognito browser windows.
+- Secrets (API keys, tokens, passwords, private keys) are removed before anything is stored.
+
+**Where it lives**
+- A SQLite database with full-text search (FTS5) and optional on-device semantic search (Apple's NaturalLanguage embeddings) at `~/Library/Application Support/MacPilot/Memory.sqlite`, readable only by your user.
+- Keep snippets for 7, 30 or 90 days; **Forget app** deletes one app's snippets and loops; **Delete everything** wipes it all.
+
+**When anything leaves the Mac**
+- Capture and search are entirely local.
+- **Finding open loops** sends batches of new snippets to a model: your **Ollama** model when it's set up (and always in local-only mode — cloud models are then blocked and snippets wait for Ollama), otherwise a small cloud model from your agent provider (Claude Haiku, GPT mini), counted against your agent cost caps.
+- When you ask the agent, it can use the read-only **recall_memory** and **list_open_loops** tools — only the snippets those return are sent to the agent's model, and local-only mode still applies.
+- Telegram `/loops` sends your open-loop list to your paired chat (Telegram is cloud messaging).
+
+**Open loops:** each has who, what, a due date when there is one, the source app with a link to the snippet, and a confidence. **Done**, **Snooze** (a day or a week), **Dismiss**, or **Remind me** (a smart reminder at the due date or tomorrow at 9). With **Add a smart reminder for loops with a due date** on, that happens automatically. When a later snippet shows a loop is finished — a sent mail with the deck, a reply saying it's done, a meeting that has happened — the loop is marked **Probably done** for a one-tap confirm, or closed automatically above a confidence you choose.
+
+**Memory MCP server (optional, off by default)** — lets other AI apps on this Mac use your memory through three tools: `search_memory`, `get_open_loops` and `mark_loop_done`. Every query is written to MacPilot's audit log.
+- **stdio:** clients that launch servers run `/Applications/MacPilot.app/Contents/MacOS/MacPilot --mcp-stdio` (Settings shows a copy-paste config for Claude Desktop and others).
+- **Streamable HTTP:** `http://127.0.0.1:39217/mcp`, bound to the loopback interface only (other machines can't connect) and requiring `Authorization: Bearer <token>`. The token lives in the Keychain and can be rotated in Settings; browser requests from other origins are refused. For Claude Code, Settings shows a ready `claude mcp add --transport http …` command.
+- What a connected client does with the results is up to that client.
 
 ## Telegram bot
 

@@ -14,6 +14,8 @@ enum PilotCommand: Equatable {
     case speedTest
     /// "remind me to … when I open Xcode": a context reminder.
     case smartReminder(String)
+    /// "what did I promise this week?"
+    case openLoops
     case hide
     case cancel
     /// Anything else: answered by the AI.
@@ -36,6 +38,9 @@ enum PilotCommand: Equatable {
         if lower.isEmpty || ["cancel", "never mind", "nevermind", "stop", "be quiet", "shut up", "nothing"].contains(lower) { return .cancel }
         if ["hide", "go away", "hide yourself", "hide the buddy"].contains(lower) { return .hide }
 
+        if lower.range(of: #"what (did|have) i (promise|commit|agree)|my (open loops|promises|commitments)|what do i owe|what('s| is) on my plate"#, options: .regularExpression) != nil {
+            return .openLoops
+        }
         if lower.hasPrefix("remind me"), lower.range(of: #"\bwhen(ever)?\b|before my next meeting|every time"#, options: .regularExpression) != nil {
             return .smartReminder(text)
         }
