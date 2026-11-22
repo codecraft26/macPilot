@@ -70,6 +70,7 @@ final class TelegramTests: XCTestCase {
         engine.settingsProvider = { settings }
         engine.adapterFactory = { _, _ in adapter }
         engine.recordUsage = { _, _, _ in }
+        engine.trash = TestTrash.move
         let bot = TelegramBot(engine: engine, defaults: defaults)
         let api = MockBotAPI()
         bot.screen = screen

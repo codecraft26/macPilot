@@ -207,6 +207,8 @@ final class TelegramBot {
         case "/cancel": await cancel(argument, chat: chat)
         case "/screenshot": await screenshot(update)
         case "/approve", "/deny": await decideByCommand(argument, approve: command == "/approve", update: update)
+        case "/jobs": await listJobs(chat)
+        case "/newjob": await createJob(argument, update: update)
         case _ where command.hasPrefix("/"): await send(chat, "Unknown command. /help lists what I can do.")
         default: await startTask(text, update: update)
         }
@@ -233,6 +235,8 @@ final class TelegramBot {
     Send any request to start an agent task (it runs on your Mac with the same rules as in the app; risky steps ask you first).
     /status — active task, queue, connection, screen lock
     /tasks — recent tasks
+    /jobs — scheduled jobs (pause, resume, run now)
+    /newjob <words> — e.g. “/newjob find remote iOS jobs every weekday at 9 email me at me@example.com”
     /cancel <id> — stop a task
     /model — provider and model in use
     /screenshot — picture of the main screen (MacPilot's own windows hidden)
@@ -406,6 +410,10 @@ final class TelegramBot {
             await answerCallback(callbackID, "Not paired with this Mac.")
             return
         }
+        if data.hasPrefix("j:") {
+            await answerCallback(callbackID, jobButton(data, update: update))
+            return
+        }
         guard let parsed = TelegramApprovalTicket.parseCallback(data),
               let ticket = tickets.values.first(where: { $0.approvalHex == parsed.approvalHex }) else {
             await answerCallback(callbackID, "This approval is no longer open.")
@@ -444,6 +452,133 @@ final class TelegramBot {
         _ = try? await transport?.call("editMessageReplyMarkup", ["chat_id": ticket.chatID, "message_id": ticket.messageID,
                                                                  "reply_markup": ["inline_keyboard": [[String: Any]]()]])
         await send(ticket.chatID, "\(note): approval \(ticket.shortID).")
+    }
+
+    // MARK: Jobs
+
+    struct JobTicket: Equatable {
+        var jobID: UUID
+        var userID: Int64
+        var digest: String
+        var expiresAt: Date
+    }
+    /// Telegram "Approve sending" buttons for jobs created in chat, by nonce.
+    private(set) var jobTickets: [String: JobTicket] = [:]
+    /// Overridable for tests.
+    var jobScheduler: JobScheduler = .shared
+
+    static func hex(_ id: UUID) -> String { id.uuidString.replacingOccurrences(of: "-", with: "").lowercased() }
+
+    private func listJobs(_ chat: Int64) async {
+        let jobs = jobScheduler.jobs
+        guard !jobs.isEmpty else {
+            await send(chat, "No scheduled jobs. Create one in MacPilot → Agent → Jobs, or with /newjob.")
+            return
+        }
+        for job in jobs.prefix(15) {
+            let text = "\(job.enabled ? "▶️" : "⏸") \(job.name) — \(job.schedule.summary)" +
+                (job.nextRun.map { "\nNext: \($0.formatted(date: .abbreviated, time: .shortened))" } ?? "") +
+                (job.wantsEmail ? "\nEmails \(job.recipient)" + (JobSendApproval.isApproved(job) ? "" : " (not approved yet)") : "")
+            let keyboard: [String: Any] = ["inline_keyboard": [[
+                ["text": job.enabled ? "Pause" : "Resume", "callback_data": "j:p:\(Self.hex(job.uid))"],
+                ["text": "Run now", "callback_data": "j:r:\(Self.hex(job.uid))"]
+            ]]]
+            _ = try? await transport?.call("sendMessage", ["chat_id": chat, "text": AgentRedactor.redact(text), "reply_markup": keyboard])
+        }
+    }
+
+    /// "/newjob find remote iOS jobs every weekday at 9 email me at me@x.com" → a job draft.
+    static func jobDraft(from words: String, timeZone: TimeZone = .current) -> AgentJob? {
+        guard let schedule = ScheduleParser.parse(words, timeZone: timeZone) else { return nil }
+        let lower = words.lowercased()
+        let isFinder = lower.range(of: #"\b(jobs?|roles?|openings|positions|postings)\b"#, options: .regularExpression) != nil
+            && lower.range(of: #"\b(find|search|look|watch|new)\b"#, options: .regularExpression) != nil
+        let job = AgentJob(name: String(words.prefix(40)), template: isFinder ? .jobFinder : .custom, prompt: words, schedule: schedule)
+        if isFinder {
+            var config = JobFinderConfig()
+            if let match = lower.range(of: #"(?:find|search for|look for|watch for)\s+(.+?)\s+(?:jobs?|roles?|openings|positions|postings)\b"#, options: .regularExpression) {
+                let phrase = String(lower[match]).replacingOccurrences(of: #"^(find|search for|look for|watch for)\s+|\s+(jobs?|roles?|openings|positions|postings)$"#,
+                                                                       with: "", options: .regularExpression)
+                let filler: Set<String> = ["remote", "senior", "junior", "lead", "staff", "new", "the", "some", "any", "for", "me"]
+                let kept = phrase.split(separator: " ").map(String.init).filter { !filler.contains($0) }
+                if !kept.isEmpty { config.keywords = [kept.joined(separator: " ")] }
+                if phrase.contains("senior") { config.level = .senior }
+                if phrase.contains("staff") || phrase.contains("lead") { config.level = .lead }
+                if phrase.contains("junior") { config.level = .entry }
+            }
+            if lower.contains("remote") { config.remoteOnly = true }
+            job.finder = config
+            job.name = "Job finder: " + config.keywords.joined(separator: ", ")
+        }
+        // Only an address the user typed in this message.
+        if let address = EmailAddress.all(in: words).first {
+            job.recipient = address
+            job.sender = .mailApp
+        }
+        return job
+    }
+
+    private func createJob(_ words: String, update: TelegramIncoming) async {
+        let chat = update.chatID
+        guard let job = Self.jobDraft(from: words) else {
+            await send(chat, "I couldn't find a schedule. Try: /newjob find remote iOS jobs every weekday at 9 email me at me@example.com")
+            return
+        }
+        job.notifyTelegram = !job.wantsEmail
+        jobScheduler.add(job)
+        engine.audit("Telegram: user \(update.userID) created job “\(job.name)”")
+        var text = "Created job \(job.shortID): \(job.name)\n\(job.schedule.summary) (\(job.schedule.timeZone.identifier))"
+        if job.template == .jobFinder { text += "\nKeywords: \(job.finder.keywords.joined(separator: ", "))\(job.finder.remoteOnly ? " · remote only" : "")" }
+        guard job.wantsEmail else {
+            await send(chat, text + "\nResults will be posted here and shown in the app. Fine-tune it on the Mac in Agent → Jobs.")
+            return
+        }
+        let sample = JobScheduler.sampleEmail(for: job)
+        let nonce = TelegramRandom.string(length: 10, alphabet: Array("abcdefghijkmnpqrstuvwxyz23456789"))
+        jobTickets[nonce] = JobTicket(jobID: job.uid, userID: update.userID,
+                                      digest: JobSendApproval.digest(jobID: job.uid, recipient: job.recipient, sender: job.sender, account: job.senderAccount),
+                                      expiresAt: now().addingTimeInterval(AgentPolicy.approvalLifetime))
+        text += "\n\nIt will email \(job.recipient) from the Mail app. Sample:\nSubject: \(sample.subject)\n\n\(sample.text.prefix(1_200))\n\nApprove sending once (valid 10 minutes):"
+        let keyboard: [String: Any] = ["inline_keyboard": [[["text": "✅ Approve sending", "callback_data": "j:a:\(Self.hex(job.uid)):\(nonce)"]]]]
+        _ = try? await transport?.call("sendMessage", ["chat_id": chat, "text": String(AgentRedactor.redact(text).prefix(4_000)), "reply_markup": keyboard])
+    }
+
+    /// Pause/Resume, Run now and Approve sending buttons on job messages.
+    private func jobButton(_ data: String, update: TelegramIncoming) -> String {
+        let parts = data.split(separator: ":").map(String.init)
+        guard parts.count >= 3, let job = jobScheduler.jobs.first(where: { Self.hex($0.uid) == parts[2] }) else { return "That job no longer exists." }
+        switch parts[1] {
+        case "p":
+            jobScheduler.setEnabled(job, !job.enabled)
+            engine.audit("Telegram: user \(update.userID) \(job.enabled ? "resumed" : "paused") job “\(job.name)”")
+            return job.enabled ? "Resumed \(job.name)." : "Paused \(job.name)."
+        case "r":
+            if engine.isHalted { return "The kill switch is on." }
+            jobScheduler.run(job, reason: "run from Telegram")
+            engine.audit("Telegram: user \(update.userID) ran job “\(job.name)”")
+            return "Running \(job.name)…"
+        case "a":
+            guard parts.count == 4, let ticket = jobTickets[parts[3]], ticket.jobID == job.uid else { return "These buttons are out of date." }
+            guard ticket.userID == update.userID else { return "Only the person who created this job can approve it." }
+            guard now() < ticket.expiresAt else { jobTickets[parts[3]] = nil; return "This approval expired (10 minutes)." }
+            guard ticket.digest == JobSendApproval.digest(jobID: job.uid, recipient: job.recipient, sender: job.sender, account: job.senderAccount) else {
+                return "The recipient or sender changed. Approve it again on the Mac."
+            }
+            jobTickets[parts[3]] = nil
+            jobScheduler.approveSending(job, via: "Telegram (user \(update.userID))")
+            return "Approved: \(job.name) may email \(job.recipient)."
+        default:
+            return "Unknown button."
+        }
+    }
+
+    /// Posts a finished run to paired users when the job asks for it.
+    func jobFinished(_ job: AgentJob, run: JobRun) {
+        guard job.notifyTelegram, transport != nil else { return }
+        var text = "Job \(job.name) — \(AgentTaskState(rawValue: run.statusRaw)?.label ?? run.statusRaw)\n\(run.summary)"
+        for posting in run.results.prefix(15) { text += "\n• \(posting.company): \(posting.title) — \(posting.url)" }
+        if run.results.count > 15 { text += "\n…and \(run.results.count - 15) more in the app." }
+        for user in pairing.users { Task { await send(user.chatID, text) } }
     }
 
     // MARK: Sending

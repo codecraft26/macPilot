@@ -47,6 +47,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NetworkMonitor.shared.start()
         AgentEngine.shared.recoverAfterLaunch()
         TelegramBot.shared.startIfEnabled()
+        JobScheduler.shared.onRunFinished = { job, run in TelegramBot.shared.jobFinished(job, run: run) }
+        JobScheduler.shared.start()
         // Finder → right-click → Quick Actions / Services → "Convert with MacPilot".
         NSApp.servicesProvider = FinderServiceProvider.shared
         NSUpdateDynamicServices()

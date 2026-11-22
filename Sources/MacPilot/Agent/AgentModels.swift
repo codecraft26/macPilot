@@ -78,6 +78,15 @@ final class AgentTask {
     var telegramChatID: Int64 = 0
     /// The one progress message that is edited as the task moves on.
     var telegramMessageID: Int = 0
+    /// For scheduled runs: the job, and the only tools it may use (comma separated; empty = the default set).
+    var jobID: UUID?
+    var allowedToolsRaw: String = ""
+    /// Runs built-in code (the job finder) instead of the model loop; can't be resumed after a restart.
+    var isNative: Bool = false
+
+    var allowedTools: Set<String> {
+        Set(allowedToolsRaw.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty })
+    }
 
     /// Short ID shown in Telegram and the timeline ("a1b2c3d4").
     var shortID: String { String(uid.uuidString.prefix(8)).lowercased() }

@@ -105,7 +105,7 @@ final class GoogleCalendarService {
 
     /// Signs in to a Google account and adds it (Google lets you pick which account in the browser).
     /// Signing in again to an account that's already connected just renews its access.
-    func connect() async {
+    func connect(extraScopes: [String] = [], loginHint: String? = nil) async {
         lastError = nil
         let clientID = self.clientID
         guard !clientID.isEmpty else {
@@ -126,14 +126,16 @@ final class GoogleCalendarService {
                 URLQueryItem(name: "client_id", value: clientID),
                 URLQueryItem(name: "redirect_uri", value: redirect),
                 URLQueryItem(name: "response_type", value: "code"),
-                URLQueryItem(name: "scope", value: Self.scopes.joined(separator: " ")),
+                URLQueryItem(name: "scope", value: (Self.scopes + extraScopes).joined(separator: " ")),
+                // Incremental consent: keep what was granted before and add the new scopes.
+                URLQueryItem(name: "include_granted_scopes", value: "true"),
                 URLQueryItem(name: "code_challenge", value: PKCE.challenge(for: verifier)),
                 URLQueryItem(name: "code_challenge_method", value: "S256"),
                 URLQueryItem(name: "access_type", value: "offline"),
                 // Always show the account chooser so another account can be added.
                 URLQueryItem(name: "prompt", value: "select_account consent"),
                 URLQueryItem(name: "state", value: state)
-            ]
+            ] + (loginHint.map { [URLQueryItem(name: "login_hint", value: $0)] } ?? [])
             NSWorkspace.shared.open(components.url!)
 
             let query = try await receiver.waitForRedirect(timeout: 300)
@@ -158,6 +160,7 @@ final class GoogleCalendarService {
             let email = (token["id_token"] as? String).flatMap(JWT.email) ?? "Google account \(accounts.count + 1)"
             try KeychainStore.save(refresh, account: Self.refreshTokenAccount(for: email))
             tokens[email.lowercased()] = AccessToken(response: token)
+            if let granted = token["scope"] as? String { UserDefaults.standard.set(granted, forKey: Self.scopesKey(email)) }
             if !accounts.contains(where: { $0.caseInsensitiveCompare(email) == .orderedSame }) {
                 accounts.append(email)
                 saveAccounts()
@@ -296,6 +299,36 @@ final class GoogleCalendarService {
                            account: account, body: nil)
         cache[event.id] = nil
         onChange?()
+    }
+
+    // MARK: Gmail (incremental consent)
+
+    static let gmailSendScope = "https://www.googleapis.com/auth/gmail.send"
+    static let gmailReadScope = "https://www.googleapis.com/auth/gmail.readonly"
+    private static func scopesKey(_ email: String) -> String { "google.scopes.\(email.lowercased())" }
+
+    func hasScope(_ scope: String, account: String) -> Bool {
+        (UserDefaults.standard.string(forKey: Self.scopesKey(account)) ?? "").split(separator: " ").contains { $0 == scope }
+    }
+
+    /// Opens Google's consent screen for one more permission on an already connected account.
+    func requestScope(_ scope: String, account: String) async {
+        await connect(extraScopes: [scope], loginHint: account)
+    }
+
+    /// An authorized call to another Google API (Gmail) with the account's token.
+    func authorizedRequest(_ method: String, url: URL, account: String, body: Data? = nil, contentType: String? = nil) async throws -> Data {
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.setValue("Bearer \(try await validAccessToken(for: account))", forHTTPHeaderField: "Authorization")
+        if let contentType { request.setValue(contentType, forHTTPHeaderField: "Content-Type") }
+        request.httpBody = body
+        let (data, response) = try await HTTPSupport.session.data(for: request)
+        guard let http = response as? HTTPURLResponse else { throw AIError.invalidResponse }
+        guard (200..<300).contains(http.statusCode) else {
+            throw AIError.stream("Google returned \(http.statusCode): \(Redactor.redact(HTTPSupport.errorMessage(from: data)))")
+        }
+        return data
     }
 
     // MARK: HTTP

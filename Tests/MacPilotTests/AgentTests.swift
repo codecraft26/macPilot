@@ -33,6 +33,19 @@ final class ScriptedAdapter: AgentModelAdapter {
     }
 }
 
+/// A throwaway "Trash" so tests never put files in the user's real Trash.
+enum TestTrash {
+    static let folder: URL = {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("macpilot-test-trash", isDirectory: true)
+        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }()
+
+    static let move: AgentTools.TrashFunction = { url in
+        try FileManager.default.moveItem(at: url, to: folder.appendingPathComponent("\(UUID().uuidString)-\(url.lastPathComponent)"))
+    }
+}
+
 @MainActor
 final class AgentTests: XCTestCase {
     private var workspace: URL!
@@ -70,6 +83,7 @@ final class AgentTests: XCTestCase {
         engine.settingsProvider = { settings }
         engine.adapterFactory = { _, _ in adapter }
         engine.recordUsage = { _, _, _ in }
+        engine.trash = TestTrash.move
         return engine
     }
 

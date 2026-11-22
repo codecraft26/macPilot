@@ -9,10 +9,10 @@
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-000?logo=apple)
 ![Swift 5.10](https://img.shields.io/badge/Swift-5.10-F05138?logo=swift&logoColor=white)
 ![SwiftUI](https://img.shields.io/badge/UI-SwiftUI-0A84FF)
-![Version](https://img.shields.io/badge/version-0.23.0-6E5BF7)
+![Version](https://img.shields.io/badge/version-0.24.0-6E5BF7)
 ![Universal](https://img.shields.io/badge/Apple%20silicon%20%2B%20Intel-universal-555)
 
-[**⬇ Download MacPilot 0.23.0 (.dmg)**](releases/MacPilot-0.23.0.dmg) · [What's new](#whats-new) · [Features](#features) · [Agent](#ai-agent) · [Telegram](#telegram-bot) · [Network](#network-speed-and-speed-test) · [Finder convert](#finder-convert-with-macpilot) · [Floating buddy](#-floating-buddy) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
+[**⬇ Download MacPilot 0.24.0 (.dmg)**](releases/MacPilot-0.24.0.dmg) · [What's new](#whats-new) · [Features](#features) · [Agent](#ai-agent) · [Telegram](#telegram-bot) · [Jobs](#scheduled-jobs) · [Job finder](#job-finder) · [Network](#network-speed-and-speed-test) · [Finder convert](#finder-convert-with-macpilot) · [Floating buddy](#-floating-buddy) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
 
 <img src="docs/screenshots/mac/dashboard.png" width="860" alt="MacPilot dashboard with today's briefing">
 
@@ -21,6 +21,11 @@
 MacPilot brings Raycast-style speed and an AI assistant to everything you do on a Mac: ask Claude (Anthropic or Amazon Bedrock), OpenAI or a local Ollama model from anywhere, record and summarize meetings, dictate into any app, manage notes, tasks and your calendar, search your clipboard, convert files, and sync it all between your Macs — with a friendly floating buddy on your desktop and live status in the MacBook notch. **Bring your own keys** — there is no MacPilot account or server; data stays on your Mac and credentials in the Keychain. Cloud features send only the relevant content to the provider you choose.
 
 ## What's new
+
+**0.24** — scheduled jobs and a job finder
+- ⏰ **Scheduled jobs** (Agent → Jobs): run the agent daily, weekly, every N hours or on a cron schedule in your time zone — e.g. a price watch that emails you when the price changes. Pause, resume, run now, edit; run history; missed runs catch up once after a restart.
+- 💼 **Job finder:** new postings from the public Greenhouse, Lever and Ashby job boards of companies you choose (30 to start), RSS feeds and your own LinkedIn/Indeed alert emails, filtered by keywords, location/remote, level and excluded words, deduplicated, and emailed grouped by company — only what's new.
+- ✉️ **Email from Mail or Gmail**, approved once per job for one exact recipient and sender. 🌐 **Web tools** (search, fetch page, extract) that honor robots.txt and treat page content as untrusted. Telegram: `/jobs` and `/newjob`.
 
 **0.23** — control the agent from Telegram
 - 📱 **Telegram bot:** pair your phone with a one-time code, then send requests from Telegram; the agent runs them on your Mac and edits one progress message as it goes, ending with a summary.
@@ -143,7 +148,7 @@ Live ↓/↑ throughput sampled once a second from the network interface counter
 
 ## Install
 
-1. [Download `MacPilot-0.23.0.dmg`](releases/MacPilot-0.23.0.dmg) (universal: Apple silicon and Intel, macOS 14+).
+1. [Download `MacPilot-0.24.0.dmg`](releases/MacPilot-0.24.0.dmg) (universal: Apple silicon and Intel, macOS 14+).
 2. Open it and drag **MacPilot** into **Applications**.
 3. The build is ad-hoc signed (not notarized), so the first launch needs one approval: right-click MacPilot → **Open** → **Open**, or **System Settings → Privacy & Security → Open Anyway**. If macOS still refuses:
    ```bash
@@ -268,7 +273,7 @@ The **Agent** tab (also ⌥K → “Ask agent…”, or the menu bar → Agent�
 - **Audit log and privacy:** tasks, tool calls, approvals and events are stored in MacPilot's local database with secrets (API keys, tokens, passwords, private keys) redacted; tool output is redacted before it's stored or sent to the model.
 - **Restarts:** a step that was running when MacPilot quit is marked **Interrupted — needs review** and is never replayed; the task shows as failed and **Retry** starts it fresh.
 
-Telegram control is described below; scheduled jobs come in 0.24.
+Telegram control and scheduled jobs are described below.
 
 ## Telegram bot
 
@@ -295,6 +300,27 @@ Control the agent from your phone. MacPilot talks to Telegram's Bot API by **lon
 **Approvals:** when a task needs approval, the bot sends the exact command, path or diff with **Approve once** and **Deny** buttons. Each button carries the approval ID and a random nonce; it only works for the paired person who started the task, once, within 10 minutes, and only while the action is exactly what was shown. The buttons are removed after a decision or when it expires. You can also answer in the app.
 
 **Limits and privacy:** unpaired senders, group chats and bots are refused and never reach a tool. Messages are rate-limited per user. Everything the bot sends is passed through the same secret redaction as the audit log. The kill switch blocks new tasks and screenshots; local-only mode still blocks cloud providers. The menu bar shows whether the bot is online. Telegram is cloud messaging, not end-to-end encrypted: what you send and what MacPilot replies passes through Telegram's servers.
+
+## Scheduled jobs
+
+**Agent → Jobs** runs the agent on a schedule while MacPilot is open. Each run is an ordinary agent task (marked *schedule*) with the same step, time, token and cost limits, the kill switch and local-only mode.
+
+- **Schedules:** every day at a time, chosen weekdays, every N hours, or cron (`minute hour day month weekday`, e.g. `0 9 * * 1-5`), always in a named time zone so 9:00 stays 9:00 across daylight-saving changes (a time that doesn't exist that day moves to the next valid time; a repeated hour runs once).
+- **Missed runs:** if the Mac was asleep or MacPilot was closed, each missed job runs **once** at the next launch and then continues on schedule — never a burst of catch-up runs.
+- **Controls:** pause, resume, run now, edit, delete, and a run history with summaries, links to each run's timeline, and job-finder results.
+- **What a job may do:** only `web_search`, `fetch_page`, `extract`, `compare_with_last_run` (change detection, e.g. “price changed from $399 to $349”) and `send_email` to its own recipient. Files and commands are not available to scheduled jobs. Text from web pages is passed to the model as untrusted data, so instructions hidden in a page can't trigger anything outside that list.
+- **Email:** choose **Mail** (the Mail app's default account, via AppleScript; macOS asks once for Automation permission) or a connected **Gmail** account (MacPilot asks Google for the `gmail.send` permission only when you choose it). When you create a job you see the exact recipient, sender, schedule and a rendered sample email, and approve it once. That approval is bound to the job, the recipient address and the sending account; changing either needs a new approval. Every email is written to the audit log, a job can never email anyone else, and outside jobs `send_email` is high risk: it always asks, and only to an address you typed.
+- **Web tools:** `web_search` uses a Brave Search or SerpAPI key if you add one (Settings → Agent → Web search, stored in the Keychain), otherwise DuckDuckGo's HTML results. `fetch_page` turns a page into readable text (optionally just the element matching a CSS selector like `.price` or `#main`). Requests identify as **MacPilot**, honor robots.txt (cached for a day), wait at least 2 seconds between requests to the same site, send no cookies, and skip pages behind a login.
+- **Telegram:** `/jobs` lists jobs with **Pause/Resume** and **Run now** buttons; `/newjob every day at 8am check the price of … email me at me@example.com` creates one from plain words (the email still has to be approved, with a button only you can use). Jobs can also post their results to Telegram.
+
+## Job finder
+
+A built-in job template (Agent → Jobs → New job → Job finder) that doesn't need AI to collect postings:
+
+- **Sources:** the public JSON job-board APIs of the companies you list — Greenhouse (`boards-api.greenhouse.io`), Lever (`api.lever.co`) and Ashby (`api.ashbyhq.com` posting API). It starts with 30 well-known tech companies (Airbnb, Stripe, Figma, Cloudflare, Datadog, Anthropic, Spotify, Notion, OpenAI, Linear, …); edit the list as `greenhouse:slug Name` lines — the slug is in the company's careers URL. Add any **RSS/Atom** job feeds, and optionally your own **LinkedIn and Indeed job-alert emails** from Mail or Gmail (`gmail.readonly`, asked only if you choose it). MacPilot never scrapes the LinkedIn or Indeed websites.
+- **Filters:** role keywords, location (plus remote, or remote only), experience level (entry, mid, senior, staff/lead), words to exclude, and a maximum posting age.
+- **Only new postings:** results are deduplicated within a run and across runs by canonical URL (tracking parameters removed) and by company + title.
+- **The email:** company, title, location, posted date and apply link, grouped by company, with HTML and plain-text versions. Nothing new means no email. Results also appear under the job in the app, and in Telegram if you turn that on.
 
 ## Network speed and speed test
 

@@ -14,7 +14,26 @@ struct AgentView: View {
         return nil
     }
 
+    @Bindable private var tabState = AgentTabState.shared
+
     var body: some View {
+        VStack(spacing: 0) {
+            Picker("View", selection: $tabState.tab) {
+                Text("Tasks").tag("Tasks")
+                Text("Jobs").tag("Jobs")
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .frame(width: 220)
+            .padding(.vertical, 8)
+            if tabState.tab == "Jobs" { JobsView() } else { tasksBody }
+        }
+        .navigationTitle("Agent")
+        .onChange(of: tabState.focusTaskID) { _, id in if let id { selectedID = id; tabState.focusTaskID = nil } }
+        .onAppear { if let id = tabState.focusTaskID { selectedID = id; tabState.focusTaskID = nil } }
+    }
+
+    private var tasksBody: some View {
         HSplitView {
             taskList.frame(minWidth: 230, idealWidth: 260, maxWidth: 320)
             VStack(spacing: 0) {
@@ -29,7 +48,6 @@ struct AgentView: View {
             }
             .frame(minWidth: 520)
         }
-        .navigationTitle("Agent")
         .onAppear(perform: takePending)
         .onChange(of: appState.pendingAction) { _, _ in takePending() }
         .onChange(of: engine.activeTaskID) { _, id in if let id { selectedID = id } }
@@ -427,6 +445,7 @@ struct AgentSettingsView: View {
                 Text("No shell: one program with plain arguments. sudo, rm, shells, curl/ssh and similar are never allowed. Commands get a clean environment without your API keys.")
                     .font(.caption).foregroundStyle(.secondary)
             }
+            WebSearchKeysSection()
             TelegramSettingsSection()
             Section("Limits") {
                 Stepper("Max steps: \(settings.maxSteps)", value: $settings.maxSteps, in: 1...200)
@@ -546,6 +565,44 @@ private struct TelegramSettingsSection: View {
         } footer: {
             Text("Create a bot with @BotFather, paste its token here, then pair your phone with a one-time code. Only paired users (by numeric Telegram ID, in a private chat) can start tasks, approve actions or ask for screenshots. Telegram is cloud messaging, not end-to-end encrypted.")
                 .font(.caption).foregroundStyle(.secondary)
+        }
+    }
+}
+
+/// Optional search API keys (Keychain). Without one, web_search uses DuckDuckGo's HTML results.
+private struct WebSearchKeysSection: View {
+    @State private var brave = ""
+    @State private var serp = ""
+    @State private var hasBrave = KeychainStore.exists(account: WebClient.braveKeyAccount)
+    @State private var hasSerp = KeychainStore.exists(account: WebClient.serpKeyAccount)
+
+    var body: some View {
+        Section {
+            keyRow("Brave Search API key", text: $brave, saved: $hasBrave, account: WebClient.braveKeyAccount)
+            keyRow("SerpAPI key", text: $serp, saved: $hasSerp, account: WebClient.serpKeyAccount)
+        } header: {
+            Text("Web search")
+        } footer: {
+            Text("Used by web_search (Brave first, then SerpAPI). With neither, MacPilot uses DuckDuckGo's HTML results. Pages are fetched as “MacPilot”, honoring robots.txt, at most one request every 2 seconds per site, without cookies or logins.")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    private func keyRow(_ label: String, text: Binding<String>, saved: Binding<Bool>, account: String) -> some View {
+        HStack {
+            if saved.wrappedValue {
+                Label("\(label) saved", systemImage: "key.fill")
+                Spacer()
+                Button("Remove", role: .destructive) { try? KeychainStore.delete(account: account); saved.wrappedValue = false }
+            } else {
+                SecureField(label, text: text)
+                Button("Save") {
+                    try? KeychainStore.save(text.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines), account: account)
+                    text.wrappedValue = ""
+                    saved.wrappedValue = true
+                }
+                .disabled(text.wrappedValue.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
         }
     }
 }
