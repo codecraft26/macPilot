@@ -204,6 +204,13 @@ final class PilotVoice: NSObject {
             say("Start talking after the sound. I'll type it where your cursor is.")
             try? await Task.sleep(for: .seconds(2.5))
             FloatingBuddy.shared.toggleDictation()
+        case .smartReminder(let words):
+            if let draft = await ReminderInput.parse(words) {
+                ReminderEngine.shared.add(draft, source: words)
+                say("Okay. \(draft.trigger.summary), I'll remind you to \(draft.text.prefix(1).lowercased() + draft.text.dropFirst()).")
+            } else {
+                say("I couldn't work out when to remind you. Try: remind me to check reviews when I open Xcode.")
+            }
         case .speedTest:
             say("Running a speed test. It takes about twenty seconds.")
             if let result = await SpeedTest.shared.run() {

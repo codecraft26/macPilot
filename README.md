@@ -9,10 +9,10 @@
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-000?logo=apple)
 ![Swift 5.10](https://img.shields.io/badge/Swift-5.10-F05138?logo=swift&logoColor=white)
 ![SwiftUI](https://img.shields.io/badge/UI-SwiftUI-0A84FF)
-![Version](https://img.shields.io/badge/version-0.25.0-6E5BF7)
+![Version](https://img.shields.io/badge/version-0.26.0-6E5BF7)
 ![Universal](https://img.shields.io/badge/Apple%20silicon%20%2B%20Intel-universal-555)
 
-[**⬇ Download MacPilot 0.25.0 (.dmg)**](releases/MacPilot-0.25.0.dmg) · [What's new](#whats-new) · [Features](#features) · [Agent](#ai-agent) · [Telegram](#telegram-bot) · [Jobs](#scheduled-jobs) · [Job finder](#job-finder) · [Computer use](#computer-use) · [Network](#network-speed-and-speed-test) · [Finder convert](#finder-convert-with-macpilot) · [Floating buddy](#-floating-buddy) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
+[**⬇ Download MacPilot 0.26.0 (.dmg)**](releases/MacPilot-0.26.0.dmg) · [What's new](#whats-new) · [Features](#features) · [Agent](#ai-agent) · [Telegram](#telegram-bot) · [Jobs](#scheduled-jobs) · [Job finder](#job-finder) · [Computer use](#computer-use) · [Smart reminders](#smart-reminders) · [Network](#network-speed-and-speed-test) · [Finder convert](#finder-convert-with-macpilot) · [Floating buddy](#-floating-buddy) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
 
 <img src="docs/screenshots/mac/dashboard.png" width="860" alt="MacPilot dashboard with today's briefing">
 
@@ -21,6 +21,11 @@
 MacPilot brings Raycast-style speed and an AI assistant to everything you do on a Mac: ask Claude (Anthropic or Amazon Bedrock), OpenAI or a local Ollama model from anywhere, record and summarize meetings, dictate into any app, manage notes, tasks and your calendar, search your clipboard, convert files, and sync it all between your Macs — with a friendly floating buddy on your desktop and live status in the MacBook notch. **Bring your own keys** — there is no MacPilot account or server; data stays on your Mac and credentials in the Keychain. Cloud features send only the relevant content to the provider you choose.
 
 ## What's new
+
+**0.26** — smart reminders
+- 🔔 **Reminders that fire on context, not just time:** when you open or quit an app, join or leave a Wi-Fi network, wake or unlock the Mac, arrive at or leave a place, or a few minutes before your next meeting — plus ordinary and recurring times.
+- 🗣 Say or type it in plain words — Agent → Reminders, ⌥K “Remind me…”, Pilot (“remind me to check PR reviews when I open Xcode”) or Telegram `/remind`. You confirm “When you open Xcode → ‘Check PR reviews’” before it's saved.
+- ✅ Delivered as a notification with **Snooze / Until next time / Done**, in the notch, and in Telegram with the same buttons. Limits like “on weekdays”, “between 9 and 5”, once vs. every time, and cooldowns keep them from nagging. Location and Wi-Fi names never leave the Mac.
 
 **0.25** — computer use
 - 🌐 **The agent's own browser:** opens pages, reads them (text plus clickable elements), clicks, types, selects, scrolls, waits and takes screenshots — in a separate, non-persistent browser that never sees your Safari or Chrome logins. Sites outside your allowlist, form submits and password or payment fields always ask first.
@@ -153,7 +158,7 @@ Live ↓/↑ throughput sampled once a second from the network interface counter
 
 ## Install
 
-1. [Download `MacPilot-0.25.0.dmg`](releases/MacPilot-0.25.0.dmg) (universal: Apple silicon and Intel, macOS 14+).
+1. [Download `MacPilot-0.26.0.dmg`](releases/MacPilot-0.26.0.dmg) (universal: Apple silicon and Intel, macOS 14+).
 2. Open it and drag **MacPilot** into **Applications**.
 3. The build is ad-hoc signed (not notarized), so the first launch needs one approval: right-click MacPilot → **Open** → **Open**, or **System Settings → Privacy & Security → Open Anyway**. If macOS still refuses:
    ```bash
@@ -303,6 +308,26 @@ After granting a permission, quit and reopen MacPilot if the checklist still sho
 **Session awareness:** MacPilot watches for screen lock and sleep. While the Mac is locked or asleep, browser and GUI steps pause with “Session unavailable” (shown in the task and in Telegram `/status`) and continue on unlock; file and command steps keep going. Stop and the kill switch work while paused.
 
 **Restarts:** with **Start MacPilot at login** on (Settings → Agent or the menu bar), the agent and the Telegram bot start with your Mac. Queued tasks start again; a step that was running when MacPilot quit is marked **needs review** and never replayed.
+
+## Smart reminders
+
+**Agent → Reminders** (also ⌥K “Remind me…”, Pilot, and Telegram `/remind` or any message starting “remind me … when …”).
+
+| Trigger | Example |
+|---|---|
+| Time, once or recurring | “remind me to call mom at 5pm”, “in 20 minutes”, “every weekday at 8:30” |
+| Opening / quitting an app | “… when I open Xcode”, “whenever I open Slack”, “… when I quit Zoom” |
+| Joining / leaving Wi-Fi | “… when I join the Office wifi”, “… when I leave the Home wifi” |
+| Waking / unlocking the Mac | “… when my Mac wakes”, “… when I unlock my Mac” |
+| Arriving at / leaving a place | “… when I get home”, “… when I leave work” |
+| Before your next meeting | “… 10 minutes before my next meeting” (Apple or Google calendars) |
+
+- **Conditions:** add “on weekdays” and/or “between 9am and 5pm” (windows may cross midnight). Context reminders fire **once** by default; “whenever …” or the **Every time** setting repeats, with a **cooldown** (30–60 minutes by default) so opening an app ten times doesn't mean ten reminders.
+- **Understanding what you typed:** common phrasings are understood by built-in rules — no AI and no network, so they also work in local-only mode. Anything else is sent (as text only) to the agent's model, whose answer must match a strict schema; you always see a confirmation like “When you open Xcode → ‘Check PR reviews’” before saving.
+- **Delivery:** a notification with **Snooze 10 min**, **Until next time** (wait for the trigger to happen again) and **Done**; a notch alert with **Done**; and, if you've paired Telegram, a message with the same buttons — usable only by the paired person it was sent to, once. Optionally mirror a reminder to **Apple Reminders** (through the existing Tasks ↔ Reminders sync).
+- **Places:** define Home, Work and others under **Places** — by the Mac's current location (region monitoring, or significant-location changes where region monitoring isn't available) or by a **Wi-Fi network** as a proxy, which is usually more reliable on a Mac (a Mac's location is Wi-Fi based and coarse; a Mac mini rarely moves).
+- **Location permission:** recent macOS only reveals the Wi-Fi network name to apps with Location access, so Wi-Fi and place reminders ask for it (System Settings → Privacy & Security → Location Services → MacPilot). Without it, those reminders simply don't fire and the app says why; everything else works.
+- **Privacy:** your location, saved places and Wi-Fi names stay on this Mac. They are never sent to an AI model or anywhere else — only the words of the reminder are parsed.
 
 ## Telegram bot
 

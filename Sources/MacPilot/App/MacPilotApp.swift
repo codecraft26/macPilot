@@ -51,6 +51,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         TelegramBot.shared.startIfEnabled()
         JobScheduler.shared.onRunFinished = { job, run in TelegramBot.shared.jobFinished(job, run: run) }
         JobScheduler.shared.start()
+        ReminderEngine.shared.start()
         // Finder → right-click → Quick Actions / Services → "Convert with MacPilot".
         NSApp.servicesProvider = FinderServiceProvider.shared
         NSUpdateDynamicServices()

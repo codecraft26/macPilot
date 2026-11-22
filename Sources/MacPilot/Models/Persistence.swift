@@ -18,7 +18,8 @@ enum Persistence {
         AgentApproval.self,
         AgentEvent.self,
         AgentJob.self,
-        JobRun.self
+        JobRun.self,
+        SmartReminder.self
     ])
 
     nonisolated static let storeDirectory: URL = {

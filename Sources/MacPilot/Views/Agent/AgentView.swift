@@ -21,12 +21,17 @@ struct AgentView: View {
             Picker("View", selection: $tabState.tab) {
                 Text("Tasks").tag("Tasks")
                 Text("Jobs").tag("Jobs")
+                Text("Reminders").tag("Reminders")
             }
             .pickerStyle(.segmented)
             .labelsHidden()
-            .frame(width: 220)
+            .frame(width: 320)
             .padding(.vertical, 8)
-            if tabState.tab == "Jobs" { JobsView() } else { tasksBody }
+            switch tabState.tab {
+            case "Jobs": JobsView()
+            case "Reminders": SmartRemindersView()
+            default: tasksBody
+            }
         }
         .navigationTitle("Agent")
         .onChange(of: tabState.focusTaskID) { _, id in if let id { selectedID = id; tabState.focusTaskID = nil } }

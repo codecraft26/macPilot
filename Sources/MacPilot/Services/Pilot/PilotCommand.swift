@@ -12,6 +12,8 @@ enum PilotCommand: Equatable {
     case open(AppSection)
     case dictate
     case speedTest
+    /// "remind me to … when I open Xcode": a context reminder.
+    case smartReminder(String)
     case hide
     case cancel
     /// Anything else: answered by the AI.
@@ -34,6 +36,9 @@ enum PilotCommand: Equatable {
         if lower.isEmpty || ["cancel", "never mind", "nevermind", "stop", "be quiet", "shut up", "nothing"].contains(lower) { return .cancel }
         if ["hide", "go away", "hide yourself", "hide the buddy"].contains(lower) { return .hide }
 
+        if lower.hasPrefix("remind me"), lower.range(of: #"\bwhen(ever)?\b|before my next meeting|every time"#, options: .regularExpression) != nil {
+            return .smartReminder(text)
+        }
         if let task = rest(after: #"^(?:please\s+)?(?:add|create|make|new)\s+(?:a\s+)?(?:new\s+)?(?:task|to-?do|reminder)(?:\s+to)?(?:\s*:)?\s+(.+)$"#)
             ?? rest(after: #"^(?:please\s+)?remind me to\s+(.+)$"#) {
             let (title, due) = splitDate(task, now: now)

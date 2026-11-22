@@ -152,6 +152,8 @@ final class AgentTabState {
     static let shared = AgentTabState()
     var tab = "Tasks"
     var focusTaskID: UUID?
+    /// Words from ⌥K to put in the Reminders box.
+    var pendingReminder: String?
 
     func show(_ taskID: UUID) {
         tab = "Tasks"

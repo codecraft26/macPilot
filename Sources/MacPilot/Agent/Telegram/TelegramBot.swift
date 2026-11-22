@@ -209,8 +209,11 @@ final class TelegramBot {
         case "/approve", "/deny": await decideByCommand(argument, approve: command == "/approve", update: update)
         case "/jobs": await listJobs(chat)
         case "/newjob": await createJob(argument, update: update)
+        case "/remind": await createReminder(argument, update: update)
         case _ where command.hasPrefix("/"): await send(chat, "Unknown command. /help lists what I can do.")
-        default: await startTask(text, update: update)
+        default:
+            // "remind me … when I open Xcode" in free text becomes a smart reminder, not an agent task.
+            if ReminderInput.looksLikeReminder(text) { await createReminder(text, update: update) } else { await startTask(text, update: update) }
         }
     }
 
@@ -236,6 +239,7 @@ final class TelegramBot {
     /status — active task, queue, connection, screen lock
     /tasks — recent tasks
     /jobs — scheduled jobs (pause, resume, run now)
+    /remind <words> — e.g. “/remind check PR reviews when I open Xcode”
     /newjob <words> — e.g. “/newjob find remote iOS jobs every weekday at 9 email me at me@example.com”
     /cancel <id> — stop a task
     /model — provider and model in use
@@ -411,6 +415,10 @@ final class TelegramBot {
             await answerCallback(callbackID, "Not paired with this Mac.")
             return
         }
+        if data.hasPrefix("r:") {
+            await answerCallback(callbackID, reminderButton(data, update: update))
+            return
+        }
         if data.hasPrefix("j:") {
             await answerCallback(callbackID, jobButton(data, update: update))
             return
@@ -580,6 +588,61 @@ final class TelegramBot {
         for posting in run.results.prefix(15) { text += "\n• \(posting.company): \(posting.title) — \(posting.url)" }
         if run.results.count > 15 { text += "\n…and \(run.results.count - 15) more in the app." }
         for user in pairing.users { Task { await send(user.chatID, text) } }
+    }
+
+    // MARK: Smart reminders
+
+    struct ReminderTicket: Equatable {
+        var reminderID: UUID
+        var userID: Int64
+        var expiresAt: Date
+    }
+    /// Snooze/Done buttons by nonce, each bound to the paired user it was sent to.
+    private(set) var reminderTickets: [String: ReminderTicket] = [:]
+    var reminders: ReminderEngine = .shared
+    /// Parses reminder text (deterministic first; a model only when allowed). Replaced in tests.
+    var parseReminder: (String) async -> ReminderDraft? = { await ReminderInput.parse($0) }
+
+    func sendReminder(_ reminder: SmartReminder, context: String) {
+        guard transport != nil else { return }
+        for user in pairing.users {
+            let nonce = TelegramRandom.string(length: 10, alphabet: Array("abcdefghijkmnpqrstuvwxyz23456789"))
+            reminderTickets[nonce] = ReminderTicket(reminderID: reminder.uid, userID: user.userID, expiresAt: now().addingTimeInterval(24 * 3_600))
+            let keyboard: [String: Any] = ["inline_keyboard": [[
+                ["text": "Snooze 10 min", "callback_data": "r:s:\(nonce)"],
+                ["text": "Until next time", "callback_data": "r:n:\(nonce)"],
+                ["text": "✅ Done", "callback_data": "r:d:\(nonce)"]
+            ]]]
+            let text = AgentRedactor.redact("⏰ \(reminder.text)\n\(context)")
+            Task { _ = try? await transport?.call("sendMessage", ["chat_id": user.chatID, "text": text, "reply_markup": keyboard]) }
+        }
+    }
+
+    private func reminderButton(_ data: String, update: TelegramIncoming) -> String {
+        let parts = data.split(separator: ":").map(String.init)
+        guard parts.count == 3, let ticket = reminderTickets[parts[2]] else { return "These buttons are out of date." }
+        guard ticket.userID == update.userID else { return "These buttons belong to someone else." }
+        guard now() < ticket.expiresAt else { reminderTickets[parts[2]] = nil; return "These buttons expired." }
+        guard let reminder = reminders.reminders.first(where: { $0.uid == ticket.reminderID }) else { return "That reminder was deleted." }
+        reminderTickets = reminderTickets.filter { $0.value.reminderID != ticket.reminderID || $0.value.userID != ticket.userID }
+        switch parts[1] {
+        case "s": reminders.snooze(reminder, minutes: 10); return "Snoozed for 10 minutes."
+        case "n":
+            if reminder.trigger.isContext { reminders.snoozeUntilNextTrigger(reminder); return "I'll remind you next time." }
+            reminders.snooze(reminder, minutes: 60); return "Snoozed for an hour."
+        case "d": reminders.done(reminder); return "Done."
+        default: return "Unknown button."
+        }
+    }
+
+    private func createReminder(_ words: String, update: TelegramIncoming) async {
+        guard let draft = await parseReminder(words) else {
+            await send(update.chatID, "I couldn't work out when to remind you. Try: /remind check PR reviews when I open Xcode")
+            return
+        }
+        let reminder = reminders.add(draft, source: words)
+        engine.audit("Telegram: user \(update.userID) created reminder \(reminder.shortID)")
+        await send(update.chatID, "Saved: \(draft.confirmation)\nID \(reminder.shortID). Manage reminders on the Mac in Agent → Reminders.")
     }
 
     // MARK: Sending

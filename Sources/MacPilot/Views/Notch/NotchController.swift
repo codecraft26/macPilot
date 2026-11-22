@@ -62,6 +62,7 @@ enum NotchPeekAction: Equatable {
     case joinMeeting(URL)
     case openTasks
     case stopRecording
+    case reminderDone(UUID)
 }
 
 /// A Dynamic Island–style area around the MacBook notch: live status when something is happening,
@@ -196,6 +197,8 @@ final class NotchController {
             WindowManager.shared.showDashboard(section: .tasks)
         case .stopRecording:
             Task { await RecordingManager.shared.stop() }
+        case .reminderDone(let id):
+            if let reminder = ReminderEngine.shared.reminders.first(where: { $0.uid == id }) { ReminderEngine.shared.done(reminder) }
         }
     }
 

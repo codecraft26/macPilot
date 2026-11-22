@@ -21,9 +21,9 @@
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.25.0</string>
+    <string>0.26.0</string>
     <key>CFBundleVersion</key>
-    <string>33</string>
+    <string>34</string>
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.productivity</string>
     <key>LSMinimumSystemVersion</key>
@@ -42,6 +42,10 @@
     <string>MacPilot can sync tasks with Reminders after you allow it.</string>
     <key>NSCalendarsUsageDescription</key>
     <string>MacPilot shows your upcoming meetings and can create events after you confirm them.</string>
+    <key>NSLocationUsageDescription</key>
+    <string>Smart reminders can fire when you arrive at or leave a saved place, and macOS needs Location access to tell MacPilot the Wi-Fi network name. Your location never leaves this Mac.</string>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>Smart reminders can fire when you arrive at or leave a saved place, and macOS needs Location access to tell MacPilot the Wi-Fi network name. Your location never leaves this Mac.</string>
     <key>NSAccessibilityUsageDescription</key>
     <string>MacPilot's agent reads and presses controls only in apps you allow, and asks before anything else.</string>
     <key>NSAppleEventsUsageDescription</key>

@@ -94,6 +94,18 @@ enum LauncherCatalog {
         if !trimmed.isEmpty {
             results.append(LauncherItem(id: "ask", title: "Ask AI: \(trimmed)", icon: .system("sparkles"), section: "AI",
                                         primary: { windows.askQuickAssistant(trimmed) }))
+            if let draft = ReminderParser.parse(trimmed) {
+                results.append(LauncherItem(id: "remind.add", title: "Remind me: \(draft.confirmation)", subtitle: "↩ save this smart reminder",
+                                            icon: .system("bell.badge"), section: "Reminders",
+                                            primary: {
+                                                ReminderEngine.shared.add(draft, source: trimmed)
+                                                NotchController.shared.peek(NotchPeek(systemImage: "bell.badge", tint: .blue, title: "Reminder saved", subtitle: draft.confirmation, duration: 5))
+                                            }))
+            } else if trimmed.lowercased().hasPrefix("remind") {
+                results.append(LauncherItem(id: "remind.open", title: "Remind me… (open Reminders to confirm)", subtitle: trimmed,
+                                            icon: .system("bell.badge"), section: "Reminders",
+                                            primary: { AgentTabState.shared.tab = "Reminders"; AgentTabState.shared.pendingReminder = trimmed; windows.showDashboard(section: .agent) }))
+            }
             results.append(LauncherItem(id: "agent.ask", title: "Ask agent: \(trimmed)", subtitle: "Runs tools in your workspaces; asks before writes and commands",
                                         icon: .system("cpu"), section: "Agent",
                                         primary: { windows.open(.agent, action: .askAgent(trimmed)) }))
@@ -161,6 +173,9 @@ enum LauncherCatalog {
                          icon: .system("icloud"), section: "MacPilot", primary: {
                              if ICloudSync.isEnabled { ICloudSync.shared.syncNow() } else { windows.open(.settings) }
                          }),
+            LauncherItem(id: "remind.new", title: "Remind me…", subtitle: "Type e.g. “remind me to check PRs when I open Xcode”",
+                         icon: .system("bell.badge"), section: "Reminders",
+                         primary: { AgentTabState.shared.tab = "Reminders"; windows.showDashboard(section: .agent) }),
             LauncherItem(id: "agent.open", title: "Ask agent…", subtitle: "Type a request after opening, or type it here first",
                          icon: .system("cpu"), section: "Agent", primary: { windows.open(.agent, action: .askAgent("")) }),
             LauncherItem(id: "agent.kill", title: AgentEngine.shared.isHalted ? "Agent: resume" : "Agent: kill switch (stop everything)",
