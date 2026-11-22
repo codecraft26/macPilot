@@ -258,7 +258,7 @@ enum AgentRedactor {
         (#"gh[pousr]_[A-Za-z0-9]{20,}"#, "[redacted token]"),
         (#"github_pat_[A-Za-z0-9_]{20,}"#, "[redacted token]"),
         (#"xox[abprs]-[A-Za-z0-9-]{10,}"#, "[redacted token]"),
-        (#"\b[0-9]{8,10}:AA[A-Za-z0-9_-]{30,}\b"#, "[redacted token]"),
+        (#"[0-9]{6,12}:[A-Za-z0-9_-]{30,}"#, "[redacted token]"),
         (#"\bAIza[0-9A-Za-z_\-]{30,}\b"#, "[redacted key]"),
         (#"\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b"#, "[redacted token]"),
         (#"(?i)\b(bearer)\s+[A-Za-z0-9._~+/=-]{12,}"#, "$1 [redacted]"),

@@ -9,10 +9,10 @@
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-000?logo=apple)
 ![Swift 5.10](https://img.shields.io/badge/Swift-5.10-F05138?logo=swift&logoColor=white)
 ![SwiftUI](https://img.shields.io/badge/UI-SwiftUI-0A84FF)
-![Version](https://img.shields.io/badge/version-0.22.0-6E5BF7)
+![Version](https://img.shields.io/badge/version-0.23.0-6E5BF7)
 ![Universal](https://img.shields.io/badge/Apple%20silicon%20%2B%20Intel-universal-555)
 
-[**⬇ Download MacPilot 0.22.0 (.dmg)**](releases/MacPilot-0.22.0.dmg) · [What's new](#whats-new) · [Features](#features) · [Agent](#ai-agent) · [Network](#network-speed-and-speed-test) · [Finder convert](#finder-convert-with-macpilot) · [Floating buddy](#-floating-buddy) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
+[**⬇ Download MacPilot 0.23.0 (.dmg)**](releases/MacPilot-0.23.0.dmg) · [What's new](#whats-new) · [Features](#features) · [Agent](#ai-agent) · [Telegram](#telegram-bot) · [Network](#network-speed-and-speed-test) · [Finder convert](#finder-convert-with-macpilot) · [Floating buddy](#-floating-buddy) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
 
 <img src="docs/screenshots/mac/dashboard.png" width="860" alt="MacPilot dashboard with today's briefing">
 
@@ -21,6 +21,11 @@
 MacPilot brings Raycast-style speed and an AI assistant to everything you do on a Mac: ask Claude (Anthropic or Amazon Bedrock), OpenAI or a local Ollama model from anywhere, record and summarize meetings, dictate into any app, manage notes, tasks and your calendar, search your clipboard, convert files, and sync it all between your Macs — with a friendly floating buddy on your desktop and live status in the MacBook notch. **Bring your own keys** — there is no MacPilot account or server; data stays on your Mac and credentials in the Keychain. Cloud features send only the relevant content to the provider you choose.
 
 ## What's new
+
+**0.23** — control the agent from Telegram
+- 📱 **Telegram bot:** pair your phone with a one-time code, then send requests from Telegram; the agent runs them on your Mac and edits one progress message as it goes, ending with a summary.
+- ✅ **Approve from your phone:** risky steps arrive with **Approve once / Deny** buttons that only you can use, once, within 10 minutes.
+- 🖥 **/screenshot**, **/status**, **/tasks**, **/cancel**, **/model** — with the kill switch and local-only mode still in charge. No open ports: MacPilot polls Telegram.
 
 **0.22** — the AI Agent (core)
 - 🤖 **Agent tab:** ask for multi-step work ("find the TODOs in my project and collect them in TODO.md", "run the tests and tell me what fails"). The agent reads, searches and writes files in **workspace folders you choose**, runs **allowlisted commands**, and checks system status, with a live timeline of every tool call.
@@ -138,7 +143,7 @@ Live ↓/↑ throughput sampled once a second from the network interface counter
 
 ## Install
 
-1. [Download `MacPilot-0.22.0.dmg`](releases/MacPilot-0.22.0.dmg) (universal: Apple silicon and Intel, macOS 14+).
+1. [Download `MacPilot-0.23.0.dmg`](releases/MacPilot-0.23.0.dmg) (universal: Apple silicon and Intel, macOS 14+).
 2. Open it and drag **MacPilot** into **Applications**.
 3. The build is ad-hoc signed (not notarized), so the first launch needs one approval: right-click MacPilot → **Open** → **Open**, or **System Settings → Privacy & Security → Open Anyway**. If macOS still refuses:
    ```bash
@@ -263,7 +268,33 @@ The **Agent** tab (also ⌥K → “Ask agent…”, or the menu bar → Agent�
 - **Audit log and privacy:** tasks, tool calls, approvals and events are stored in MacPilot's local database with secrets (API keys, tokens, passwords, private keys) redacted; tool output is redacted before it's stored or sent to the model.
 - **Restarts:** a step that was running when MacPilot quit is marked **Interrupted — needs review** and is never replayed; the task shows as failed and **Retry** starts it fresh.
 
-Not in this release: Telegram control and approvals (0.23) and scheduled jobs (0.24).
+Telegram control is described below; scheduled jobs come in 0.24.
+
+## Telegram bot
+
+Control the agent from your phone. MacPilot talks to Telegram's Bot API by **long polling** — it never opens a port on your Mac.
+
+**Set up (once)**
+1. In Telegram, open a chat with **@BotFather**, send `/newbot`, choose a name and a username ending in `bot`. BotFather replies with a token like `123456789:AA…`.
+2. Optional but recommended: in BotFather send `/setjoingroups` → your bot → **Disable**, so it can't be added to groups.
+3. On the Mac: **Settings → Agent → Telegram**, paste the token and press **Save** (it goes to the Keychain only, never to settings files, the database or logs). **Test** checks it with `getMe`. Turn on **Connect the bot**.
+4. Press **Pair a phone…**. MacPilot shows an 8-character code valid for 5 minutes. In a **private chat** with your bot, send `/pair CODE`. The code works once (five wrong tries cancel it). Your numeric Telegram user ID and chat ID are saved — usernames are never used for identity. Paired people are listed in Settings with **Remove**.
+
+**Commands**
+
+| Command | What it does |
+|---|---|
+| *any text* | Starts an agent task (channel “telegram”). The bot replies at once with the task ID and edits that message at milestones (rate-limited); the final message has a summary and a short redacted log. |
+| `/status` | Active task, queue, network, kill switch and whether the screen is locked |
+| `/tasks`, `/cancel <id>` | Recent tasks; stop one |
+| `/model` | Provider and model in use (never keys) |
+| `/screenshot` | The main display with MacPilot's windows hidden, downscaled to fit Telegram's photo limit. Refused while the screen is locked, explains when Screen Recording permission is missing, and every capture is audit-logged. |
+| `/approve <id>`, `/deny <id>` | Answer an approval (same as the buttons) |
+| `/start`, `/help` | How to pair; the command list and a privacy note |
+
+**Approvals:** when a task needs approval, the bot sends the exact command, path or diff with **Approve once** and **Deny** buttons. Each button carries the approval ID and a random nonce; it only works for the paired person who started the task, once, within 10 minutes, and only while the action is exactly what was shown. The buttons are removed after a decision or when it expires. You can also answer in the app.
+
+**Limits and privacy:** unpaired senders, group chats and bots are refused and never reach a tool. Messages are rate-limited per user. Everything the bot sends is passed through the same secret redaction as the audit log. The kill switch blocks new tasks and screenshots; local-only mode still blocks cloud providers. The menu bar shows whether the bot is online. Telegram is cloud messaging, not end-to-end encrypted: what you send and what MacPilot replies passes through Telegram's servers.
 
 ## Network speed and speed test
 

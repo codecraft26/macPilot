@@ -83,6 +83,9 @@ struct MenuBarContent: View {
             Button(agent.isBusy ? "⏹ Agent: Stop Everything (kill switch)" : "Agent: Kill Switch") { agent.killSwitch() }
         }
         Button("Agent…") { WindowManager.shared.open(.agent, action: .askAgent("")) }
+        if TelegramBot.shared.isEnabled {
+            Text(TelegramBot.shared.status.isOnline ? "Telegram bot: online" : "Telegram bot: offline")
+        }
 
         Divider()
 

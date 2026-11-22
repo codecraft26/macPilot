@@ -427,6 +427,7 @@ struct AgentSettingsView: View {
                 Text("No shell: one program with plain arguments. sudo, rm, shells, curl/ssh and similar are never allowed. Commands get a clean environment without your API keys.")
                     .font(.caption).foregroundStyle(.secondary)
             }
+            TelegramSettingsSection()
             Section("Limits") {
                 Stepper("Max steps: \(settings.maxSteps)", value: $settings.maxSteps, in: 1...200)
                 Stepper("Max time: \(Int(settings.maxSeconds / 60)) min", value: $settings.maxSeconds, in: 60...7_200, step: 60)
@@ -462,6 +463,89 @@ struct AgentSettingsView: View {
         guard panel.runModal() == .OK else { return }
         for url in panel.urls where !settings.workspaceRoots.contains(url.path) {
             settings.workspaceRoots.append(url.path)
+        }
+    }
+}
+
+/// Settings → Agent → Telegram: token (Keychain only), test, pairing and paired users.
+private struct TelegramSettingsSection: View {
+    private let bot = TelegramBot.shared
+    @State private var token = ""
+    @State private var hasToken = TelegramBot.hasToken
+    @State private var message: String?
+    @State private var code: String?
+    @State private var codeExpires: Date?
+    @State private var enabled = TelegramBot.shared.isEnabled
+
+    var body: some View {
+        Section {
+            HStack {
+                Circle().fill(bot.status.isOnline ? Color.green : Color.secondary.opacity(0.5)).frame(width: 8, height: 8)
+                Text("Bot: \(bot.status.label)" + (bot.botUsername.isEmpty ? "" : " · @\(bot.botUsername)")).lineLimit(2)
+            }
+            if hasToken {
+                HStack {
+                    Label("Token saved in the Keychain", systemImage: "key.fill")
+                    Spacer()
+                    Button("Test") { Task { message = await bot.test() } }
+                    Button("Remove", role: .destructive) {
+                        bot.isEnabled = false
+                        enabled = false
+                        TelegramBot.deleteToken()
+                        hasToken = false
+                    }
+                }
+            } else {
+                HStack {
+                    SecureField("Bot token from @BotFather", text: $token)
+                    Button("Save") {
+                        do {
+                            try TelegramBot.saveToken(token)
+                            token = ""
+                            hasToken = true
+                            Task { message = await bot.test() }
+                        } catch { message = error.localizedDescription }
+                    }
+                    .disabled(token.isEmpty)
+                }
+            }
+            Toggle("Connect the bot (long polling, no open ports)", isOn: $enabled)
+                .disabled(!hasToken)
+                .onChange(of: enabled) { _, on in bot.isEnabled = on }
+            if let message { Text(message).font(.caption).foregroundStyle(.secondary) }
+
+            HStack {
+                Button(code == nil ? "Pair a phone…" : "New code") {
+                    code = bot.newPairingCode()
+                    codeExpires = Date().addingTimeInterval(TelegramPairing.codeLifetime)
+                }
+                .disabled(!hasToken)
+                if let code, let codeExpires {
+                    TimelineView(.periodic(from: .now, by: 1)) { context in
+                        let left = Int(codeExpires.timeIntervalSince(context.date))
+                        if left > 0 {
+                            Text("Send /pair \(code) to the bot · \(left / 60):\(String(format: "%02d", left % 60))")
+                                .font(.body.monospaced()).textSelection(.enabled)
+                        } else {
+                            Text("Code expired").foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+            ForEach(bot.pairing.users) { user in
+                HStack {
+                    Image(systemName: "person.crop.circle")
+                    Text("\(user.name.isEmpty ? "Telegram user" : user.name) · ID \(String(user.userID))")
+                    Text("paired \(user.pairedAt.formatted(date: .abbreviated, time: .omitted))").font(.caption).foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Remove", role: .destructive) { bot.removeUser(user.userID) }
+                }
+            }
+        } header: {
+            Text("Telegram")
+        } footer: {
+            Text("Create a bot with @BotFather, paste its token here, then pair your phone with a one-time code. Only paired users (by numeric Telegram ID, in a private chat) can start tasks, approve actions or ask for screenshots. Telegram is cloud messaging, not end-to-end encrypted.")
+                .font(.caption).foregroundStyle(.secondary)
         }
     }
 }

@@ -71,6 +71,16 @@ final class AgentTask {
     var errorMessage: String?
     /// Task this one retries (Retry starts a fresh task; nothing is replayed).
     var retryOf: UUID?
+    /// Where the request came from: "app" or "telegram".
+    var channel: String = "app"
+    /// For Telegram tasks: the paired user who asked (only they can approve its actions) and their chat.
+    var telegramUserID: Int64 = 0
+    var telegramChatID: Int64 = 0
+    /// The one progress message that is edited as the task moves on.
+    var telegramMessageID: Int = 0
+
+    /// Short ID shown in Telegram and the timeline ("a1b2c3d4").
+    var shortID: String { String(uid.uuidString.prefix(8)).lowercased() }
 
     init(prompt: String, provider: AIProviderID, model: String) {
         self.prompt = AgentRedactor.redact(prompt)

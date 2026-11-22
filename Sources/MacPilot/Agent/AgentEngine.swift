@@ -17,6 +17,28 @@ final class AgentEngine {
     var now: () -> Date = Date.init
     var recordUsage: (AIProviderID, Int, Int) -> Void = { UsageTracker.record($0, input: $1, output: $2) }
 
+    /// What changed, for the Telegram bot and other listeners.
+    enum Update: Equatable {
+        case taskChanged(UUID)
+        case approvalRequested(approvalID: UUID, taskID: UUID)
+        case approvalResolved(approvalID: UUID, decision: AgentApprovalDecision)
+        case actionFinished(actionID: UUID, taskID: UUID)
+    }
+    private var observers: [UUID: (Update) -> Void] = [:]
+
+    @discardableResult
+    func addObserver(_ observer: @escaping (Update) -> Void) -> UUID {
+        let id = UUID()
+        observers[id] = observer
+        return id
+    }
+
+    func removeObserver(_ id: UUID) { observers.removeValue(forKey: id) }
+
+    private func emit(_ update: Update) {
+        for observer in observers.values { observer(update) }
+    }
+
     /// The kill switch: while on, no model call or tool call happens.
     private(set) var isHalted: Bool
     private(set) var activeTaskID: UUID?
@@ -39,14 +61,18 @@ final class AgentEngine {
     // MARK: Public controls
 
     @discardableResult
-    func submit(_ prompt: String, retryOf: UUID? = nil) -> AgentTask {
+    func submit(_ prompt: String, retryOf: UUID? = nil, channel: String = "app", telegramUserID: Int64 = 0, telegramChatID: Int64 = 0) -> AgentTask {
         let settings = settingsProvider()
         let task = AgentTask(prompt: prompt, provider: settings.provider, model: settings.model)
         task.retryOf = retryOf
+        task.channel = channel
+        task.telegramUserID = telegramUserID
+        task.telegramChatID = telegramChatID
         context.insert(task)
         prompts[task.uid] = prompt
-        log(task.uid, .info, "Queued on \(settings.provider.displayName) · \(settings.model)")
+        log(task.uid, .info, "Queued on \(settings.provider.displayName) · \(settings.model)" + (channel == "app" ? "" : " (from \(channel))"))
         save()
+        emit(.taskChanged(task.uid))
         startNextIfIdle()
         return task
     }
@@ -54,7 +80,8 @@ final class AgentEngine {
     /// A fresh run of the same request; nothing from the old run is replayed.
     @discardableResult
     func retry(_ task: AgentTask) -> AgentTask {
-        submit(prompts[task.uid] ?? task.prompt, retryOf: task.uid)
+        submit(prompts[task.uid] ?? task.prompt, retryOf: task.uid, channel: task.channel,
+               telegramUserID: task.telegramUserID, telegramChatID: task.telegramChatID)
     }
 
     /// Stops one task: cancels the model call, kills its command and denies any pending approval.
@@ -68,6 +95,7 @@ final class AgentEngine {
             task.finishedAt = now()
             log(taskID, .info, "Removed from the queue")
             save()
+            emit(.taskChanged(taskID))
         }
     }
 
@@ -94,7 +122,7 @@ final class AgentEngine {
     }
 
     /// The user's answer in the approval drawer. Applies only to that one approval.
-    func decide(approvalID: UUID, approve: Bool) {
+    func decide(approvalID: UUID, approve: Bool, via: String = "") {
         guard let approval = fetchApproval(approvalID), approval.decision == .pending else { return }
         if now() >= approval.expiresAt {
             approval.decision = .expired
@@ -102,7 +130,7 @@ final class AgentEngine {
             approval.decision = approve ? .approved : .denied
         }
         approval.decidedAt = now()
-        log(approval.taskID, .approval, "\(approve ? "Approved" : "Denied") one action")
+        log(approval.taskID, .approval, "\(approve ? "Approved" : "Denied") one action" + (via.isEmpty ? "" : " (\(via))"))
         save()
         resume(approvalID, with: approval.decision)
     }
@@ -167,6 +195,7 @@ final class AgentEngine {
         task.state = .running
         task.startedAt = now()
         save()
+        emit(.taskChanged(id))
         let started = now()
         do {
             try AgentPolicy.checkProvider(task.provider, settings: settings)
@@ -254,6 +283,7 @@ final class AgentEngine {
             action.finishedAt = now()
         }
         save()
+        emit(.taskChanged(task.uid))
     }
 
     /// One tool call through normalize → policy → approval → execute.
@@ -293,10 +323,12 @@ final class AgentEngine {
             pendingApprovalID = approval.uid
             log(task.uid, .approval, "Waiting for approval: \(action.summary)")
             save()
+            emit(.approvalRequested(approvalID: approval.uid, taskID: task.uid))
             NotchController.shared.peek(NotchPeek(systemImage: "hand.raised.fill", tint: .orange, title: "Agent needs your approval",
                                                   subtitle: action.summary, duration: 10))
             let decision = await waitForDecision(approval)
             pendingApprovalID = nil
+            emit(.approvalResolved(approvalID: approval.uid, decision: decision))
             if task.state == .awaitingApproval { task.state = .running }
             guard decision == .approved else {
                 if approval.decision == .pending { approval.decision = decision }
@@ -323,6 +355,7 @@ final class AgentEngine {
         action.finishedAt = now()
         log(task.uid, .tool, "\(action.summary) — \(action.state.label)")
         save()
+        emit(.actionFinished(actionID: action.uid, taskID: task.uid))
         return result
     }
 
@@ -384,6 +417,28 @@ final class AgentEngine {
         returns an error you should respect rather than work around. Prefer reading before changing anything, keep changes minimal, \
         and finish with a short summary of what you did and anything the user should check.
         """
+    }
+
+    /// Audit entries that don't belong to a task (Telegram pairing, screenshots…).
+    static let systemLogID = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+
+    func audit(_ message: String, kind: AgentEventKind = .info) {
+        log(Self.systemLogID, kind, message)
+        save()
+    }
+
+    func events(for taskID: UUID) -> [AgentEvent] {
+        (try? context.fetch(FetchDescriptor<AgentEvent>(predicate: #Predicate { $0.taskID == taskID }, sortBy: [SortDescriptor(\.date)]))) ?? []
+    }
+
+    func recentTasks(limit: Int) -> [AgentTask] {
+        var descriptor = FetchDescriptor<AgentTask>(sortBy: [SortDescriptor(\.createdAt, order: .reverse)])
+        descriptor.fetchLimit = limit
+        return (try? context.fetch(descriptor)) ?? []
+    }
+
+    var queuedCount: Int {
+        (try? context.fetchCount(FetchDescriptor<AgentTask>(predicate: #Predicate { $0.stateRaw == "queued" }))) ?? 0
     }
 
     func log(_ taskID: UUID, _ kind: AgentEventKind, _ message: String) {
