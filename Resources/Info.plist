@@ -21,9 +21,9 @@
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.24.0</string>
+    <string>0.25.0</string>
     <key>CFBundleVersion</key>
-    <string>32</string>
+    <string>33</string>
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.productivity</string>
     <key>LSMinimumSystemVersion</key>
@@ -42,6 +42,8 @@
     <string>MacPilot can sync tasks with Reminders after you allow it.</string>
     <key>NSCalendarsUsageDescription</key>
     <string>MacPilot shows your upcoming meetings and can create events after you confirm them.</string>
+    <key>NSAccessibilityUsageDescription</key>
+    <string>MacPilot's agent reads and presses controls only in apps you allow, and asks before anything else.</string>
     <key>NSAppleEventsUsageDescription</key>
     <string>MacPilot controls Music or Spotify from the notch, toggles Dark Mode and empties the Trash only when you ask it to.</string>
     <key>NSServices</key>

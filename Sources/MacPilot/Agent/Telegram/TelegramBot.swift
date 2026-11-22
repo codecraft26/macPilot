@@ -253,6 +253,7 @@ final class TelegramBot {
         let network = NetworkMonitor.shared
         lines.append("Network: " + (network.interfaceDisplayName.isEmpty ? "unknown" : network.interfaceDisplayName))
         lines.append("Screen: " + (screen.isScreenLocked ? "locked" : "unlocked"))
+        lines.append("Session: \(engine.session.statusText)" + (engine.session.isAvailable ? "" : " — GUI and browser steps are paused"))
         return lines.joined(separator: "\n")
     }
 

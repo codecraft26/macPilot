@@ -45,6 +45,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         LaunchAtLogin.setUpOnce()
         MeetingAutoRecord.shared.start()
         NetworkMonitor.shared.start()
+        SessionMonitor.shared.start()
+        // Queued agent tasks start again; interrupted steps stay "needs review" and are never replayed.
         AgentEngine.shared.recoverAfterLaunch()
         TelegramBot.shared.startIfEnabled()
         JobScheduler.shared.onRunFinished = { job, run in TelegramBot.shared.jobFinished(job, run: run) }

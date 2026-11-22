@@ -165,7 +165,7 @@ final class JobsTests: XCTestCase {
         XCTAssertGreaterThan(job.nextRun!, Date())
         let task = engine.recentTasks(limit: 1).first
         XCTAssertEqual(task?.channel, "schedule")
-        XCTAssertEqual(task?.allowedTools, ["web_search", "fetch_page", "extract", "compare_with_last_run"], "no email tool without a recipient")
+        XCTAssertEqual(task?.allowedTools, ["web_search", "fetch_page", "extract", "compare_with_last_run", "browser"], "no email tool without a recipient; browser is read-only")
         XCTAssertEqual(scheduler.runs(of: job.uid).first?.statusRaw, "done")
     }
 
@@ -474,13 +474,18 @@ final class JobsTests: XCTestCase {
                            url: "https://boards.greenhouse.io/acme/jobs/1?utm_source=linkedin&gh_src=x", source: "Greenhouse")
         let sameURL = JobPosting(company: "Acme Inc", title: "iOS Eng", location: "", remote: true, posted: nil,
                                  url: "https://www.boards.greenhouse.io/acme/jobs/1/", source: "RSS")
-        let sameTitle = JobPosting(company: "ACME", title: "iOS  Engineer!", location: "", remote: true, posted: nil, url: "https://other.example/9", source: "LinkedIn alert")
+        let sameTitle = JobPosting(company: "ACME", title: "iOS  Engineer!", location: " ", remote: true, posted: nil, url: "https://other.example/9", source: "LinkedIn alert")
         let other = JobPosting(company: "Acme", title: "Swift Engineer", location: "", remote: true, posted: nil, url: "https://boards.greenhouse.io/acme/jobs/2", source: "Greenhouse")
         let first = JobFinder.newPostings([a, sameURL, sameTitle, other], seen: [])
         XCTAssertEqual(first.fresh.map(\.title), ["iOS Engineer", "Swift Engineer"], "deduped by canonical URL and by company+title")
         XCTAssertEqual(first.fresh.first?.url, "https://boards.greenhouse.io/acme/jobs/1", "tracking removed")
         let second = JobFinder.newPostings([a, other], seen: first.seen)
         XCTAssertTrue(second.fresh.isEmpty, "nothing is reported twice across runs")
+        let berlin = JobPosting(company: "Acme", title: "iOS Engineer", location: "Berlin", remote: false, posted: nil, url: "https://x.example/b", source: "t")
+        let london = JobPosting(company: "Acme", title: "iOS Engineer", location: "London", remote: false, posted: nil, url: "https://x.example/l", source: "t")
+        let londonAgain = JobPosting(company: "ACME", title: "iOS engineer", location: "london", remote: false, posted: nil, url: "https://x.example/l2", source: "t")
+        XCTAssertEqual(JobFinder.newPostings([berlin, london, londonAgain], seen: []).fresh.map(\.location), ["Berlin", "London"],
+                       "same role in another region is kept; same region is merged")
     }
 
     func testFinderEmailsOnlyNewPostingsGroupedByCompany() async throws {
@@ -505,7 +510,7 @@ final class JobsTests: XCTestCase {
         let sent = try XCTUnwrap(email.sent.first?.0)
         XCTAssertEqual(sent.to, "me@example.com")
         let found = try XCTUnwrap(scheduler.runs(of: job.uid).first?.results.count)
-        XCTAssertEqual(found, 5, "6 postings in the fixtures; two Linear ones share a title (different regions), so company+title dedupe keeps one")
+        XCTAssertEqual(found, 6, "two Linear postings share a title but are in different regions, so both are kept")
         XCTAssertTrue(sent.subject.contains("\(found) new jobs"))
         XCTAssertTrue(sent.text.contains("Figma\n-----"), "plain text grouped by company")
         XCTAssertTrue(sent.text.contains("Apply: https://boards.greenhouse.io/figma/jobs/"))

@@ -228,6 +228,9 @@ private struct AgentTaskDetail: View {
                     AgentStateIcon(state: task.state)
                     Text(task.state.label).font(.headline)
                 }
+                if !task.pausedReason.isEmpty {
+                    Label(task.pausedReason, systemImage: "lock.fill").font(.caption).foregroundStyle(.orange)
+                }
                 Text("\(task.provider.shortName) · \(task.model) · \(task.steps) step\(task.steps == 1 ? "" : "s") · \(task.inputTokens + task.outputTokens) tokens · " + String(format: "≈$%.3f", task.costUSD))
                     .font(.caption).foregroundStyle(.secondary)
             }
@@ -445,6 +448,7 @@ struct AgentSettingsView: View {
                 Text("No shell: one program with plain arguments. sudo, rm, shells, curl/ssh and similar are never allowed. Commands get a clean environment without your API keys.")
                     .font(.caption).foregroundStyle(.secondary)
             }
+            ComputerUseSection(settings: $settings)
             WebSearchKeysSection()
             TelegramSettingsSection()
             Section("Limits") {
@@ -602,6 +606,85 @@ private struct WebSearchKeysSection: View {
                     saved.wrappedValue = true
                 }
                 .disabled(text.wrappedValue.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+        }
+    }
+}
+
+/// Settings → Agent → Computer use: permissions checklist, browser and app allowlists, start at login.
+private struct ComputerUseSection: View {
+    @Binding var settings: AgentSettings
+    @State private var domains = ""
+    @State private var refresh = 0
+    @State private var loginEnabled = LoginItemState.shared.enabled
+
+    var body: some View {
+        let _ = refresh
+        Section {
+            permissionRow("Accessibility", granted: ComputerPermissions.accessibility,
+                          detail: "Lets the agent read and press buttons in apps you allow.",
+                          request: ComputerPermissions.requestAccessibility, settingsURL: ComputerPermissions.accessibilitySettings)
+            permissionRow("Screen & System Audio Recording", granted: ComputerPermissions.screenRecording,
+                          detail: "Lets the agent take screenshots (MacPilot's own windows are hidden).",
+                          request: ComputerPermissions.requestScreenRecording, settingsURL: ComputerPermissions.screenRecordingSettings)
+            HStack {
+                Image(systemName: "envelope").frame(width: 18)
+                VStack(alignment: .leading) {
+                    Text("Automation → Mail")
+                    Text("macOS asks the first time a job sends with Mail.").font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button("Open Settings") { NSWorkspace.shared.open(ComputerPermissions.automationSettings) }
+            }
+            Button("Check again") { refresh += 1 }
+            Toggle("Start MacPilot at login (the agent queue and Telegram bot start with it)", isOn: $loginEnabled)
+                .onChange(of: loginEnabled) { _, on in LaunchAtLogin.set(on) }
+        } header: {
+            Text("Computer use — permissions")
+        }
+        Section {
+            TextField("Allowed sites, comma separated (e.g. github.com, example.com)", text: $domains, axis: .vertical)
+                .lineLimit(1...3)
+                .onChange(of: domains) { _, text in
+                    settings.browserAllowlist = text.split(whereSeparator: { $0 == "," || $0.isNewline }).map { $0.trimmingCharacters(in: .whitespaces).lowercased() }.filter { !$0.isEmpty }
+                }
+            Text("The agent's browser is separate from Safari and Chrome (no saved logins or cookies, nothing kept after quitting). Other sites, form submits and password or payment fields always ask first. It never fills in passwords.")
+                .font(.caption).foregroundStyle(.secondary)
+            ForEach(settings.guiAllowlist, id: \.self) { bundleID in
+                HStack {
+                    Image(systemName: "app")
+                    Text(NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID).map { $0.deletingPathExtension().lastPathComponent } ?? bundleID)
+                    Text(bundleID).font(.caption).foregroundStyle(.secondary)
+                    Spacer()
+                    Button(role: .destructive) { settings.guiAllowlist.removeAll { $0 == bundleID } } label: { Image(systemName: "minus.circle") }
+                        .buttonStyle(.borderless)
+                }
+            }
+            Menu("Allow an app…") {
+                ForEach(AXGUIDriver.shared.apps().filter { !GUIPolicy.isForbidden($0) && !settings.guiAllowlist.contains($0.bundleID) && !$0.bundleID.isEmpty }, id: \.bundleID) { app in
+                    Button(app.name) { settings.guiAllowlist.append(app.bundleID) }
+                }
+            }
+            .fixedSize()
+            Text("Actions in other apps ask first. System Settings, Keychain Access, password managers and the login window are never controlled. GUI and browser steps pause while the screen is locked and continue when you unlock.")
+                .font(.caption).foregroundStyle(.secondary)
+        } header: {
+            Text("Computer use — sites and apps")
+        }
+        .onAppear { domains = settings.browserAllowlist.joined(separator: ", ") }
+    }
+
+    private func permissionRow(_ title: String, granted: Bool, detail: String, request: @escaping () -> Void, settingsURL: URL) -> some View {
+        HStack {
+            Image(systemName: granted ? "checkmark.circle.fill" : "exclamationmark.circle").foregroundStyle(granted ? .green : .orange).frame(width: 18)
+            VStack(alignment: .leading) {
+                Text(title)
+                Text(granted ? "Allowed" : detail).font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer()
+            if !granted {
+                Button("Request") { request(); refresh += 1 }
+                Button("Open Settings") { NSWorkspace.shared.open(settingsURL) }
             }
         }
     }

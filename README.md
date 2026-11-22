@@ -9,10 +9,10 @@
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-000?logo=apple)
 ![Swift 5.10](https://img.shields.io/badge/Swift-5.10-F05138?logo=swift&logoColor=white)
 ![SwiftUI](https://img.shields.io/badge/UI-SwiftUI-0A84FF)
-![Version](https://img.shields.io/badge/version-0.24.0-6E5BF7)
+![Version](https://img.shields.io/badge/version-0.25.0-6E5BF7)
 ![Universal](https://img.shields.io/badge/Apple%20silicon%20%2B%20Intel-universal-555)
 
-[**⬇ Download MacPilot 0.24.0 (.dmg)**](releases/MacPilot-0.24.0.dmg) · [What's new](#whats-new) · [Features](#features) · [Agent](#ai-agent) · [Telegram](#telegram-bot) · [Jobs](#scheduled-jobs) · [Job finder](#job-finder) · [Network](#network-speed-and-speed-test) · [Finder convert](#finder-convert-with-macpilot) · [Floating buddy](#-floating-buddy) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
+[**⬇ Download MacPilot 0.25.0 (.dmg)**](releases/MacPilot-0.25.0.dmg) · [What's new](#whats-new) · [Features](#features) · [Agent](#ai-agent) · [Telegram](#telegram-bot) · [Jobs](#scheduled-jobs) · [Job finder](#job-finder) · [Computer use](#computer-use) · [Network](#network-speed-and-speed-test) · [Finder convert](#finder-convert-with-macpilot) · [Floating buddy](#-floating-buddy) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
 
 <img src="docs/screenshots/mac/dashboard.png" width="860" alt="MacPilot dashboard with today's briefing">
 
@@ -21,6 +21,11 @@
 MacPilot brings Raycast-style speed and an AI assistant to everything you do on a Mac: ask Claude (Anthropic or Amazon Bedrock), OpenAI or a local Ollama model from anywhere, record and summarize meetings, dictate into any app, manage notes, tasks and your calendar, search your clipboard, convert files, and sync it all between your Macs — with a friendly floating buddy on your desktop and live status in the MacBook notch. **Bring your own keys** — there is no MacPilot account or server; data stays on your Mac and credentials in the Keychain. Cloud features send only the relevant content to the provider you choose.
 
 ## What's new
+
+**0.25** — computer use
+- 🌐 **The agent's own browser:** opens pages, reads them (text plus clickable elements), clicks, types, selects, scrolls, waits and takes screenshots — in a separate, non-persistent browser that never sees your Safari or Chrome logins. Sites outside your allowlist, form submits and password or payment fields always ask first.
+- 🖱 **Control Mac apps** through Accessibility: list apps and windows, read an app's controls, click, type, press keys and take screenshots, in apps you allow (others ask; System Settings, Keychain Access, password managers and the login window are never touched).
+- 🔒 **Pauses when the Mac is locked:** GUI and browser steps wait until you unlock; file and command steps continue. Queued tasks resume after a restart, and the job finder now keeps the same role in different regions.
 
 **0.24** — scheduled jobs and a job finder
 - ⏰ **Scheduled jobs** (Agent → Jobs): run the agent daily, weekly, every N hours or on a cron schedule in your time zone — e.g. a price watch that emails you when the price changes. Pause, resume, run now, edit; run history; missed runs catch up once after a restart.
@@ -148,7 +153,7 @@ Live ↓/↑ throughput sampled once a second from the network interface counter
 
 ## Install
 
-1. [Download `MacPilot-0.24.0.dmg`](releases/MacPilot-0.24.0.dmg) (universal: Apple silicon and Intel, macOS 14+).
+1. [Download `MacPilot-0.25.0.dmg`](releases/MacPilot-0.25.0.dmg) (universal: Apple silicon and Intel, macOS 14+).
 2. Open it and drag **MacPilot** into **Applications**.
 3. The build is ad-hoc signed (not notarized), so the first launch needs one approval: right-click MacPilot → **Open** → **Open**, or **System Settings → Privacy & Security → Open Anyway**. If macOS still refuses:
    ```bash
@@ -274,6 +279,30 @@ The **Agent** tab (also ⌥K → “Ask agent…”, or the menu bar → Agent�
 - **Restarts:** a step that was running when MacPilot quit is marked **Interrupted — needs review** and is never replayed; the task shows as failed and **Retry** starts it fresh.
 
 Telegram control and scheduled jobs are described below.
+
+## Computer use
+
+The agent can use its **own browser** and **your apps** — with the same approvals, audit log, kill switch and limits as everything else.
+
+**Permissions (Settings → Agent → Computer use)** — a checklist shows each one with **Request** and **Open Settings** buttons:
+1. **Accessibility** (System Settings → Privacy & Security → Accessibility → MacPilot): needed to read and press controls in apps.
+2. **Screen & System Audio Recording** (… → Screen & System Audio Recording → MacPilot): needed for screenshots. MacPilot's own windows are always left out.
+3. **Automation → Mail** is asked by macOS the first time a job emails through Mail.
+
+After granting a permission, quit and reopen MacPilot if the checklist still shows it as missing.
+
+**Browser tool** (`browser`): `open`, `read` (readable text and a numbered list of links, buttons and fields with ids like `e12`), `click`, `type`, `select`, `scroll`, `wait_for` a CSS selector, and `screenshot`. It runs in a WKWebView with a **non-persistent data store** — no cookies, logins or history from Safari or Chrome, nothing kept after MacPilot quits — and it never autofills passwords.
+- Sites on your **allowlist** (Settings → Agent; `example.com` includes its subdomains) are used freely for reading; anything else asks first.
+- **Always asks for the exact action:** submitting a form to another site, submitting a form with a password or payment field, and typing into a password or payment field.
+- Page content is **untrusted**: it's marked as data for the model, so instructions hidden in a page can't unlock other tools. Scheduled jobs may use the browser **read-only** (open, read, scroll, wait, screenshot) for JavaScript-heavy pages, and only on allowlisted sites.
+
+**GUI tool** (`gui`): `list_apps`, `list_windows`, `read_tree` (an app's accessibility tree, trimmed, with paths like `0/2/5`), `click` by path, `type`, `press_key` (e.g. `cmd+s`), `screenshot` of an app window or the whole screen, and `click_at` coordinates as a fallback for models that can see screenshots (Claude and OpenAI; screenshots are sent to the model, never stored).
+- Apps on your **allowlist** can be read freely; clicks and typing ask by default (medium risk). Other apps always ask.
+- **Never touched**, whatever the allowlist or an approval says: System Settings, Keychain Access, Passwords, 1Password, Bitwarden, LastPass, Dashlane, KeePassXC, the login window and security prompts. Password fields are never read or clicked.
+
+**Session awareness:** MacPilot watches for screen lock and sleep. While the Mac is locked or asleep, browser and GUI steps pause with “Session unavailable” (shown in the task and in Telegram `/status`) and continue on unlock; file and command steps keep going. Stop and the kill switch work while paused.
+
+**Restarts:** with **Start MacPilot at login** on (Settings → Agent or the menu bar), the agent and the Telegram bot start with your Mac. Queued tasks start again; a step that was running when MacPilot quit is marked **needs review** and never replayed.
 
 ## Telegram bot
 

@@ -37,6 +37,8 @@ struct AgentCapabilities: Equatable {
     var toolCalling: Bool
     var parallelToolCalls: Bool
     var isLocal: Bool
+    /// Can look at screenshots (needed for coordinate clicks).
+    var vision = false
 }
 
 /// Provider errors, normalized so the loop can explain them the same way.
@@ -131,7 +133,7 @@ struct AnthropicAgentAdapter: AgentModelAdapter {
     var backend: AnthropicClient.Backend
     var model: String
     var provider: AIProviderID { backend == .bedrock ? .bedrock : .anthropic }
-    var capabilities: AgentCapabilities { AgentCapabilities(toolCalling: true, parallelToolCalls: true, isLocal: false) }
+    var capabilities: AgentCapabilities { AgentCapabilities(toolCalling: true, parallelToolCalls: true, isLocal: false, vision: true) }
 
     func body(system: String, messages: [AgentMessage], tools: [AgentToolSpec]) -> [String: Any] {
         var wire: [[String: Any]] = []
@@ -149,8 +151,12 @@ struct AnthropicAgentAdapter: AgentModelAdapter {
                 }
             case .toolResults(let results):
                 // All results of one turn go back in a single user message.
-                wire.append(["role": "user", "content": results.map { item in
-                    ["type": "tool_result", "tool_use_id": item.call.id, "content": item.result.content, "is_error": item.result.isError]
+                wire.append(["role": "user", "content": results.map { item -> [String: Any] in
+                    var content: [[String: Any]] = [["type": "text", "text": item.result.content.isEmpty ? "(empty)" : item.result.content]]
+                    if let image = item.result.image {
+                        content.append(["type": "image", "source": ["type": "base64", "media_type": "image/jpeg", "data": image.base64EncodedString()]])
+                    }
+                    return ["type": "tool_result", "tool_use_id": item.call.id, "content": content, "is_error": item.result.isError]
                 }])
             }
         }
@@ -201,7 +207,7 @@ struct AnthropicAgentAdapter: AgentModelAdapter {
 struct OpenAIAgentAdapter: AgentModelAdapter {
     var model: String
     var provider: AIProviderID { .openAI }
-    var capabilities: AgentCapabilities { AgentCapabilities(toolCalling: true, parallelToolCalls: true, isLocal: false) }
+    var capabilities: AgentCapabilities { AgentCapabilities(toolCalling: true, parallelToolCalls: true, isLocal: false, vision: true) }
 
     func body(system: String, messages: [AgentMessage], tools: [AgentToolSpec]) -> [String: Any] {
         var wire: [[String: Any]] = [["role": "system", "content": system]]
@@ -217,6 +223,12 @@ struct OpenAIAgentAdapter: AgentModelAdapter {
             case .toolResults(let results):
                 for item in results {
                     wire.append(["role": "tool", "tool_call_id": item.call.id, "content": (item.result.isError ? "ERROR: " : "") + item.result.content])
+                }
+                // Tool messages can't carry images, so screenshots follow as one user message.
+                let images = results.compactMap(\.result.image)
+                if !images.isEmpty {
+                    wire.append(["role": "user", "content": [["type": "text", "text": "Screenshot(s) from the tool results above:"]]
+                        + images.map { ["type": "image_url", "image_url": ["url": "data:image/jpeg;base64," + $0.base64EncodedString()]] }])
                 }
             }
         }

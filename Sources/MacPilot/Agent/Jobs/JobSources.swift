@@ -234,7 +234,8 @@ enum JobFinder {
 
     static func titleKey(_ posting: JobPosting) -> String {
         func clean(_ text: String) -> String { text.lowercased().filter { $0.isLetter || $0.isNumber } }
-        return "t:" + clean(posting.company) + "|" + clean(posting.title)
+        // Location is part of the key, so the same role in another region isn't merged.
+        return "t:" + clean(posting.company) + "|" + clean(posting.title) + "|" + clean(posting.location)
     }
 
     static func keys(_ posting: JobPosting) -> [String] { ["u:" + canonicalURL(posting.url), titleKey(posting)] }

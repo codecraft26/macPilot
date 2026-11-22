@@ -83,6 +83,8 @@ final class AgentTask {
     var allowedToolsRaw: String = ""
     /// Runs built-in code (the job finder) instead of the model loop; can't be resumed after a restart.
     var isNative: Bool = false
+    /// Set while a GUI or browser step waits for the screen to be unlocked.
+    var pausedReason: String = ""
 
     var allowedTools: Set<String> {
         Set(allowedToolsRaw.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty })
@@ -203,6 +205,10 @@ struct AgentSettings: Equatable {
     var localOnly = false
     var approveMedium = true
     var commandAllowlist: [String] = AgentSettings.defaultAllowlist
+    /// Sites the agent's browser may use without asking ("example.com" includes subdomains).
+    var browserAllowlist: [String] = []
+    /// Apps (bundle IDs) the agent may control; others need approval, and some never.
+    var guiAllowlist: [String] = []
     var commandTimeout: TimeInterval = 60
     var outputCap = 32_000
 
@@ -214,6 +220,7 @@ struct AgentSettings: Equatable {
         static let steps = "agent.maxSteps", seconds = "agent.maxSeconds", tokens = "agent.maxTokens"
         static let taskCap = "agent.taskCostCap", dailyCap = "agent.dailyCostCap", localOnly = "agent.localOnly"
         static let approveMedium = "agent.approveMedium", allowlist = "agent.commandAllowlist", timeout = "agent.commandTimeout"
+        static let browser = "agent.browserAllowlist", gui = "agent.guiAllowlist"
     }
 
     static func load(_ defaults: UserDefaults = .standard) -> AgentSettings {
@@ -229,6 +236,8 @@ struct AgentSettings: Equatable {
         settings.localOnly = defaults.bool(forKey: Keys.localOnly)
         if defaults.object(forKey: Keys.approveMedium) != nil { settings.approveMedium = defaults.bool(forKey: Keys.approveMedium) }
         if let list = defaults.stringArray(forKey: Keys.allowlist) { settings.commandAllowlist = list }
+        settings.browserAllowlist = defaults.stringArray(forKey: Keys.browser) ?? []
+        settings.guiAllowlist = defaults.stringArray(forKey: Keys.gui) ?? []
         if defaults.object(forKey: Keys.timeout) != nil { settings.commandTimeout = min(600, max(5, defaults.double(forKey: Keys.timeout))) }
         return settings
     }
@@ -245,6 +254,8 @@ struct AgentSettings: Equatable {
         defaults.set(localOnly, forKey: Keys.localOnly)
         defaults.set(approveMedium, forKey: Keys.approveMedium)
         defaults.set(commandAllowlist, forKey: Keys.allowlist)
+        defaults.set(browserAllowlist, forKey: Keys.browser)
+        defaults.set(guiAllowlist, forKey: Keys.gui)
         defaults.set(commandTimeout, forKey: Keys.timeout)
     }
 }
