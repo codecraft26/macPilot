@@ -76,6 +76,13 @@ struct MenuBarContent: View {
         Button("AI Assistant") {
             WindowManager.shared.showDashboard(section: .assistant)
         }
+        let agent = AgentEngine.shared
+        if agent.isHalted {
+            Button("Agent: Resume (kill switch is on)") { agent.resume() }
+        } else {
+            Button(agent.isBusy ? "⏹ Agent: Stop Everything (kill switch)" : "Agent: Kill Switch") { agent.killSwitch() }
+        }
+        Button("Agent…") { WindowManager.shared.open(.agent, action: .askAgent("")) }
 
         Divider()
 

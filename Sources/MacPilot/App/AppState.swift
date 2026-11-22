@@ -3,7 +3,7 @@ import Observation
 
 /// The ten top-level areas from the PRD navigation (section 7).
 enum AppSection: String, CaseIterable, Identifiable, Hashable {
-    case dashboard, assistant, voice, calendar, notes, tasks, clipboard, tools, developer, automations, settings
+    case dashboard, assistant, agent, voice, calendar, notes, tasks, clipboard, tools, developer, automations, settings
 
     var id: String { rawValue }
 
@@ -11,6 +11,7 @@ enum AppSection: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .dashboard: return "Dashboard"
         case .assistant: return "AI Assistant"
+        case .agent: return "Agent"
         case .voice: return "Voice & Transcription"
         case .calendar: return "Calendar & Meetings"
         case .notes: return "Notes & Knowledge"
@@ -27,6 +28,7 @@ enum AppSection: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .dashboard: return "square.grid.2x2"
         case .assistant: return "sparkles"
+        case .agent: return "cpu"
         case .voice: return "waveform"
         case .calendar: return "calendar"
         case .notes: return "note.text"
@@ -48,6 +50,7 @@ enum PendingAction: Equatable {
     case openRecording(UUID)
     case quickAddEvent(String)
     case openTool(String)
+    case askAgent(String)
 }
 
 @Observable

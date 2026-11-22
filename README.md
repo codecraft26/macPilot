@@ -9,10 +9,10 @@
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-000?logo=apple)
 ![Swift 5.10](https://img.shields.io/badge/Swift-5.10-F05138?logo=swift&logoColor=white)
 ![SwiftUI](https://img.shields.io/badge/UI-SwiftUI-0A84FF)
-![Version](https://img.shields.io/badge/version-0.21.0-6E5BF7)
+![Version](https://img.shields.io/badge/version-0.22.0-6E5BF7)
 ![Universal](https://img.shields.io/badge/Apple%20silicon%20%2B%20Intel-universal-555)
 
-[**⬇ Download MacPilot 0.21.0 (.dmg)**](releases/MacPilot-0.21.0.dmg) · [What's new](#whats-new) · [Features](#features) · [Network](#network-speed-and-speed-test) · [Finder convert](#finder-convert-with-macpilot) · [Floating buddy](#-floating-buddy) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
+[**⬇ Download MacPilot 0.22.0 (.dmg)**](releases/MacPilot-0.22.0.dmg) · [What's new](#whats-new) · [Features](#features) · [Agent](#ai-agent) · [Network](#network-speed-and-speed-test) · [Finder convert](#finder-convert-with-macpilot) · [Floating buddy](#-floating-buddy) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
 
 <img src="docs/screenshots/mac/dashboard.png" width="860" alt="MacPilot dashboard with today's briefing">
 
@@ -21,6 +21,11 @@
 MacPilot brings Raycast-style speed and an AI assistant to everything you do on a Mac: ask Claude (Anthropic or Amazon Bedrock), OpenAI or a local Ollama model from anywhere, record and summarize meetings, dictate into any app, manage notes, tasks and your calendar, search your clipboard, convert files, and sync it all between your Macs — with a friendly floating buddy on your desktop and live status in the MacBook notch. **Bring your own keys** — there is no MacPilot account or server; data stays on your Mac and credentials in the Keychain. Cloud features send only the relevant content to the provider you choose.
 
 ## What's new
+
+**0.22** — the AI Agent (core)
+- 🤖 **Agent tab:** ask for multi-step work ("find the TODOs in my project and collect them in TODO.md", "run the tests and tell me what fails"). The agent reads, searches and writes files in **workspace folders you choose**, runs **allowlisted commands**, and checks system status, with a live timeline of every tool call.
+- 🛡 **Policy outside the AI:** reads run freely; writes and commands ask first (configurable); deletes always ask for the exact path. Approvals are one-time, tied to the exact action and task, and expire after 10 minutes. Secrets are redacted from the database and logs.
+- ⏹ **Stop, Retry and a kill switch** in the menu bar that halts the running command and every future tool call within two seconds. Per-task and daily cost caps, step/time/token limits, and a **local-only mode** that blocks cloud providers. ⌥K → “Ask agent…”.
 
 **0.21** — network speed, Finder convert, meetings that record themselves
 - 📶 **Live network speed:** ↓/↑ throughput in the notch (optional compact readout, plus a 1-minute graph when expanded), a dashboard card with a graph, interface and local IP, and an optional menu bar readout.
@@ -133,7 +138,7 @@ Live ↓/↑ throughput sampled once a second from the network interface counter
 
 ## Install
 
-1. [Download `MacPilot-0.21.0.dmg`](releases/MacPilot-0.21.0.dmg) (universal: Apple silicon and Intel, macOS 14+).
+1. [Download `MacPilot-0.22.0.dmg`](releases/MacPilot-0.22.0.dmg) (universal: Apple silicon and Intel, macOS 14+).
 2. Open it and drag **MacPilot** into **Applications**.
 3. The build is ad-hoc signed (not notarized), so the first launch needs one approval: right-click MacPilot → **Open** → **Open**, or **System Settings → Privacy & Security → Open Anyway**. If macOS still refuses:
    ```bash
@@ -233,6 +238,32 @@ SIGN_IDENTITY="Apple Development: Your Name (TEAMID)" ./scripts/build-app.sh
 | ⌥⇧S | Screenshot an area: read its text (OCR), ask AI, copy, pin on screen, save |
 
 All shortcuts can be changed in **Settings → Shortcuts**. Some macOS versions refuse global shortcuts that use only ⌥ (or ⌥⇧); if that happens, Settings shows the error and you can add ⌃ or ⌘.
+
+## AI Agent
+
+The **Agent** tab (also ⌥K → “Ask agent…”, or the menu bar → Agent…) runs a task as a loop: the model plans, MacPilot checks the requested action against its own policy, asks you when needed, runs it, shows the result to the model, and repeats until the task is done. Everything runs inside the app in Swift — no helper processes or Python.
+
+**Tools**
+
+| Tool | What it does | Risk |
+|---|---|---|
+| `list_files`, `read_file`, `search_files` | Browse, read (64 KB max) and grep files in your workspaces | Low — runs without asking |
+| `write_file` | Create or overwrite a text file; the approval shows a new-file preview or a line diff | Medium — asks by default |
+| `run_command` | One allowlisted program with plain arguments (no shell, pipes, redirects or variables), in a workspace folder, with a clean environment, a timeout and capped output | Medium — asks by default |
+| `delete_file` | Moves a file or folder to the Trash | High — always asks, for that exact path |
+| `system_status` | macOS version, uptime, CPU load, memory, free disk, thermal state | Low |
+
+**Safety rules (enforced by MacPilot, not the model)**
+- **Workspaces:** set in **Settings → Agent → Workspaces**. Every path is resolved (`..` and symlinks included) and anything outside those folders is refused, also right before a write or delete runs.
+- **Commands:** only programs on the allowlist (editable; defaults include `ls`, `cat`, `grep`, `find`, `git`, `swift`, `make`, `npm`, `python3`…). `sudo`, `rm`, shells, `osascript`, `curl`/`ssh` and similar are never allowed, nor `find -exec/-delete` or `git push/reset/clean`. Commands get only `PATH`, `HOME`, locale and temp variables — never your API keys.
+- **Approvals:** the drawer at the bottom of the task shows the exact command, path or diff. **Approve once** unlocks only that action (a SHA-256 of the normalized action), for that task, within 10 minutes; a used, expired or changed approval is rejected. There is no “approve all” for high-risk actions. **Deny** runs nothing and tells the model.
+- **Limits:** max steps, time and tokens per task, plus per-task and daily cost caps (estimated from token counts) in **Settings → Agent**.
+- **Providers:** the agent uses exactly the provider and model chosen in Settings → Agent — Claude (Anthropic API or Amazon Bedrock), OpenAI or Ollama (all with native tool calling). If it fails, the task fails; it never switches provider or model on its own. **Local-only mode** blocks every cloud provider before any request is made.
+- **Stop and kill switch:** **Stop** on a task cancels the model call, kills its command (and anything it started) and denies a pending approval. **Agent: Kill Switch** in the menu bar does that for everything and blocks further model and tool calls until you choose **Resume**.
+- **Audit log and privacy:** tasks, tool calls, approvals and events are stored in MacPilot's local database with secrets (API keys, tokens, passwords, private keys) redacted; tool output is redacted before it's stored or sent to the model.
+- **Restarts:** a step that was running when MacPilot quit is marked **Interrupted — needs review** and is never replayed; the task shows as failed and **Retry** starts it fresh.
+
+Not in this release: Telegram control and approvals (0.23) and scheduled jobs (0.24).
 
 ## Network speed and speed test
 

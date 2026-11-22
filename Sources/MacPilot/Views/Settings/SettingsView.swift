@@ -9,6 +9,8 @@ struct SettingsView: View {
                 .tabItem { Label("Providers", systemImage: "key") }
             RoutingSettingsView()
                 .tabItem { Label("Routing", systemImage: "arrow.triangle.branch") }
+            AgentSettingsView()
+                .tabItem { Label("Agent", systemImage: "cpu") }
             DictationSettingsView()
                 .tabItem { Label("Dictation", systemImage: "mic.badge.plus") }
             RecordingSettingsView()

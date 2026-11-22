@@ -12,7 +12,11 @@ enum Persistence {
         Recording.self,
         ClipboardItem.self,
         AutomationWorkflow.self,
-        AutomationRun.self
+        AutomationRun.self,
+        AgentTask.self,
+        AgentToolAction.self,
+        AgentApproval.self,
+        AgentEvent.self
     ])
 
     nonisolated static let storeDirectory: URL = {

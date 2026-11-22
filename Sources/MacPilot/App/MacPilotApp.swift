@@ -45,6 +45,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         LaunchAtLogin.setUpOnce()
         MeetingAutoRecord.shared.start()
         NetworkMonitor.shared.start()
+        AgentEngine.shared.recoverAfterLaunch()
         // Finder → right-click → Quick Actions / Services → "Convert with MacPilot".
         NSApp.servicesProvider = FinderServiceProvider.shared
         NSUpdateDynamicServices()

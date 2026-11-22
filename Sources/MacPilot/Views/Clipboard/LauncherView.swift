@@ -94,6 +94,9 @@ enum LauncherCatalog {
         if !trimmed.isEmpty {
             results.append(LauncherItem(id: "ask", title: "Ask AI: \(trimmed)", icon: .system("sparkles"), section: "AI",
                                         primary: { windows.askQuickAssistant(trimmed) }))
+            results.append(LauncherItem(id: "agent.ask", title: "Ask agent: \(trimmed)", subtitle: "Runs tools in your workspaces; asks before writes and commands",
+                                        icon: .system("cpu"), section: "Agent",
+                                        primary: { windows.open(.agent, action: .askAgent(trimmed)) }))
         }
 
         var commands: [LauncherItem] = [
@@ -158,6 +161,11 @@ enum LauncherCatalog {
                          icon: .system("icloud"), section: "MacPilot", primary: {
                              if ICloudSync.isEnabled { ICloudSync.shared.syncNow() } else { windows.open(.settings) }
                          }),
+            LauncherItem(id: "agent.open", title: "Ask agent…", subtitle: "Type a request after opening, or type it here first",
+                         icon: .system("cpu"), section: "Agent", primary: { windows.open(.agent, action: .askAgent("")) }),
+            LauncherItem(id: "agent.kill", title: AgentEngine.shared.isHalted ? "Agent: resume" : "Agent: kill switch (stop everything)",
+                         icon: .system("hand.raised.fill"), section: "Agent",
+                         primary: { if AgentEngine.shared.isHalted { AgentEngine.shared.resume() } else { AgentEngine.shared.killSwitch() } }),
             LauncherItem(id: "cmd.speedtest", title: SpeedTest.shared.isRunning ? "Speed test running…" : "Speed test",
                          subtitle: SpeedTest.shared.latest.map { "Last: \($0.summary)" } ?? "Download, upload and latency (networkQuality)",
                          icon: .system("speedometer"), section: "Network",
