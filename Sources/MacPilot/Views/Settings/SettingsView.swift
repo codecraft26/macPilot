@@ -13,6 +13,8 @@ struct SettingsView: View {
                 .tabItem { Label("Agent", systemImage: "cpu") }
             MemorySettingsView()
                 .tabItem { Label("Memory", systemImage: "brain") }
+            FocusSettingsView()
+                .tabItem { Label("Focus", systemImage: "moon") }
             DictationSettingsView()
                 .tabItem { Label("Dictation", systemImage: "mic.badge.plus") }
             RecordingSettingsView()

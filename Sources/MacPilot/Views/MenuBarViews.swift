@@ -15,7 +15,14 @@ struct MenuBarLabel: View {
             let network = NetworkMonitor.shared
             HStack(spacing: 4) {
                 Image(nsImage: MenuBarIcon.idle)
+                if FocusController.shared.isActive { Image(systemName: "moon.fill") }
                 Text("↓\(NetworkMath.compact(network.down)) ↑\(NetworkMath.compact(network.up))").monospacedDigit()
+            }
+        } else if FocusController.shared.isActive {
+            // Focus indicator: the reason is in the menu.
+            HStack(spacing: 2) {
+                Image(nsImage: MenuBarIcon.idle)
+                Image(systemName: "moon.fill")
             }
         } else {
             Image(nsImage: MenuBarIcon.idle)
@@ -83,6 +90,7 @@ struct MenuBarContent: View {
             Button(agent.isBusy ? "⏹ Agent: Stop Everything (kill switch)" : "Agent: Kill Switch") { agent.killSwitch() }
         }
         Button("Agent…") { WindowManager.shared.open(.agent, action: .askAgent("")) }
+        FocusMenuItems()
         if MemorySettings.load().enabled {
             Toggle("Pause Memory Capture", isOn: Binding(get: { MemoryCapture.shared.isPaused }, set: { MemoryCapture.shared.isPaused = $0 }))
         }
@@ -145,5 +153,24 @@ struct MenuBarContent: View {
 
     private func shortcutLabel(_ action: ShortcutAction) -> String {
         shortcuts.hotKey(for: action)?.displayString ?? ""
+    }
+}
+
+/// Focus status and controls in the menu bar menu.
+struct FocusMenuItems: View {
+    private let focus = FocusController.shared
+
+    var body: some View {
+        Divider()
+        if let reason = focus.active {
+            Text("🌙 Focus: \(reason.label)")
+            Button("Not Now (pause automatic Focus for an hour)") { Task { await focus.notNow() } }
+            if case .manual = reason { Button("End Focus") { Task { await focus.end() } } }
+        } else {
+            Text("Focus: \(focus.statusText)")
+            Button("Focus for 25 Minutes") { Task { await focus.focus(minutes: 25) } }
+            Button("Focus for 50 Minutes") { Task { await focus.focus(minutes: 50) } }
+        }
+        Divider()
     }
 }

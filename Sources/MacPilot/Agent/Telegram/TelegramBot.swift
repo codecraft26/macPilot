@@ -210,6 +210,7 @@ final class TelegramBot {
         case "/jobs": await listJobs(chat)
         case "/newjob": await createJob(argument, update: update)
         case "/remind": await createReminder(argument, update: update)
+        case "/focus": await send(chat, await focusCommand(argument))
         case "/loops": await send(chat, MemorySettings.load().enabled || !OpenLoops.shared.store.loops().isEmpty
                                   ? "Open loops (last 7 days):\n" + OpenLoops.shared.summary(days: 7)
                                   : "Memory is off on the Mac (Settings → Memory), so there are no open loops yet.")
@@ -242,6 +243,7 @@ final class TelegramBot {
     /status — active task, queue, connection, screen lock
     /tasks — recent tasks
     /jobs — scheduled jobs (pause, resume, run now)
+    /focus [25|50|off] — Focus status, start or end it
     /loops — what you promised or were asked this week
     /remind <words> — e.g. “/remind check PR reviews when I open Xcode”
     /newjob <words> — e.g. “/newjob find remote iOS jobs every weekday at 9 email me at me@example.com”
@@ -647,6 +649,29 @@ final class TelegramBot {
         let reminder = reminders.add(draft, source: words)
         engine.audit("Telegram: user \(update.userID) created reminder \(reminder.shortID)")
         await send(update.chatID, "Saved: \(draft.confirmation)\nID \(reminder.shortID). Manage reminders on the Mac in Agent → Reminders.")
+    }
+
+    // MARK: Focus
+
+    var focus: FocusController = .shared
+
+    func focusCommand(_ argument: String) async -> String {
+        switch argument.lowercased().trimmingCharacters(in: .whitespaces) {
+        case "off", "end", "stop", "not now":
+            await focus.notNow()
+            engine.audit("Telegram: Focus ended")
+            return "Focus is off. Automatic Focus is paused for an hour."
+        case let value where Int(value) != nil:
+            let minutes = min(240, max(5, Int(value) ?? 25))
+            await focus.focus(minutes: minutes)
+            engine.audit("Telegram: Focus for \(minutes) min")
+            return "Focus on for \(minutes) minutes."
+        default:
+            var text = "Focus: \(focus.statusText)"
+            if !focus.held.isEmpty { text += "\n\(focus.held.count) MacPilot alert\(focus.held.count == 1 ? "" : "s") held until it ends." }
+            if !focus.missingShortcuts.isEmpty { text += "\nmacOS Focus shortcuts aren't set up on the Mac, so only MacPilot's own alerts are held." }
+            return text + "\nUse /focus 25, /focus 50 or /focus off."
+        }
     }
 
     // MARK: Sending

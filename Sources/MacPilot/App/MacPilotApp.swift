@@ -60,6 +60,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         MemoryCapture.shared.start()
         OpenLoops.shared.start()
         MemoryMCPServer.shared.startIfEnabled()
+        FocusController.shared.start()
         // Finder → right-click → Quick Actions / Services → "Convert with MacPilot".
         NSApp.servicesProvider = FinderServiceProvider.shared
         NSUpdateDynamicServices()

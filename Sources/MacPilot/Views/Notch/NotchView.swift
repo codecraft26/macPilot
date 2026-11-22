@@ -171,6 +171,7 @@ private struct ExpandedNotch: View {
             if NowPlaying.shared.track != nil { MediaCard() }
             if !NotchShelf.shared.items.isEmpty || NotchShelf.shared.isDropTargeted { ShelfCard() }
             if UserDefaults.standard.bool(forKey: PrefKey.notchNetworkCard) { NotchNetworkCard() }
+            if FocusController.shared.isActive { NotchFocusCard() }
             quickActions
         }
         .foregroundStyle(.white)
@@ -296,6 +297,12 @@ private struct ExpandedNotch: View {
             QuickNotchAction(systemImage: "doc.on.clipboard", label: "Clipboard", color: .teal) { WindowManager.shared.toggleClipboardPanel() }
             QuickNotchAction(systemImage: "command", label: "Launcher", color: DS.indigo) { WindowManager.shared.toggleLauncher() }
             QuickNotchAction(systemImage: "square.and.pencil", label: "Note", color: .orange) { WindowManager.shared.open(.notes, action: .newNote) }
+            QuickNotchAction(systemImage: FocusController.shared.isActive ? "moon.zzz.fill" : "moon.fill",
+                             label: FocusController.shared.isActive ? "Not now" : "Focus 25", color: .indigo) {
+                Task {
+                    if FocusController.shared.isActive { await FocusController.shared.notNow() } else { await FocusController.shared.focus(minutes: 25) }
+                }
+            }
         }
     }
 }
@@ -557,6 +564,27 @@ private struct NotchNetworkCard: View {
                 Task { await SpeedTest.shared.run() }
             }
             .disabled(SpeedTest.shared.isRunning)
+        }
+        .frame(height: 38)
+        .notchCard()
+    }
+}
+
+/// Why Focus is on, with Not now and a 50-minute option.
+private struct NotchFocusCard: View {
+    private let focus = FocusController.shared
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "moon.fill").font(.title3).foregroundStyle(.indigo).frame(width: 26)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(focus.active?.label ?? "Focus").font(.headline).lineLimit(1)
+                Text(focus.held.isEmpty ? "MacPilot alerts are held" : "\(focus.held.count) alert\(focus.held.count == 1 ? "" : "s") held")
+                    .font(.caption).foregroundStyle(.white.opacity(0.7))
+            }
+            Spacer()
+            NotchButton(systemImage: "plus", label: "Focus for 50 minutes") { Task { await focus.focus(minutes: 50) } }
+            NotchButton(systemImage: "xmark", label: "Not now") { Task { await focus.notNow() } }
         }
         .frame(height: 38)
         .notchCard()

@@ -168,6 +168,7 @@ final class NotchController {
         if NowPlaying.shared.track != nil { count += 1 }
         if !NotchShelf.shared.items.isEmpty || NotchShelf.shared.isDropTargeted { count += 1 }
         if UserDefaults.standard.bool(forKey: PrefKey.notchNetworkCard) { count += 1 }
+        if FocusController.shared.isActive { count += 1 }
         return count
     }
 

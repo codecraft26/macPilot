@@ -173,6 +173,12 @@ enum LauncherCatalog {
                          icon: .system("icloud"), section: "MacPilot", primary: {
                              if ICloudSync.isEnabled { ICloudSync.shared.syncNow() } else { windows.open(.settings) }
                          }),
+            LauncherItem(id: "focus.25", title: "Focus for 25 min", subtitle: "Silences notifications (via your Focus shortcuts) and holds MacPilot alerts",
+                         icon: .system("moon.fill"), section: "Focus", primary: { Task { await FocusController.shared.focus(minutes: 25) } }),
+            LauncherItem(id: "focus.50", title: "Focus for 50 min", icon: .system("moon.fill"), section: "Focus",
+                         primary: { Task { await FocusController.shared.focus(minutes: 50) } }),
+            LauncherItem(id: "focus.off", title: FocusController.shared.isActive ? "Not now — end Focus (\(FocusController.shared.statusText))" : "End Focus",
+                         icon: .system("moon.zzz"), section: "Focus", primary: { Task { await FocusController.shared.notNow() } }),
             LauncherItem(id: "remind.new", title: "Remind me…", subtitle: "Type e.g. “remind me to check PRs when I open Xcode”",
                          icon: .system("bell.badge"), section: "Reminders",
                          primary: { AgentTabState.shared.tab = "Reminders"; windows.showDashboard(section: .agent) }),
