@@ -274,6 +274,8 @@ final class ReminderEngine: NSObject {
     // MARK: Delivery
 
     static func defaultDeliver(_ reminder: SmartReminder, context: String) {
+        // During Focus, reminders are held and summarized when it ends.
+        guard FocusController.shared.allow("Reminder: \(reminder.text)", urgent: false) else { return }
         NotchController.shared.peek(NotchPeek(systemImage: reminder.trigger.systemImage, tint: .blue, title: reminder.text, subtitle: context,
                                               duration: 10, buttonTitle: "Done", buttonAction: .reminderDone(reminder.uid)))
         if NotificationService.isAvailable {

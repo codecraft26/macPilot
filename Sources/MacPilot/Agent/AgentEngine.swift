@@ -378,7 +378,7 @@ final class AgentEngine {
             save()
             emit(.approvalRequested(approvalID: approval.uid, taskID: task.uid))
             NotchController.shared.peek(NotchPeek(systemImage: "hand.raised.fill", tint: .orange, title: "Agent needs your approval",
-                                                  subtitle: action.summary, duration: 10))
+                                                  subtitle: action.summary, duration: 10, urgent: true))
             let decision = await waitForDecision(approval)
             pendingApprovalID = nil
             emit(.approvalResolved(approvalID: approval.uid, decision: decision))

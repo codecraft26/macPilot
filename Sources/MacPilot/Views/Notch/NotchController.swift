@@ -51,6 +51,8 @@ struct NotchPeek: Equatable, Identifiable {
     /// An extra button on the right of the banner (e.g. "Stop" for an automatic recording).
     var buttonTitle: String?
     var buttonAction: NotchPeekAction?
+    /// Urgent alerts still show during Focus; others are held for the summary.
+    var urgent = false
 
     static func == (lhs: NotchPeek, rhs: NotchPeek) -> Bool { lhs.id == rhs.id }
 }
@@ -171,6 +173,7 @@ final class NotchController {
 
     /// Shows a message for a few seconds (only when the notch is enabled).
     func peek(_ message: NotchPeek) {
+        guard FocusController.shared.allow(message.title, urgent: message.urgent) else { return }
         guard Self.isEnabled, panel != nil else { return }
         peekTask?.cancel()
         withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) { peekMessage = message }
