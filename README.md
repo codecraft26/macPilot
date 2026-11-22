@@ -9,10 +9,10 @@
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-000?logo=apple)
 ![Swift 5.10](https://img.shields.io/badge/Swift-5.10-F05138?logo=swift&logoColor=white)
 ![SwiftUI](https://img.shields.io/badge/UI-SwiftUI-0A84FF)
-![Version](https://img.shields.io/badge/version-0.27.0-6E5BF7)
+![Version](https://img.shields.io/badge/version-0.28.0-6E5BF7)
 ![Universal](https://img.shields.io/badge/Apple%20silicon%20%2B%20Intel-universal-555)
 
-[**⬇ Download MacPilot 0.27.0 (.dmg)**](releases/MacPilot-0.27.0.dmg) · [What's new](#whats-new) · [Features](#features) · [Agent](#ai-agent) · [Telegram](#telegram-bot) · [Jobs](#scheduled-jobs) · [Job finder](#job-finder) · [Computer use](#computer-use) · [Smart reminders](#smart-reminders) · [Memory](#memory-and-open-loops) · [Network](#network-speed-and-speed-test) · [Finder convert](#finder-convert-with-macpilot) · [Floating buddy](#-floating-buddy) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
+[**⬇ Download MacPilot 0.28.0 (.dmg)**](releases/MacPilot-0.28.0.dmg) · [What's new](#whats-new) · [Features](#features) · [Agent](#ai-agent) · [Telegram](#telegram-bot) · [Jobs](#scheduled-jobs) · [Job finder](#job-finder) · [Computer use](#computer-use) · [Smart reminders](#smart-reminders) · [Memory](#memory-and-open-loops) · [Focus](#smart-do-not-disturb) · [Search](#universal-search) · [Network](#network-speed-and-speed-test) · [Finder convert](#finder-convert-with-macpilot) · [Floating buddy](#-floating-buddy) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
 
 <img src="docs/screenshots/mac/dashboard.png" width="860" alt="MacPilot dashboard with today's briefing">
 
@@ -21,6 +21,10 @@
 MacPilot brings Raycast-style speed and an AI assistant to everything you do on a Mac: ask Claude (Anthropic or Amazon Bedrock), OpenAI or a local Ollama model from anywhere, record and summarize meetings, dictate into any app, manage notes, tasks and your calendar, search your clipboard, convert files, and sync it all between your Macs — with a friendly floating buddy on your desktop and live status in the MacBook notch. **Bring your own keys** — there is no MacPilot account or server; data stays on your Mac and credentials in the Keychain. Cloud features send only the relevant content to the provider you choose.
 
 ## What's new
+
+**0.28** — Smart Do Not Disturb and universal search
+- 🌙 **Smart Do Not Disturb:** Focus turns on by itself in meetings, on calls, while you share your screen, or during deep work in Xcode (or apps you pick) — and back off afterwards, with a grace period between back-to-back meetings. MacPilot holds its own alerts and gives you one summary afterwards. “Focus for 25/50 min” and **Not now** are one tap away in the menu bar, the notch, ⌥K and Telegram `/focus`.
+- 🔎 **Universal search (⌥F):** one box for notes, meeting transcripts, memory and open loops, snippets, clipboard, tasks, reminders, agent history, files, Mail, Gmail and your calendar — with filters like `in:mail from:sam after:7d`, quick actions, and **Tab** for an answer with citations. Also from ⌥K by typing `?` or `/`.
 
 **0.27** — memory and open loops (opt-in)
 - 🧠 **Memory, off by default:** turn it on and pick apps (Mail, Messages, Slack, Notes…). MacPilot remembers the visible text of those windows — read locally through Accessibility, never screenshots — in a searchable database on your Mac, with retention, “Forget app” and “Delete everything”.
@@ -163,7 +167,7 @@ Live ↓/↑ throughput sampled once a second from the network interface counter
 
 ## Install
 
-1. [Download `MacPilot-0.27.0.dmg`](releases/MacPilot-0.27.0.dmg) (universal: Apple silicon and Intel, macOS 14+).
+1. [Download `MacPilot-0.28.0.dmg`](releases/MacPilot-0.28.0.dmg) (universal: Apple silicon and Intel, macOS 14+).
 2. Open it and drag **MacPilot** into **Applications**.
 3. The build is ad-hoc signed (not notarized), so the first launch needs one approval: right-click MacPilot → **Open** → **Open**, or **System Settings → Privacy & Security → Open Anyway**. If macOS still refuses:
    ```bash
@@ -261,6 +265,7 @@ SIGN_IDENTITY="Apple Development: Your Name (TEAMID)" ./scripts/build-app.sh
 | ⌥⇧E | AI on selected text: fix, rewrite, shorten, change tone, translate, then replace it |
 | ⌥⇧A | Ask my Mac: answers from your meetings, notes, tasks and clipboard, with sources |
 | ⌥⇧S | Screenshot an area: read its text (OCR), ask AI, copy, pin on screen, save |
+| ⌥F | Universal search: notes, meetings, memory, files, mail, calendar… (Tab to ask) |
 
 All shortcuts can be changed in **Settings → Shortcuts**. Some macOS versions refuse global shortcuts that use only ⌥ (or ⌥⇧); if that happens, Settings shows the error and you can add ⌃ or ⌘.
 
@@ -360,6 +365,35 @@ After granting a permission, quit and reopen MacPilot if the checklist still sho
 - **stdio:** clients that launch servers run `/Applications/MacPilot.app/Contents/MacOS/MacPilot --mcp-stdio` (Settings shows a copy-paste config for Claude Desktop and others).
 - **Streamable HTTP:** `http://127.0.0.1:39217/mcp`, bound to the loopback interface only (other machines can't connect) and requiring `Authorization: Bearer <token>`. The token lives in the Keychain and can be rotated in Settings; browser requests from other origins are refused. For Claude Code, Settings shows a ready `claude mcp add --transport http …` command.
 - What a connected client does with the results is up to that client.
+
+## Smart Do Not Disturb
+
+**Settings → Focus.** Each trigger can be turned off:
+
+| Trigger | How it's detected |
+|---|---|
+| In a meeting | A calendar meeting (attendees or a video link) is in progress, or MacPilot is recording a meeting |
+| On a call | The microphone is in use (Core Audio) while Zoom, Teams, FaceTime, Webex, Slack or a browser (for Meet) is running |
+| Sharing your screen | Zoom, Teams, Meet, Webex and Slack sharing windows (their titles need Screen Recording permission), macOS Screen Sharing / Remote Management sessions, and AirPlay or display mirroring. The system's own capture indicator can't be read by apps, so other tools' sharing may be missed |
+| Deep work | A focus app (Xcode by default, plus any you add) has been in front for 5 minutes (adjustable), optionally only while you're typing |
+| Manual | “Focus for 25 / 50 min” in the menu bar, the notch, ⌥K or Telegram `/focus 25` |
+
+When several apply, the most important wins (manual, sharing, recording, meeting, call, deep work), and the menu bar and notch say why — “In ‘Standup’ until 3:30”. **Not now** ends it and pauses automatic triggers for an hour. A grace period (2 minutes by default) keeps Focus on between back-to-back meetings.
+
+**macOS Focus:** there's no public API to switch Focus, so MacPilot runs two Shortcuts, **MacPilot Focus On** and **MacPilot Focus Off**. **Set up the shortcuts…** in Settings → Focus creates, signs and opens them for import (click *Add Shortcut*; you can change which Focus they set). If they're missing, Settings says so and shows how to make them by hand; MacPilot then only holds its own alerts. If you allow MacPilot to see your Focus status, it leaves a Focus you'd already turned on exactly as it was; otherwise it only turns off what it turned on.
+
+**MacPilot's own alerts** — notch messages and smart reminders — are held during Focus (urgent ones such as agent approvals still show) and delivered as one summary when it ends. Settings → Focus keeps a history of sessions, and Telegram `/focus` shows the current state.
+
+## Universal search
+
+**⌥F** (change it in Settings → Shortcuts; ⌥Space stays the AI assistant and ⌘Space is Spotlight) or type `?` / `/` in ⌥K.
+
+- **Sources, searched in parallel:** notes; meeting transcripts and summaries (a hit inside a transcript jumps to that moment); memory snippets and open loops; snippets; clipboard history; tasks; smart reminders; agent task history; files via Spotlight in the folders you choose (Documents, Desktop and Downloads by default); Mail messages via Spotlight metadata (only where Mail's messages are indexed — macOS may need Full Disk Access for this); Gmail search for connected accounts that allowed reading; and calendar events. Each source has its own timeout, results stream in as they arrive, and a slow source never holds up the others.
+- **Filters:** `in:mail` (also notes, meetings, memory, loops, snippets, clipboard, tasks, reminders, agent, files, calendar), `from:sam`, `after:2026-11-01` / `after:7d` / `after:yesterday`, `before:…`.
+- **Ranking:** how well the words match (titles count double), how recent it is, and a weight per source, then an optional on-device semantic re-rank (Apple's NaturalLanguage). The same email found by Spotlight and Gmail is shown once.
+- **Actions:** Open, Reveal in Finder, Copy, Quick Look, Ask AI about this, Add to notch shelf; **Reply draft** for mail (opens a reply in Mail — nothing is sent); **Jump to timestamp** for transcript hits.
+- **Ask:** press **Tab** for a short answer written from the top results, with numbered citations. Local-only mode uses Ollama, or declines.
+- **Privacy:** everything is searched on this Mac, except Gmail (Google's API, for accounts you connected) and the optional AI answer.
 
 ## Telegram bot
 
