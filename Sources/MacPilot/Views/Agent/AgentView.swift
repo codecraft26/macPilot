@@ -573,6 +573,17 @@ private struct TelegramSettingsSection: View {
                 Circle().fill(bot.status.isOnline ? Color.green : Color.secondary.opacity(0.5)).frame(width: 8, height: 8)
                 Text("Bot: \(bot.status.label)" + (bot.botUsername.isEmpty ? "" : " · @\(bot.botUsername)")).lineLimit(2)
             }
+            // "Off" is the normal state before setup: say what to do next.
+            if bot.status == .off {
+                Label(!hasToken ? "Step 1: paste the token from @BotFather below and press Save."
+                      : !enabled ? "Step 2: turn on “Connect the bot”."
+                      : bot.pairing.users.isEmpty ? "Step 3: press “Pair a phone…” and send the code to your bot." : "Starting…",
+                      systemImage: "arrow.down.circle")
+                    .font(.callout).foregroundStyle(.blue)
+            } else if bot.pairing.users.isEmpty && bot.status.isOnline {
+                Label("Step 3: press “Pair a phone…” and send /pair CODE to your bot in a private chat.", systemImage: "arrow.down.circle")
+                    .font(.callout).foregroundStyle(.blue)
+            }
             if hasToken {
                 HStack {
                     Label("Token saved in the Keychain", systemImage: "key.fill")

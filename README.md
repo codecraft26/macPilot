@@ -9,10 +9,10 @@
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-000?logo=apple)
 ![Swift 5.10](https://img.shields.io/badge/Swift-5.10-F05138?logo=swift&logoColor=white)
 ![SwiftUI](https://img.shields.io/badge/UI-SwiftUI-0A84FF)
-![Version](https://img.shields.io/badge/version-0.33.1-6E5BF7)
+![Version](https://img.shields.io/badge/version-0.33.2-6E5BF7)
 ![Universal](https://img.shields.io/badge/Apple%20silicon%20%2B%20Intel-universal-555)
 
-[**⬇ Download MacPilot 0.33.1 (.dmg)**](releases/MacPilot-0.33.1.dmg) · [What's new](#whats-new) · [Features](#features) · [Agent](#ai-agent) · [Telegram](#telegram-bot) · [Jobs](#scheduled-jobs) · [Job finder](#job-finder) · [Computer use](#computer-use) · [Smart reminders](#smart-reminders) · [Memory](#memory-and-open-loops) · [Focus](#smart-do-not-disturb) · [Search](#universal-search) · [Ports](#port-killer) · [Cleanup](#developer-cleanup) · [Updates](#auto-updates) · [Network & CPU](#network-speed-and-speed-test) · [Finder convert](#finder-convert-with-macpilot) · [Floating buddy](#-floating-buddy) · [First run](#first-run) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
+[**⬇ Download MacPilot 0.33.2 (.dmg)**](releases/MacPilot-0.33.2.dmg) · [What's new](#whats-new) · [Features](#features) · [Agent](#ai-agent) · [Telegram](#telegram-bot) · [Jobs](#scheduled-jobs) · [Job finder](#job-finder) · [Computer use](#computer-use) · [Smart reminders](#smart-reminders) · [Memory](#memory-and-open-loops) · [Focus](#smart-do-not-disturb) · [Search](#universal-search) · [Ports](#port-killer) · [Cleanup](#developer-cleanup) · [Updates](#auto-updates) · [Network & CPU](#network-speed-and-speed-test) · [Finder convert](#finder-convert-with-macpilot) · [Floating buddy](#-floating-buddy) · [First run](#first-run) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
 
 <img src="docs/screenshots/mac/dashboard.png" width="860" alt="MacPilot dashboard with today's briefing">
 
@@ -205,7 +205,7 @@ Every step can be skipped, you can go back and forth (Return continues, ⌘[ goe
 
 ## Install
 
-1. [Download `MacPilot-0.33.1.dmg`](releases/MacPilot-0.33.1.dmg) (universal: Apple silicon and Intel, macOS 14+).
+1. [Download `MacPilot-0.33.2.dmg`](releases/MacPilot-0.33.2.dmg) (universal: Apple silicon and Intel, macOS 14+).
 2. Open it and drag **MacPilot** into **Applications**.
 3. The build is ad-hoc signed (not notarized), so the first launch needs one approval: right-click MacPilot → **Open** → **Open**, or **System Settings → Privacy & Security → Open Anyway**. If macOS still refuses:
    ```bash
@@ -494,7 +494,7 @@ Control the agent from your phone. MacPilot talks to Telegram's Bot API by **lon
 **Set up (once)**
 1. In Telegram, open a chat with **@BotFather**, send `/newbot`, choose a name and a username ending in `bot`. BotFather replies with a token like `123456789:AA…`.
 2. Optional but recommended: in BotFather send `/setjoingroups` → your bot → **Disable**, so it can't be added to groups.
-3. On the Mac: **Settings → Agent → Telegram**, paste the token and press **Save** (it goes to the Keychain only, never to settings files, the database or logs). **Test** checks it with `getMe`. Turn on **Connect the bot**.
+3. On the Mac: **Settings (⌘,) → Agent tab → Telegram** (scroll down). “Bot: Off” is normal until you finish these steps; the section tells you the next one. Paste the token and press **Save** (it goes to the Keychain only, never to settings files, the database or logs). **Test** checks it with `getMe`. Turn on **Connect the bot**.
 4. Press **Pair a phone…**. MacPilot shows an 8-character code valid for 5 minutes. In a **private chat** with your bot, send `/pair CODE`. The code works once (five wrong tries cancel it). Your numeric Telegram user ID and chat ID are saved — usernames are never used for identity. Paired people are listed in Settings with **Remove**.
 
 **Commands**

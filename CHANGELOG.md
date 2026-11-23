@@ -2,6 +2,9 @@
 
 Release notes shown in MacPilot's update window (one `## version` section per release).
 
+## 0.33.2
+- Settings → Agent → Telegram shows the next setup step under “Bot: Off” (paste the token, turn on Connect the bot, pair a phone).
+
 ## 0.33.1
 - **Fix:** the agent asked for an Anthropic (Claude) API key even when Claude via Amazon Bedrock was set up. The agent — and memory open loops, search Ask and smart reminders, which share its settings — now runs on the provider you configured: your default first, then Bedrock, Anthropic, OpenAI, Ollama.
 - A provider you picked in Settings → Agent is never switched; without credentials you're offered the configured one with one click. Existing installs stuck on Anthropic without a key move to Bedrock once, with a notice.
