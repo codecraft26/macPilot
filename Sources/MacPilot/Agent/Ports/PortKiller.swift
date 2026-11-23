@@ -142,7 +142,7 @@ final class PortKiller {
         watchers += 1
         guard timer == nil else { return }
         Task { await refresh() }
-        let timer = Timer(timeInterval: 3, repeats: true) { _ in MainActor.assumeIsolated { Task { await PortKiller.shared.refresh() } } }
+        let timer = Timer(timeInterval: 3, repeats: true) { _ in _ = MainActor.assumeIsolated { Task { await PortKiller.shared.refresh() } } }
         RunLoop.main.add(timer, forMode: .common)
         self.timer = timer
     }

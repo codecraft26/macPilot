@@ -373,7 +373,7 @@ final class FocusController {
 
     func start() {
         let timer = Timer(timeInterval: 10, repeats: true) { _ in
-            MainActor.assumeIsolated { Task { await FocusController.shared.evaluate() } }
+            _ = MainActor.assumeIsolated { Task { await FocusController.shared.evaluate() } }
         }
         timer.tolerance = 2
         RunLoop.main.add(timer, forMode: .common)
