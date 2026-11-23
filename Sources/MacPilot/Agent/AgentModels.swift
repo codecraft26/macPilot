@@ -85,6 +85,14 @@ final class AgentTask {
     var isNative: Bool = false
     /// Set while a GUI or browser step waits for the screen to be unlocked.
     var pausedReason: String = ""
+    /// The chat this turn belongs to: nil for the first turn (its own uid is the chat's id), so tasks from
+    /// before chats existed are single-turn chats with no migration step.
+    var conversationID: UUID?
+    /// The chat's title (kept on its first turn; renamable). Empty = the first message.
+    var conversationTitle: String = ""
+
+    /// The chat this task belongs to.
+    var conversationKey: UUID { conversationID ?? uid }
 
     var allowedTools: Set<String> {
         Set(allowedToolsRaw.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty })

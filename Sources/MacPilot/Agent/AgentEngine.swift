@@ -71,9 +71,12 @@ final class AgentEngine {
 
     @discardableResult
     func submit(_ prompt: String, retryOf: UUID? = nil, channel: String = "app", telegramUserID: Int64 = 0, telegramChatID: Int64 = 0,
-                jobID: UUID? = nil, allowedTools: Set<String> = [], native: ((AgentNativeContext) async throws -> String)? = nil) -> AgentTask {
+                jobID: UUID? = nil, allowedTools: Set<String> = [], conversation: UUID? = nil,
+                native: ((AgentNativeContext) async throws -> String)? = nil) -> AgentTask {
         let settings = settingsProvider()
         let task = AgentTask(prompt: prompt, provider: settings.provider, model: settings.model)
+        // A follow-up joins the chat; the chat's id is its first turn's uid.
+        if let conversation, let root = fetchTask(conversation) { task.conversationID = root.conversationKey }
         task.jobID = jobID
         task.allowedToolsRaw = allowedTools.sorted().joined(separator: ",")
         if let native {
@@ -93,12 +96,13 @@ final class AgentEngine {
         return task
     }
 
-    /// A fresh run of the same request; nothing from the old run is replayed.
+    /// Runs the same request again as the next turn of the same chat; nothing from the old run is replayed.
     @discardableResult
     func retry(_ task: AgentTask) -> AgentTask {
+        // Same chat: a retried first turn starts a chat of its own only if it had none.
         submit(prompts[task.uid] ?? task.prompt, retryOf: task.uid, channel: task.channel,
                telegramUserID: task.telegramUserID, telegramChatID: task.telegramChatID,
-               jobID: task.jobID, allowedTools: task.allowedTools, native: nativeWork[task.uid])
+               jobID: task.jobID, allowedTools: task.allowedTools, conversation: task.conversationKey, native: nativeWork[task.uid])
     }
 
     /// Stops one task: cancels the model call, kills its command and denies any pending approval.
@@ -227,7 +231,7 @@ final class AgentEngine {
             }
             let adapter = adapterFactory(task.provider, task.model)
             guard adapter.capabilities.toolCalling else { throw AgentProviderError.noToolSupport(task.model) }
-            var messages: [AgentMessage] = [.user(prompts[id] ?? task.prompt)]
+            var messages = AgentConversationContext.messages(history: history(before: task), current: prompts[id] ?? task.prompt)
             let system = systemPrompt(settings, task: task)
             let tools = AgentTools.specs(allowed: task.allowedTools)
 
@@ -889,6 +893,26 @@ final class AgentEngine {
 
     private func save() {
         try? context.save()
+    }
+
+    /// All turns of a chat, oldest first.
+    func fetchConversation(_ key: UUID) -> [AgentTask] {
+        let tasks = (try? context.fetch(FetchDescriptor<AgentTask>(predicate: #Predicate { $0.uid == key || $0.conversationID == key },
+                                                                    sortBy: [SortDescriptor(\.createdAt)]))) ?? []
+        return tasks
+    }
+
+    /// Earlier finished turns of this task's chat, as context (turns that were retried are left out).
+    func history(before task: AgentTask) -> [AgentTurnContext] {
+        let turns = fetchConversation(task.conversationKey).filter { $0.uid != task.uid && $0.createdAt <= task.createdAt && $0.state.isFinished }
+        let retried = Set(turns.compactMap(\.retryOf) + [task.retryOf].compactMap { $0 })
+        return turns.filter { !retried.contains($0.uid) }.map { turn in
+            AgentTurnContext(prompt: prompts[turn.uid] ?? turn.prompt,
+                             actions: fetchActions(taskID: turn.uid).map {
+                                 AgentConversationContext.line(tool: $0.tool, summary: $0.summary, state: $0.state.label, output: $0.output)
+                             },
+                             answer: turn.finalAnswer, error: turn.state == .done ? nil : turn.errorMessage)
+        }
     }
 
     func fetchTask(_ id: UUID) -> AgentTask? {

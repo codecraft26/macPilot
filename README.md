@@ -9,10 +9,10 @@
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-000?logo=apple)
 ![Swift 5.10](https://img.shields.io/badge/Swift-5.10-F05138?logo=swift&logoColor=white)
 ![SwiftUI](https://img.shields.io/badge/UI-SwiftUI-0A84FF)
-![Version](https://img.shields.io/badge/version-0.33.2-6E5BF7)
+![Version](https://img.shields.io/badge/version-0.33.3-6E5BF7)
 ![Universal](https://img.shields.io/badge/Apple%20silicon%20%2B%20Intel-universal-555)
 
-[**⬇ Download MacPilot 0.33.2 (.dmg)**](releases/MacPilot-0.33.2.dmg) · [What's new](#whats-new) · [Features](#features) · [Agent](#ai-agent) · [Telegram](#telegram-bot) · [Jobs](#scheduled-jobs) · [Job finder](#job-finder) · [Computer use](#computer-use) · [Smart reminders](#smart-reminders) · [Memory](#memory-and-open-loops) · [Focus](#smart-do-not-disturb) · [Search](#universal-search) · [Ports](#port-killer) · [Cleanup](#developer-cleanup) · [Updates](#auto-updates) · [Network & CPU](#network-speed-and-speed-test) · [Finder convert](#finder-convert-with-macpilot) · [Floating buddy](#-floating-buddy) · [First run](#first-run) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
+[**⬇ Download MacPilot 0.33.3 (.dmg)**](releases/MacPilot-0.33.3.dmg) · [What's new](#whats-new) · [Features](#features) · [Agent](#ai-agent) · [Telegram](#telegram-bot) · [Jobs](#scheduled-jobs) · [Job finder](#job-finder) · [Computer use](#computer-use) · [Smart reminders](#smart-reminders) · [Memory](#memory-and-open-loops) · [Focus](#smart-do-not-disturb) · [Search](#universal-search) · [Ports](#port-killer) · [Cleanup](#developer-cleanup) · [Updates](#auto-updates) · [Network & CPU](#network-speed-and-speed-test) · [Finder convert](#finder-convert-with-macpilot) · [Floating buddy](#-floating-buddy) · [First run](#first-run) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
 
 <img src="docs/screenshots/mac/dashboard.png" width="860" alt="MacPilot dashboard with today's briefing">
 
@@ -21,6 +21,9 @@
 MacPilot brings Raycast-style speed and an AI assistant to everything you do on a Mac: ask Claude (Anthropic or Amazon Bedrock), OpenAI or a local Ollama model from anywhere, record and summarize meetings, dictate into any app, manage notes, tasks and your calendar, search your clipboard, convert files, and sync it all between your Macs — with a friendly floating buddy on your desktop and live status in the MacBook notch. **Bring your own keys** — there is no MacPilot account or server; data stays on your Mac and credentials in the Keychain. Cloud features send only the relevant content to the provider you choose.
 
 ## What's new
+
+**0.33.3** — Agent chats
+- 💬 The Agent tab is now a list of **chats**: replying in a chat continues it, and the agent sees the earlier messages, tool calls and answers (trimmed to fit). **New chat** (⌘N) starts fresh; right-click to rename. The view stays on your chat when tasks finish. On Telegram, messages continue your current chat; `/new` (or 30 minutes of quiet) starts a new one.
 
 **0.33.1** — the agent uses Bedrock when that's what you set up
 - 🔧 With Claude via Amazon Bedrock configured, the agent no longer asks for an Anthropic key: it picks the provider you actually set up (your default, then Bedrock, Anthropic, OpenAI, Ollama). A provider you picked yourself is never switched; if it has no credentials you get a one-click “use Claude (Bedrock) instead?”. Labels now read **Claude (Bedrock)** and **Claude (Anthropic API)**.
@@ -205,7 +208,7 @@ Every step can be skipped, you can go back and forth (Return continues, ⌘[ goe
 
 ## Install
 
-1. [Download `MacPilot-0.33.2.dmg`](releases/MacPilot-0.33.2.dmg) (universal: Apple silicon and Intel, macOS 14+).
+1. [Download `MacPilot-0.33.3.dmg`](releases/MacPilot-0.33.3.dmg) (universal: Apple silicon and Intel, macOS 14+).
 2. Open it and drag **MacPilot** into **Applications**.
 3. The build is ad-hoc signed (not notarized), so the first launch needs one approval: right-click MacPilot → **Open** → **Open**, or **System Settings → Privacy & Security → Open Anyway**. If macOS still refuses:
    ```bash
@@ -502,6 +505,7 @@ Control the agent from your phone. MacPilot talks to Telegram's Bot API by **lon
 | Command | What it does |
 |---|---|
 | *any text* | Starts an agent task (channel “telegram”). The bot replies at once with the task ID and edits that message at milestones (rate-limited); the final message has a summary and a short redacted log. |
+| `/new` | Starts a new chat. Otherwise each message continues your current chat (the agent sees what came before); 30 minutes of quiet also starts a new one. |
 | `/status` | Active task, queue, network, kill switch and whether the screen is locked |
 | `/tasks`, `/cancel <id>` | Recent tasks; stop one |
 | `/model` | Provider and model in use (never keys) |

@@ -2,6 +2,11 @@
 
 Release notes shown in MacPilot's update window (one `## version` section per release).
 
+## 0.33.3
+- **Fix:** a follow-up in the Agent tab opened a new chat. The Agent tab now has chats: replying continues the selected chat, and the agent gets the earlier messages, tool calls and answers as context (newest kept when trimming). Approvals and budgets still apply to each message.
+- The view no longer jumps to whichever task is running; it stays on your chat and scrolls to the bottom. New chat (⌘N), rename from the right-click menu, Retry re-runs the last message in the same chat.
+- Telegram: messages continue your current chat; `/new` or 30 minutes of quiet starts a new one. Existing tasks show as single-message chats.
+
 ## 0.33.2
 - Settings → Agent → Telegram shows the next setup step under “Bot: Off” (paste the token, turn on Connect the bot, pair a phone).
 
