@@ -3,36 +3,53 @@ import SwiftData
 import SwiftUI
 
 struct SettingsView: View {
+    @Environment(AppState.self) private var appState
+
     var body: some View {
-        TabView {
+        @Bindable var appState = appState
+        TabView(selection: $appState.settingsTab) {
             GeneralSettingsView()
                 .tabItem { Label("General", systemImage: "gearshape") }
+                .tag("General")
             ProvidersSettingsView()
                 .tabItem { Label("Providers", systemImage: "key") }
+                .tag("Providers")
             RoutingSettingsView()
                 .tabItem { Label("Routing", systemImage: "arrow.triangle.branch") }
+                .tag("Routing")
             AgentSettingsView()
                 .tabItem { Label("Agent", systemImage: "cpu") }
+                .tag("Agent")
             MemorySettingsView()
                 .tabItem { Label("Memory", systemImage: "brain") }
+                .tag("Memory")
             FocusSettingsView()
                 .tabItem { Label("Focus", systemImage: "moon") }
+                .tag("Focus")
             DictationSettingsView()
                 .tabItem { Label("Dictation", systemImage: "mic.badge.plus") }
+                .tag("Dictation")
             RecordingSettingsView()
                 .tabItem { Label("Recording & Calendar", systemImage: "waveform") }
+                .tag("Recording & Calendar")
             ClipboardSettingsView()
                 .tabItem { Label("Clipboard", systemImage: "doc.on.clipboard") }
+                .tag("Clipboard")
             SnippetsSettingsView()
                 .tabItem { Label("Snippets & Links", systemImage: "text.quote") }
+                .tag("Snippets & Links")
             SyncSettingsView()
                 .tabItem { Label("Sync", systemImage: "icloud") }
+                .tag("Sync")
             ShortcutsSettingsView()
                 .tabItem { Label("Shortcuts", systemImage: "keyboard") }
+                .tag("Shortcuts")
             UsageSettingsView()
                 .tabItem { Label("Usage", systemImage: "chart.bar") }
+                .tag("Usage")
             PrivacySettingsView()
                 .tabItem { Label("Privacy & Data", systemImage: "lock.shield") }
+                .tag("Privacy & Data")
         }
         .padding(16)
         .navigationTitle("Settings")

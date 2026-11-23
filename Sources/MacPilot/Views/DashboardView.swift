@@ -32,6 +32,7 @@ struct DashboardView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: DS.Space.l) {
                 header
+                SetupProgressCard()
                 NextMeetingHero()
                 BriefingCard()
                 QuickActionsRow()

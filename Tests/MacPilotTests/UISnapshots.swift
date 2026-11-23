@@ -417,6 +417,19 @@ final class UISnapshots: XCTestCase {
         try? png.write(to: directory.appendingPathComponent("\(name).png"))
     }
 
+    func testRenderSetupWizard() {
+        let setup = SetupController.shared
+        let saved = setup.progress
+        defer { setup.progress = saved }
+        setup.progress = SetupProgress()
+        setup.progress.completed = [.welcome, .provider]
+        setup.progress.skipped = []
+        setup.progress.current = .permissions
+        macShot("setup-permissions", size: CGSize(width: 760, height: 560), title: "Set up MacPilot", SetupWizardView())
+        setup.progress.current = .welcome
+        macShot("setup-welcome", size: CGSize(width: 760, height: 560), title: "Set up MacPilot", SetupWizardView())
+    }
+
     func testRenderMacScreens() {
         VisualEffectBackground.hiddenForSnapshots = true
         defer { VisualEffectBackground.hiddenForSnapshots = false }

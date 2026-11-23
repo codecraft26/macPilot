@@ -9,10 +9,10 @@
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-000?logo=apple)
 ![Swift 5.10](https://img.shields.io/badge/Swift-5.10-F05138?logo=swift&logoColor=white)
 ![SwiftUI](https://img.shields.io/badge/UI-SwiftUI-0A84FF)
-![Version](https://img.shields.io/badge/version-0.30.0-6E5BF7)
+![Version](https://img.shields.io/badge/version-0.31.0-6E5BF7)
 ![Universal](https://img.shields.io/badge/Apple%20silicon%20%2B%20Intel-universal-555)
 
-[**⬇ Download MacPilot 0.30.0 (.dmg)**](releases/MacPilot-0.30.0.dmg) · [What's new](#whats-new) · [Features](#features) · [Agent](#ai-agent) · [Telegram](#telegram-bot) · [Jobs](#scheduled-jobs) · [Job finder](#job-finder) · [Computer use](#computer-use) · [Smart reminders](#smart-reminders) · [Memory](#memory-and-open-loops) · [Focus](#smart-do-not-disturb) · [Search](#universal-search) · [Ports](#port-killer) · [Updates](#auto-updates) · [Network](#network-speed-and-speed-test) · [Finder convert](#finder-convert-with-macpilot) · [Floating buddy](#-floating-buddy) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
+[**⬇ Download MacPilot 0.31.0 (.dmg)**](releases/MacPilot-0.31.0.dmg) · [What's new](#whats-new) · [Features](#features) · [Agent](#ai-agent) · [Telegram](#telegram-bot) · [Jobs](#scheduled-jobs) · [Job finder](#job-finder) · [Computer use](#computer-use) · [Smart reminders](#smart-reminders) · [Memory](#memory-and-open-loops) · [Focus](#smart-do-not-disturb) · [Search](#universal-search) · [Ports](#port-killer) · [Updates](#auto-updates) · [Network](#network-speed-and-speed-test) · [Finder convert](#finder-convert-with-macpilot) · [Floating buddy](#-floating-buddy) · [First run](#first-run) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
 
 <img src="docs/screenshots/mac/dashboard.png" width="860" alt="MacPilot dashboard with today's briefing">
 
@@ -21,6 +21,9 @@
 MacPilot brings Raycast-style speed and an AI assistant to everything you do on a Mac: ask Claude (Anthropic or Amazon Bedrock), OpenAI or a local Ollama model from anywhere, record and summarize meetings, dictate into any app, manage notes, tasks and your calendar, search your clipboard, convert files, and sync it all between your Macs — with a friendly floating buddy on your desktop and live status in the MacBook notch. **Bring your own keys** — there is no MacPilot account or server; data stays on your Mac and credentials in the Keychain. Cloud features send only the relevant content to the provider you choose.
 
 ## What's new
+
+**0.31** — first-run setup
+- 🧭 A guided setup on first launch: pick your AI provider (key saved to the Keychain, or find Ollama), grant permissions with live ✓ status, connect calendars, choose features (buddy, notch, Smart DND, Memory, open at login), pair Telegram and turn on updates. Skip anything; quitting resumes where you were. Reopen it from Settings → General, the menu bar or ⌥K “Setup”.
 
 **0.30** — auto-updates
 - ⬆️ MacPilot keeps itself up to date: it checks daily (Sparkle 2) and installs a new version when you click **Install Update** — or automatically, if you turn that on. **Check for Updates…** is in the menu bar, ⌥K and Settings → General; Telegram `/version` tells you if one is waiting.
@@ -172,9 +175,28 @@ Live ↓/↑ throughput sampled once a second from the network interface counter
 
 > **About these screenshots:** they're rendered from MacPilot's real SwiftUI screens with sample data, inside a real macOS window frame on a generated desktop (`SNAPSHOT_DIR=docs/screenshots/mac swift test --filter testRenderMacScreens`). Live blur isn't captured, so floating panels show a plain background instead of the frosted glass you see on screen.
 
+## First run
+
+On first launch (and when a newer version adds setup steps) MacPilot opens **Set up MacPilot**:
+
+| Welcome | Permissions, with live status |
+|---|---|
+| ![Setup welcome](docs/screenshots/mac/setup-welcome.png) | ![Setup permissions](docs/screenshots/mac/setup-permissions.png) |
+
+1. **Welcome** — what MacPilot does and the privacy promise: local-first, keys in the Keychain, you approve what the agent does.
+2. **AI provider** — Anthropic, OpenAI, Amazon Bedrock or Ollama. Keys go straight to the Keychain; **Test connection** checks them; Ollama is found automatically on this Mac.
+3. **Permissions** — Accessibility, Screen & System Audio Recording, Microphone, Speech Recognition, Calendars, Reminders, Notifications, and optional Location, Automation → Mail and Full Disk Access. Each shows ✓ / ⚠, a one-line “why”, **Request** and **Open Settings**, and updates every 2 seconds. macOS often applies Screen Recording only after a restart — **Relaunch MacPilot** brings you back to the same step.
+4. **Calendar** — Apple Calendar access and, optionally, Google accounts.
+5. **Features** — floating buddy, notch, Smart Do Not Disturb (with the Focus shortcuts setup), Memory (off by default) and open at login.
+6. **Telegram** (optional) — BotFather steps, the token (Keychain) and pairing your phone.
+7. **Updates** — automatic checks and **Check now**.
+8. **Done** — what's set up, what was skipped (each with a link to the right Settings tab) and the shortcuts to try first: ⌥K, ⌥F, ⌥Space, ⌥D.
+
+Every step can be skipped, you can go back and forth (Return continues, ⌘[ goes back), and progress is saved after each step. Until the required steps are done, the dashboard shows **Setup: 5/7 done** with **Continue setup**. Reopen it any time from **Settings → General → Run setup again**, the menu bar (**Setup…**) or ⌥K **Setup**.
+
 ## Install
 
-1. [Download `MacPilot-0.30.0.dmg`](releases/MacPilot-0.30.0.dmg) (universal: Apple silicon and Intel, macOS 14+).
+1. [Download `MacPilot-0.31.0.dmg`](releases/MacPilot-0.31.0.dmg) (universal: Apple silicon and Intel, macOS 14+).
 2. Open it and drag **MacPilot** into **Applications**.
 3. The build is ad-hoc signed (not notarized), so the first launch needs one approval: right-click MacPilot → **Open** → **Open**, or **System Settings → Privacy & Security → Open Anyway**. If macOS still refuses:
    ```bash

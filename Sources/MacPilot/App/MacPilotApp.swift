@@ -70,9 +70,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         AutomationEngine.shared.start()
 
         let defaults = UserDefaults.standard
-        if !defaults.bool(forKey: PrefKey.hasLaunchedBefore) {
-            defaults.set(true, forKey: PrefKey.hasLaunchedBefore)
-            WindowManager.shared.showDashboard(section: .settings)
+        let firstLaunch = !defaults.bool(forKey: PrefKey.hasLaunchedBefore)
+        defaults.set(true, forKey: PrefKey.hasLaunchedBefore)
+        // First launch, or a newer setup added steps: show setup (resuming where it was left).
+        if firstLaunch || SetupController.shared.shouldShowAtLaunch {
+            SetupController.shared.show()
         }
     }
 

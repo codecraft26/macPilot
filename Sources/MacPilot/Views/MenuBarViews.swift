@@ -141,6 +141,7 @@ struct MenuBarContent: View {
 
         Divider()
 
+        Button(SetupController.shared.progress.allRequiredDone ? "Setup…" : "Finish Setup…") { SetupController.shared.show() }
         if UpdateManager.shared.isAvailable {
             Button("Check for Updates…") { UpdateManager.shared.checkForUpdates() }
         }

@@ -60,6 +60,8 @@ final class AppState {
 
     var selectedSection: AppSection? = .dashboard
     var pendingAction: PendingAction?
+    /// Which Settings tab is shown (by its title), e.g. from setup's "Set up later" links.
+    var settingsTab = "General"
     /// Tab to show when a recording opens from a calendar event ("Summary", "Transcript").
     var pendingRecordingTab: String?
     /// Seconds to jump to in a transcript opened from search.

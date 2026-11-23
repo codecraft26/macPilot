@@ -10,6 +10,11 @@ struct GeneralSettingsView: View {
         Form {
             Section("MacPilot") {
                 LabeledContent("Version", value: "\(updates.currentVersion) (build \(updates.currentBuild))")
+                HStack {
+                    Text("Setup: \(SetupController.shared.progress.doneCount)/\(SetupProgress.totalCount) steps done")
+                    Spacer()
+                    Button("Run setup again") { SetupController.shared.show(restart: true) }
+                }
             }
             Section {
                 Toggle("Automatically check for updates (daily)", isOn: $checks)

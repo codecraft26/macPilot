@@ -202,6 +202,8 @@ enum LauncherCatalog {
                          icon: .system("icloud"), section: "MacPilot", primary: {
                              if ICloudSync.isEnabled { ICloudSync.shared.syncNow() } else { windows.open(.settings) }
                          }),
+            LauncherItem(id: "app.setup", title: "Setup", subtitle: "Permissions, AI provider, features — \(SetupController.shared.progress.doneCount)/\(SetupProgress.totalCount) done",
+                         icon: .system("checklist"), section: "MacPilot", primary: { SetupController.shared.show() }),
             LauncherItem(id: "app.update", title: "Check for Updates…", subtitle: "MacPilot \(UpdateManager.shared.currentVersion) (build \(UpdateManager.shared.currentBuild))",
                          icon: .system("arrow.down.circle"), section: "MacPilot", primary: {
                              if UpdateManager.shared.isAvailable { UpdateManager.shared.checkForUpdates() } else { windows.showDashboard(section: .settings) }
