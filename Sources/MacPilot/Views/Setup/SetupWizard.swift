@@ -199,7 +199,7 @@ private struct WelcomeStep: View {
 }
 
 private struct ProviderStep: View {
-    @State private var provider: AIProviderID = Prefs.analysisProvider
+    @State private var provider: AIProviderID = ProviderResolver.firstConfigured(preferred: Prefs.analysisProvider, .current) ?? Prefs.analysisProvider
     @State private var key = ""
     @State private var status: String?
     @State private var ok = false
@@ -209,7 +209,7 @@ private struct ProviderStep: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             StepHeader(step: .provider, subtitle: "Pick the AI MacPilot uses for chat, summaries and the agent.")
-            WhyLine(text: "Without a provider, AI features (assistant, summaries, agent) can't run. Ollama keeps everything on this Mac.")
+            WhyLine(text: "Without a provider, AI features (assistant, summaries, agent) can't run. Already set up Claude via Bedrock? It's picked for you. Ollama keeps everything on this Mac.")
             Picker("Provider", selection: $provider) {
                 ForEach(AIProviderID.allCases) { Text($0.displayName).tag($0) }
             }
@@ -227,8 +227,16 @@ private struct ProviderStep: View {
                     Button("Test saved key") { test() }.disabled(busy)
                 }
             case .bedrock:
-                Text("Amazon Bedrock needs an AWS access key or Bedrock API key and a region.").font(.callout)
-                Button("Open Settings → Providers") { SetupController.shared.openSettings(for: .provider) }
+                if provider.hasCredentials {
+                    Label("AWS credentials are saved (region \(BedrockConfig.region)).", systemImage: "checkmark.seal").font(.callout)
+                    HStack {
+                        Button("Use Bedrock & test") { test() }.disabled(busy)
+                        Button("Change in Settings → Providers") { SetupController.shared.openSettings(for: .provider) }
+                    }
+                } else {
+                    Text("Amazon Bedrock needs an AWS access key or Bedrock API key and a region.").font(.callout)
+                    Button("Open Settings → Providers") { SetupController.shared.openSettings(for: .provider) }
+                }
             case .ollama:
                 HStack {
                     Button("Find Ollama on this Mac") { detectOllama() }.disabled(busy)
@@ -249,6 +257,13 @@ private struct ProviderStep: View {
         UserDefaults.standard.set(provider.rawValue, forKey: PrefKey.chatProvider)
         UserDefaults.standard.set(provider.rawValue, forKey: PrefKey.analysisProvider)
         UserDefaults.standard.set(true, forKey: PrefKey.enabled(provider))
+        // The agent, memory, search Ask and smart reminders use the same provider.
+        var agent = AgentSettings.load()
+        agent.provider = provider
+        agent.model = Prefs.model(for: provider)
+        agent.providerExplicit = true
+        agent.providerOffer = nil
+        agent.save()
     }
 
     private func saveAndTest() {

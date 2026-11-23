@@ -7,6 +7,8 @@ struct AgentView: View {
     @Query(sort: \AgentTask.createdAt, order: .reverse) private var tasks: [AgentTask]
     @State private var selectedID: UUID?
     @State private var prompt = ""
+    /// Bumped to re-read settings after a one-click provider change.
+    @State private var providerRefresh = 0
     private let engine = AgentEngine.shared
 
     private var selected: AgentTask? {
@@ -88,6 +90,7 @@ struct AgentView: View {
 
     @ViewBuilder
     private var statusBanner: some View {
+        let _ = providerRefresh
         let settings = AgentSettings.load()
         if engine.isHalted {
             banner("Kill switch is on: no model or tool calls will run.", systemImage: "hand.raised.fill", color: .red) {
@@ -95,6 +98,22 @@ struct AgentView: View {
             }
         } else if settings.workspaceRoots.isEmpty {
             banner("Add a workspace folder so the agent can work with files.", systemImage: "folder.badge.plus", color: .orange) {
+                Button("Settings…") { appState.selectedSection = .settings }
+            }
+        } else if let alternative = settings.providerOffer {
+            banner(ProviderResolver.offerText(chosen: settings.provider, alternative: alternative), systemImage: "exclamationmark.triangle.fill", color: .orange) {
+                Button("Use \(alternative.displayName)") {
+                    var updated = settings
+                    updated.provider = alternative
+                    updated.model = Prefs.model(for: alternative)
+                    updated.providerExplicit = true
+                    updated.providerOffer = nil
+                    updated.save()
+                    providerRefresh += 1
+                }
+            }
+        } else if !settings.provider.hasCredentials && settings.provider != .ollama {
+            banner("\(settings.provider.displayName) isn't set up yet. Add credentials in Settings → Providers.", systemImage: "key.fill", color: .orange) {
                 Button("Settings…") { appState.selectedSection = .settings }
             }
         } else if settings.localOnly && settings.provider.isExternal {
@@ -410,8 +429,26 @@ private struct AgentApprovalDrawer: View {
 
 struct AgentSettingsView: View {
     @State private var settings = AgentSettings.load()
+    @State private var testing = false
+    @State private var testResult: String?
     @State private var allowlistText = ""
     @State private var models: [String] = []
+
+    /// One tiny request through the same adapter the agent uses (Bedrock included).
+    private func testConnection() {
+        testing = true
+        testResult = nil
+        let adapter = AgentAdapters.make(provider: settings.provider, model: settings.model)
+        Task {
+            do {
+                _ = try await adapter.generate(system: "Reply with OK.", messages: [.user("ping")], tools: [])
+                testResult = "✓ \(settings.provider.displayName) · \(settings.model) works"
+            } catch {
+                testResult = AIError.describe(error)
+            }
+            testing = false
+        }
+    }
 
     var body: some View {
         Form {
@@ -419,14 +456,37 @@ struct AgentSettingsView: View {
                 Picker("Provider", selection: $settings.provider) {
                     ForEach(AIProviderID.allCases) { Text($0.displayName).tag($0) }
                 }
-                .onChange(of: settings.provider) { _, provider in settings.model = Prefs.model(for: provider) }
+                .onChange(of: settings.provider) { _, provider in
+                    settings.model = Prefs.model(for: provider)
+                    settings.providerExplicit = true
+                    settings.providerOffer = nil
+                    testResult = nil
+                }
+                if let alternative = settings.providerOffer {
+                    HStack {
+                        Label(ProviderResolver.offerText(chosen: settings.provider, alternative: alternative), systemImage: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                        Spacer()
+                        Button("Use \(alternative.displayName)") { settings.provider = alternative }
+                    }
+                    .font(.callout)
+                } else if !settings.provider.hasCredentials && settings.provider != .ollama {
+                    Label("\(settings.provider.displayName) has no credentials yet. Add them in Settings → Providers.", systemImage: "key")
+                        .font(.callout).foregroundStyle(.orange)
+                }
                 TextField("Model", text: $settings.model)
+                HStack {
+                    Button(testing ? "Testing…" : "Test connection") { testConnection() }.disabled(testing)
+                    if let testResult { Text(testResult).font(.caption).foregroundStyle(testResult.hasPrefix("✓") ? .green : .orange).lineLimit(2) }
+                }
                 Toggle("Local-only mode (block cloud providers)", isOn: $settings.localOnly)
                 if settings.localOnly && settings.provider.isExternal {
                     Label("\(settings.provider.shortName) is a cloud provider and will be blocked. Choose Ollama.", systemImage: "lock.fill")
                         .font(.caption).foregroundStyle(.orange)
                 }
-                Text("The agent uses exactly this provider and model. If it fails, the task fails — MacPilot never switches to another provider on its own.")
+                Text(settings.providerExplicit
+                     ? "The agent uses exactly this provider and model. If it fails, the task fails — MacPilot never switches to another provider on its own."
+                     : "Picked automatically from the providers you've set up (your default first, then Bedrock, Anthropic, OpenAI, Ollama). Choose one to pin it.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section("Workspaces") {

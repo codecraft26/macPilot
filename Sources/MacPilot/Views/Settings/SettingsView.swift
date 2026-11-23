@@ -287,7 +287,7 @@ private struct AWSTranscriptionSettingsView: View {
 
     var body: some View {
         Section("AWS transcription") {
-            Text("Save an AWS access key under Providers → Claude via Amazon Bedrock. Add the session token for temporary credentials.")
+            Text("Save an AWS access key under Providers → Claude (Bedrock). Add the session token for temporary credentials.")
                 .font(.caption).foregroundStyle(.secondary)
             TextField("AWS region", text: $region, prompt: Text(BedrockConfig.region))
             TextField("S3 bucket", text: $bucket)

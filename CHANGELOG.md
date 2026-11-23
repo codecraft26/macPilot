@@ -2,6 +2,11 @@
 
 Release notes shown in MacPilot's update window (one `## version` section per release).
 
+## 0.33.1
+- **Fix:** the agent asked for an Anthropic (Claude) API key even when Claude via Amazon Bedrock was set up. The agent — and memory open loops, search Ask and smart reminders, which share its settings — now runs on the provider you configured: your default first, then Bedrock, Anthropic, OpenAI, Ollama.
+- A provider you picked in Settings → Agent is never switched; without credentials you're offered the configured one with one click. Existing installs stuck on Anthropic without a key move to Bedrock once, with a notice.
+- Settings → Agent → Test connection; the setup wizard recognises saved Bedrock credentials. Labels: “Claude (Bedrock)” and “Claude (Anthropic API)”.
+
 ## 0.33.0
 - **Network speed and CPU beside the notch**, on by default: ↓/↑ on the left, CPU % on the right (orange above 80%). It steps aside for recordings, music and alerts.
 - Click it for 60-second graphs, per-core bars, memory, the top 5 processes and a speed test (also in the menu bar: System Monitor…).

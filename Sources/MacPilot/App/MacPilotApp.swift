@@ -41,6 +41,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         ShortcutManager.shared.registerAll()
         ProviderAutoSetup.reconcile()
+        if let notice = ProviderAutoSetup.agentProviderNotice {
+            ProviderAutoSetup.agentProviderNotice = nil
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(4))
+                NotchController.shared.peek(NotchPeek(systemImage: "sparkles", tint: .accent, title: "Agent switched to Bedrock", subtitle: notice, duration: 8))
+                NotificationService.alert(id: "agent-provider-migrated", heading: "MacPilot agent provider", body: notice, after: 1)
+            }
+        }
         ClipboardMonitor.shared.start()
         ReminderSync.shared.start()
         NotchController.shared.start()

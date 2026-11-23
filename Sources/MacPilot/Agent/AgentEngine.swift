@@ -220,6 +220,11 @@ final class AgentEngine {
         }
         do {
             try AgentPolicy.checkProvider(task.provider, settings: settings)
+            // The picked provider has no credentials but another does: say so instead of asking for a key.
+            if let alternative = settings.providerOffer, settings.provider == task.provider {
+                throw LimitError(message: ProviderResolver.offerText(chosen: task.provider, alternative: alternative)
+                                 + " Change it in Settings → Agent (one click), then retry.")
+            }
             let adapter = adapterFactory(task.provider, task.model)
             guard adapter.capabilities.toolCalling else { throw AgentProviderError.noToolSupport(task.model) }
             var messages: [AgentMessage] = [.user(prompts[id] ?? task.prompt)]

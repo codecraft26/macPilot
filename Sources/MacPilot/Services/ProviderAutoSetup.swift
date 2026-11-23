@@ -34,6 +34,9 @@ enum ProviderAutoSetup {
         return choices
     }
 
+    /// Shown once after launch when the agent's provider was switched.
+    @MainActor static var agentProviderNotice: String?
+
     /// Applies the decision to preferences. Call at launch and after credentials change.
     @MainActor
     static func reconcile() {
@@ -54,6 +57,10 @@ enum ProviderAutoSetup {
         if let value = choices.analysis { defaults.set(value, forKey: PrefKey.analysisProvider) }
         if credentials.bedrock, saved[PrefKey.enabled(.bedrock)] == nil {
             defaults.set(true, forKey: PrefKey.enabled(.bedrock)) // saving AWS keys means you want to use them
+        }
+        // The agent (and memory, search Ask, smart reminders, which share its settings) used to stay on Anthropic.
+        if let next = AgentSettings.migrateProvider(defaults, availability: .current, preferred: Prefs.chatProvider, modelFor: { Prefs.model(for: $0) }) {
+            agentProviderNotice = "The agent now uses \(next.displayName), which is already set up. Change it in Settings → Agent."
         }
     }
 }
