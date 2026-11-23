@@ -44,6 +44,7 @@ struct DashboardView: View {
                 }
                 NetworkDashboardCard()
                 PortsDashboardCard()
+                CleanupDashboardCard()
                 ProviderStatusCard()
             }
             .padding(DS.Space.l)

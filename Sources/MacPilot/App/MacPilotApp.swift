@@ -64,6 +64,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         MemoryMCPServer.shared.startIfEnabled()
         FocusController.shared.start()
         UpdateManager.shared.start()
+        // Optional monthly "developer files are using N GB" reminder; quiet, low priority, a few minutes after launch.
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(300))
+            await DevCleanup.shared.monthlyCheck()
+        }
         // Finder → right-click → Quick Actions / Services → "Convert with MacPilot".
         NSApp.servicesProvider = FinderServiceProvider.shared
         NSUpdateDynamicServices()

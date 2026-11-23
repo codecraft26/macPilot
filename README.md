@@ -9,10 +9,10 @@
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-000?logo=apple)
 ![Swift 5.10](https://img.shields.io/badge/Swift-5.10-F05138?logo=swift&logoColor=white)
 ![SwiftUI](https://img.shields.io/badge/UI-SwiftUI-0A84FF)
-![Version](https://img.shields.io/badge/version-0.31.0-6E5BF7)
+![Version](https://img.shields.io/badge/version-0.32.0-6E5BF7)
 ![Universal](https://img.shields.io/badge/Apple%20silicon%20%2B%20Intel-universal-555)
 
-[**⬇ Download MacPilot 0.31.0 (.dmg)**](releases/MacPilot-0.31.0.dmg) · [What's new](#whats-new) · [Features](#features) · [Agent](#ai-agent) · [Telegram](#telegram-bot) · [Jobs](#scheduled-jobs) · [Job finder](#job-finder) · [Computer use](#computer-use) · [Smart reminders](#smart-reminders) · [Memory](#memory-and-open-loops) · [Focus](#smart-do-not-disturb) · [Search](#universal-search) · [Ports](#port-killer) · [Updates](#auto-updates) · [Network](#network-speed-and-speed-test) · [Finder convert](#finder-convert-with-macpilot) · [Floating buddy](#-floating-buddy) · [First run](#first-run) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
+[**⬇ Download MacPilot 0.32.0 (.dmg)**](releases/MacPilot-0.32.0.dmg) · [What's new](#whats-new) · [Features](#features) · [Agent](#ai-agent) · [Telegram](#telegram-bot) · [Jobs](#scheduled-jobs) · [Job finder](#job-finder) · [Computer use](#computer-use) · [Smart reminders](#smart-reminders) · [Memory](#memory-and-open-loops) · [Focus](#smart-do-not-disturb) · [Search](#universal-search) · [Ports](#port-killer) · [Cleanup](#developer-cleanup) · [Updates](#auto-updates) · [Network](#network-speed-and-speed-test) · [Finder convert](#finder-convert-with-macpilot) · [Floating buddy](#-floating-buddy) · [First run](#first-run) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
 
 <img src="docs/screenshots/mac/dashboard.png" width="860" alt="MacPilot dashboard with today's briefing">
 
@@ -21,6 +21,9 @@
 MacPilot brings Raycast-style speed and an AI assistant to everything you do on a Mac: ask Claude (Anthropic or Amazon Bedrock), OpenAI or a local Ollama model from anywhere, record and summarize meetings, dictate into any app, manage notes, tasks and your calendar, search your clipboard, convert files, and sync it all between your Macs — with a friendly floating buddy on your desktop and live status in the MacBook notch. **Bring your own keys** — there is no MacPilot account or server; data stays on your Mac and credentials in the Keychain. Cloud features send only the relevant content to the provider you choose.
 
 ## What's new
+
+**0.32** — developer cleanup
+- 🧹 **See how much space developer files take and free it safely:** Developer → Cleanup (and a “12.4 GB reclaimable” dashboard card) finds node_modules in your project folders, Xcode DerivedData, old Archives, iOS DeviceSupport, simulator caches and unavailable simulators, Docker leftovers, and npm/Yarn/pnpm/pip/Homebrew/CocoaPods/Gradle caches. Everything goes to the Trash after a confirmation; only caches can be deleted permanently. ⌥K “how much can I free?”, Telegram `/cleanup`, and an optional monthly reminder.
 
 **0.31** — first-run setup
 - 🧭 A guided setup on first launch: pick your AI provider (key saved to the Keychain, or find Ollama), grant permissions with live ✓ status, connect calendars, choose features (buddy, notch, Smart DND, Memory, open at login), pair Telegram and turn on updates. Skip anything; quitting resumes where you were. Reopen it from Settings → General, the menu bar or ⌥K “Setup”.
@@ -196,7 +199,7 @@ Every step can be skipped, you can go back and forth (Return continues, ⌘[ goe
 
 ## Install
 
-1. [Download `MacPilot-0.31.0.dmg`](releases/MacPilot-0.31.0.dmg) (universal: Apple silicon and Intel, macOS 14+).
+1. [Download `MacPilot-0.32.0.dmg`](releases/MacPilot-0.32.0.dmg) (universal: Apple silicon and Intel, macOS 14+).
 2. Open it and drag **MacPilot** into **Applications**.
 3. The build is ad-hoc signed (not notarized), so the first launch needs one approval: right-click MacPilot → **Open** → **Open**, or **System Settings → Privacy & Security → Open Anyway**. If macOS still refuses:
    ```bash
@@ -433,6 +436,33 @@ When several apply, the most important wins (manual, sharing, recording, meeting
 - **⌥K:** “kill port 3000” shows what's there and opens the same confirmation; “what's on port 5432” answers inline.
 - **Telegram:** `/ports` lists them; `/killport 3000` replies with **Stop it / Cancel** buttons that only you can use, once, within 10 minutes, for that exact PID; if it's still running you get a separate **Force kill** button.
 - **Agent:** `list_ports` (low risk) and `kill_port` (high risk: the approval shows the exact process and PID; if another process takes the port in the meantime, nothing is stopped).
+
+## Developer cleanup
+
+**Developer → Cleanup** scans in the background (low priority, **Cancel** any time) and groups what it finds by category with sizes. Sort by size or age, filter to items **not touched in 30 or 90 days**, tick what you want, **Select all**, and **Reveal in Finder**. The dashboard card shows the total from the last scan.
+
+| Category | What | How it's cleaned |
+| --- | --- | --- |
+| node_modules | in ~/Developer, ~/Projects, ~/Code, ~/Documents (change the folders with ⚙︎), with project name, size and last change | Trash |
+| Xcode | DerivedData, Archives older than 90 days, iOS DeviceSupport, simulator caches | Trash (caches may be deleted permanently) |
+| Unavailable simulators | | `xcrun simctl delete unavailable` |
+| Docker (if installed) | dangling images, stopped containers, build cache, sized with `docker system df` | `docker image prune -f`, `docker container prune -f`, `docker builder prune -f` |
+| Package caches | npm, Yarn, pnpm, pip, CocoaPods, Gradle | Trash (or permanently) |
+| Homebrew | old downloads and versions, sized with `brew cleanup -n` | `brew cleanup` |
+| Optional | Swift `.build` folders, Python virtualenvs (off by default) | Trash |
+
+**Safety**
+- Every cleanup asks first and shows the item count and total size. Files go to the **Trash** by default; **Delete permanently** is offered only when everything selected is a cache, and asks a second time.
+- Nothing outside the scanned folders and the known cache folders is touched. Paths are resolved first; symlinks, and paths that lead outside through one, are refused.
+- node_modules of projects changed in the last 7 days are marked “active project” and skipped by Select all — tick them yourself if you mean it.
+- Commands (simctl, Docker, Homebrew) are shown exactly before they run. Docker only removes dangling images, never images you still use.
+- Every cleanup is written to the agent's audit log.
+
+**Elsewhere**
+- **⌥K:** “clean up developer files” or “how much can I free?” opens Cleanup and starts a scan.
+- **Telegram:** `/cleanup` replies with the totals by category. It can only move **caches** to the Trash, and only after you press **Approve** (yours alone, once, within 10 minutes). node_modules, archives, Docker and Homebrew stay for the Mac.
+- **Agent:** `scan_cleanup` (low risk) and `run_cleanup` (high risk: the approval lists the exact paths, size and commands; permanent delete of anything but caches is refused).
+- **Monthly reminder** (off by default, in ⚙︎): “Developer files are using 20 GB” when they pass 5 GB.
 
 ## Auto-updates
 

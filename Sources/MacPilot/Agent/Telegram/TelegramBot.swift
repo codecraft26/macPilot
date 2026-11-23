@@ -214,6 +214,7 @@ final class TelegramBot {
         case "/version": await send(chat, await UpdateManager.shared.versionText())
         case "/ports": await listPorts(chat)
         case "/killport": await requestKill(argument, update: update)
+        case "/cleanup": await cleanupReport(update)
         case "/loops": await send(chat, MemorySettings.load().enabled || !OpenLoops.shared.store.loops().isEmpty
                                   ? "Open loops (last 7 days):\n" + OpenLoops.shared.summary(days: 7)
                                   : "Memory is off on the Mac (Settings → Memory), so there are no open loops yet.")
@@ -248,6 +249,7 @@ final class TelegramBot {
     /jobs — scheduled jobs (pause, resume, run now)
     /version — MacPilot version and whether an update is available (updates install only on the Mac)
     /ports — listening ports; /killport <port> — stop one (asks first)
+    /cleanup — how much developer files you can free (cache cleanup needs Approve)
     /focus [25|50|off] — Focus status, start or end it
     /loops — what you promised or were asked this week
     /remind <words> — e.g. “/remind check PR reviews when I open Xcode”
@@ -428,6 +430,10 @@ final class TelegramBot {
         }
         if data.hasPrefix("k:") {
             await answerCallback(callbackID, await portButton(data, update: update))
+            return
+        }
+        if data.hasPrefix("c:") {
+            await answerCallback(callbackID, await cleanupButton(data, update: update))
             return
         }
         if data.hasPrefix("r:") {
@@ -747,6 +753,64 @@ final class TelegramBot {
         engine.audit("Telegram: user \(update.userID) \(ticket.force ? "force-killed" : "stopped") \(owner.process) (PID \(owner.pid)) on port \(ticket.port): \(outcome.message)", kind: .policy)
         if outcome == .stillRunning { await sendPortButtons(owner, update: update, force: true) }
         return "\(owner.process): \(outcome.message)"
+    }
+
+    // MARK: Developer cleanup
+
+    struct CleanupTicket: Equatable {
+        var itemIDs: [String]
+        var userID: Int64
+        var expiresAt: Date
+    }
+    /// "Move caches to Trash" buttons by nonce: bound to the paired user and the exact cache items listed.
+    private(set) var cleanupTickets: [String: CleanupTicket] = [:]
+    var cleanup: DevCleanup = .shared
+    /// Tests scan a fixture folder instead of this Mac.
+    var cleanupScanner: CleanupScanner?
+
+    /// Telegram may only clean regenerable caches, and only by moving files to the Trash (no CLI prunes).
+    static func telegramCleanable(_ items: [CleanupItem]) -> [CleanupItem] {
+        items.filter { $0.category.isCache && !$0.category.isCommand && !$0.isRecent }
+    }
+
+    private func cleanupReport(_ update: TelegramIncoming) async {
+        await send(update.chatID, "Scanning developer files… (this can take a minute)")
+        await cleanup.scan(using: cleanupScanner)
+        let items = cleanup.items
+        guard !items.isEmpty else { await send(update.chatID, "Nothing reclaimable found."); return }
+        let lines = CleanupRules.byCategory(items).map { category, bytes, list in
+            "• \(category.title): \(CleanupFormat.bytes(bytes))" + (list.count > 1 ? " (\(list.count))" : "")
+        }
+        var text = "Developer files: \(CleanupFormat.bytes(CleanupRules.total(items))) reclaimable\n" + lines.joined(separator: "\n")
+        let cleanable = Self.telegramCleanable(items)
+        guard !cleanable.isEmpty else {
+            await send(update.chatID, text + "\n\nReview and clean up on the Mac: Developer → Cleanup.")
+            return
+        }
+        text += "\n\nFrom here I can move only caches to the Trash: \(cleanable.count) item(s), \(CleanupFormat.bytes(CleanupRules.total(cleanable))).\n"
+            + cleanable.prefix(12).map { "  \($0.category.title): \($0.title)" }.joined(separator: "\n")
+            + "\nnode_modules, archives, Docker and Homebrew stay for the Mac."
+        let nonce = TelegramRandom.string(length: 10, alphabet: Array("abcdefghijkmnpqrstuvwxyz23456789"))
+        cleanupTickets[nonce] = CleanupTicket(itemIDs: cleanable.map(\.id), userID: update.userID, expiresAt: now().addingTimeInterval(AgentPolicy.approvalLifetime))
+        let keyboard: [String: Any] = ["inline_keyboard": [[["text": "✅ Approve: caches to Trash", "callback_data": "c:y:\(nonce)"],
+                                                            ["text": "Cancel", "callback_data": "c:n:\(nonce)"]]]]
+        _ = try? await transport?.call("sendMessage", ["chat_id": update.chatID, "text": String(AgentRedactor.redact(text).prefix(4_000)), "reply_markup": keyboard])
+    }
+
+    private func cleanupButton(_ data: String, update: TelegramIncoming) async -> String {
+        let parts = data.split(separator: ":").map(String.init)
+        guard parts.count == 3, let ticket = cleanupTickets[parts[2]] else { return "These buttons are out of date." }
+        guard ticket.userID == update.userID else { return "Only the person who asked can approve this." }
+        cleanupTickets[parts[2]] = nil
+        guard now() < ticket.expiresAt else { return "This approval expired (10 minutes)." }
+        guard parts[1] == "y" else { return "Cancelled — nothing was removed." }
+        let items = Self.telegramCleanable(cleanup.items.filter { ticket.itemIDs.contains($0.id) })
+        guard !items.isEmpty else { return "Those caches are already gone." }
+        let outcome = await cleanup.clean(items, permanent: false, via: "Telegram (user \(update.userID))")
+        let summary = "Moved \(outcome.done.count) cache item(s) to the Trash, about \(CleanupFormat.bytes(outcome.freed))."
+            + (outcome.refused.isEmpty ? "" : " Refused \(outcome.refused.count).") + (outcome.failed.isEmpty ? "" : " Failed \(outcome.failed.count).")
+        await send(update.chatID, summary)
+        return summary
     }
 
     // MARK: Sending

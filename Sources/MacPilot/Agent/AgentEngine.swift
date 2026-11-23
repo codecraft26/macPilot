@@ -409,6 +409,8 @@ final class AgentEngine {
         let result: AgentToolResult
         if ["list_ports", "kill_port"].contains(normalized.tool) {
             result = await executePorts(normalized)
+        } else if ["scan_cleanup", "run_cleanup"].contains(normalized.tool) {
+            result = await executeCleanup(normalized)
         } else if ["recall_memory", "list_open_loops"].contains(normalized.tool) {
             result = executeMemory(normalized)
         } else if ["web_search", "fetch_page", "extract", "compare_with_last_run", "send_email"].contains(normalized.tool) {
@@ -447,6 +449,35 @@ final class AgentEngine {
         if outcome == .stillRunning, action.arguments["force"] == "true" { outcome = await ports.forceKill(owner) }
         log(AgentEngine.systemLogID, .policy, "Port \(number): \(owner.process) (PID \(pid)) — \(outcome.message)")
         return AgentToolResult(content: "\(owner.process) (PID \(pid)) on port \(number): \(outcome.message)", isError: outcome != .stopped && outcome != .forceKilled)
+    }
+
+    // MARK: Developer cleanup
+
+    var cleanup: DevCleanup = .shared
+    /// Tests scan a fixture folder instead of this Mac.
+    var cleanupScanner: CleanupScanner?
+
+    private func executeCleanup(_ action: NormalizedAction) async -> AgentToolResult {
+        if action.tool == "scan_cleanup" {
+            await cleanup.scan(using: cleanupScanner)
+            guard !cleanup.items.isEmpty else { return AgentToolResult(content: "Nothing reclaimable found.") }
+            let lines = cleanup.items.sorted { $0.bytes > $1.bytes }.prefix(80).map { item in
+                "\(item.id) · \(item.category.title)\(item.category.isCache ? " (cache)" : "") · \(CleanupFormat.bytes(item.bytes))"
+                    + (item.isRecent ? " · active project, skip unless the user asks" : "") + (item.category.isCommand ? " · runs: \(item.commandLine)" : "")
+            }
+            return AgentToolResult(content: "Total \(CleanupFormat.bytes(cleanup.total)) reclaimable.\n" + lines.joined(separator: "\n"))
+        }
+        let ids = Set((action.arguments["items"] ?? "").components(separatedBy: "\n"))
+        let items = cleanup.items.filter { ids.contains($0.id) }
+        // Only the exact approved list: anything that vanished or changed since isn't touched.
+        guard items.count == ids.count else {
+            return AgentToolResult(content: "Some approved items are no longer in the scan; nothing was cleaned. Run scan_cleanup again.", isError: true)
+        }
+        let outcome = await cleanup.clean(items, permanent: action.arguments["permanent"] == "true", via: "the agent")
+        var text = "Cleaned \(outcome.done.count) item(s), about \(CleanupFormat.bytes(outcome.freed))."
+        if !outcome.refused.isEmpty { text += "\nRefused: " + outcome.refused.joined(separator: "; ") }
+        if !outcome.failed.isEmpty { text += "\nFailed: " + outcome.failed.joined(separator: "; ") }
+        return AgentToolResult(content: text, isError: outcome.done.isEmpty)
     }
 
     // MARK: Memory
@@ -497,6 +528,20 @@ final class AgentEngine {
             // Bind an approval to the exact page and element as well as the arguments.
             if let page = browser.currentURL?.absoluteString, verb != "open" { action.arguments["page"] = page }
             if let element { action.arguments["element"] = "\(element.tag)|\(element.label)|\(element.formAction)|\(element.isSubmit)|\(element.isPassword)|\(element.isPayment)" }
+        case "run_cleanup":
+            let (items, missing) = cleanup.resolve((action.arguments["items"] ?? "").components(separatedBy: "\n"))
+            guard missing.isEmpty else { throw PolicyBlock(message: "Unknown cleanup item(s) — run scan_cleanup first: \(missing.prefix(3).joined(separator: ", "))") }
+            // Bind the approval to the scanned items' exact ids.
+            action.arguments["items"] = items.map(\.id).joined(separator: "\n")
+            let permanent = action.arguments["permanent"] == "true"
+            if permanent && !CleanupRules.canDeletePermanently(items) {
+                throw PolicyBlock(message: "Permanent delete is only for caches; node_modules, archives, .build and venvs go to the Trash.")
+            }
+            action.risk = .high
+            action.arguments["detail"] = items.map { "\($0.id) \($0.bytes)" }.joined(separator: "\n")
+            action.summary = "\(permanent ? "Permanently delete" : "Clean up") \(CleanupRules.confirmation(items, permanent: permanent))\n"
+                + items.prefix(20).map { "• \($0.category.title): \($0.category.isCommand ? $0.commandLine : $0.url?.path ?? $0.title)" }.joined(separator: "\n")
+                + (items.count > 20 ? "\n…and \(items.count - 20) more" : "")
         case "kill_port":
             let number = Int(action.arguments["port"] ?? "") ?? 0
             await ports.refresh()

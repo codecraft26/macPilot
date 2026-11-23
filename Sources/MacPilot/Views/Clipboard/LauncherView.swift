@@ -119,6 +119,20 @@ enum LauncherCatalog {
             Task { await PortKiller.shared.refresh() }
         }
 
+        // "clean up developer files" / "how much can I free?"
+        if CleanupRules.isLauncherQuery(trimmed) {
+            let known = DevCleanup.shared.lastKnownTotal
+            instant.append(LauncherItem(id: "cleanup.open", title: "Clean up developer files",
+                                        subtitle: known > 0 ? "\(CleanupFormat.bytes(known)) reclaimable at the last scan — review before anything is removed"
+                                                            : "Scans node_modules, Xcode, Docker and caches — nothing is removed without confirming",
+                                        icon: .system("externaldrive.badge.minus"), section: "Cleanup",
+                                        primary: {
+                                            DeveloperView.openCleanupNext = true
+                                            windows.showDashboard(section: .developer)
+                                            if !DevCleanup.shared.scanning { Task { await DevCleanup.shared.scan() } }
+                                        }))
+        }
+
         // Typed-text actions first.
         if !trimmed.isEmpty {
             results.append(LauncherItem(id: "ask", title: "Ask AI: \(trimmed)", icon: .system("sparkles"), section: "AI",

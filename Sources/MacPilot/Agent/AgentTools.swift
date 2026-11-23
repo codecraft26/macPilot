@@ -52,7 +52,7 @@ enum AgentTools {
                       required: ["command"]),
         AgentToolSpec(name: "system_status", description: "Read-only facts about this Mac: macOS version, uptime, CPU load, memory, free disk space, network.",
                       properties: [:], required: [])
-    ] + webSpecs + computerSpecs + memorySpecs + portSpecs
+    ] + webSpecs + computerSpecs + memorySpecs + portSpecs + cleanupSpecs
 
     /// Listening ports: listing is read-only; stopping a process always needs an exact approval.
     static let portSpecs: [AgentToolSpec] = [
@@ -60,6 +60,15 @@ enum AgentTools {
                       properties: ["filter": ["type": "string", "description": "Optional port number or process name."]], required: []),
         AgentToolSpec(name: "kill_port", description: "Stop the process listening on a port (SIGTERM; with force true, SIGKILL if it's still running after 3 s). Always needs the user's approval; system processes, other users' processes and MacPilot are never stopped.",
                       properties: ["port": ["type": "integer"], "force": ["type": "boolean"]], required: ["port"])
+    ]
+
+    /// Developer cleanup: scanning is read-only; cleaning always needs an exact approval of the listed items.
+    static let cleanupSpecs: [AgentToolSpec] = [
+        AgentToolSpec(name: "scan_cleanup", description: "Scan for reclaimable developer files (node_modules, Xcode DerivedData/Archives, Docker, package caches). Returns each item's id, category and size. Read-only.",
+                      properties: [:], required: []),
+        AgentToolSpec(name: "run_cleanup", description: "Clean up items from the last scan_cleanup, by id. Files go to the Trash; permanent true is allowed only when every item is a cache. Always needs the user's approval of the exact list.",
+                      properties: ["items": ["type": "array", "items": ["type": "string"], "description": "Item ids from scan_cleanup."],
+                                   "permanent": ["type": "boolean"]], required: ["items"])
     ]
 
     /// Read-only memory tools: only the snippets they return reach the model.
@@ -203,6 +212,17 @@ enum AgentTools {
             let force = (arguments["force"] as? Bool) ?? ((arguments["force"] as? String) == "true")
             // The engine adds the exact process (PID, command) before asking, so the approval binds to it.
             return NormalizedAction(tool: tool, arguments: ["port": String(port), "force": force ? "true" : "false"], risk: .high, summary: "Stop what's on port \(port)")
+        case "scan_cleanup":
+            return NormalizedAction(tool: tool, arguments: [:], risk: .low, summary: "Scan developer files for reclaimable space")
+        case "run_cleanup":
+            let raw: [String] = (arguments["items"] as? [Any])?.compactMap { $0 as? String }
+                ?? ((arguments["items"] as? String)?.components(separatedBy: "\n") ?? [])
+            let ids = raw.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+            guard !ids.isEmpty, ids.count <= 200 else { throw AgentPolicyError.invalidArguments("items must list 1–200 ids from scan_cleanup") }
+            let permanent = (arguments["permanent"] as? Bool) ?? ((arguments["permanent"] as? String) == "true")
+            // The engine resolves the ids against the last scan and puts the exact list and size into the approval.
+            return NormalizedAction(tool: tool, arguments: ["items": ids.joined(separator: "\n"), "permanent": permanent ? "true" : "false"],
+                                    risk: .high, summary: "Clean up \(ids.count) developer item(s)")
         case "recall_memory":
             let query = try string("query")!.trimmingCharacters(in: .whitespaces)
             guard !query.isEmpty else { throw AgentPolicyError.invalidArguments("empty query") }
