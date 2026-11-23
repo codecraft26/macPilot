@@ -136,7 +136,7 @@ struct MemorySettingsView: View {
                 """).font(.caption).foregroundStyle(.secondary)
                 if !ComputerPermissions.accessibility {
                     HStack {
-                        Label("Needs Accessibility permission", systemImage: "exclamationmark.circle").foregroundStyle(.orange)
+                        Label("Needs \(ComputerPermissions.accessibilityPaneName()) permission", systemImage: "exclamationmark.circle").help(ComputerPermissions.accessibilityHelp).foregroundStyle(.orange)
                         Button("Request") { ComputerPermissions.requestAccessibility() }
                     }
                 }

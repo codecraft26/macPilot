@@ -341,7 +341,7 @@ struct AccessibilityExplainer: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Paste straight into apps").font(.headline)
-            Text("To paste with Return, macOS needs to let MacPilot send ⌘V. Turn MacPilot on in System Settings → Privacy & Security → Accessibility. Until then, Return copies the item and you press ⌘V yourself.")
+            Text("To paste with Return, macOS needs to let MacPilot send ⌘V. Turn MacPilot on in \(ComputerPermissions.accessibilityPath()), then quit and reopen MacPilot. Until then, Return copies the item and you press ⌘V yourself.")
                 .font(.callout)
                 .fixedSize(horizontal: false, vertical: true)
             HStack {

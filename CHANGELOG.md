@@ -2,6 +2,10 @@
 
 Release notes shown in MacPilot's update window (one `## version` section per release).
 
+## 0.33.4
+- **Fix: MacPilot not in the Accessibility list.** On macOS 27 the list is Privacy & Security → “Device Control and Data Access”; MacPilot now names it everywhere it asks, Request shows the system prompt and opens that list, the status updates live, and a Relaunch button applies the grant.
+- Builds signed with the same local identity keep their permissions: `scripts/create-local-signing-cert.sh` creates a self-signed “MacPilot Local Signing” certificate that `build-app.sh` uses automatically (ad-hoc builds lose Accessibility after every rebuild).
+
 ## 0.33.3
 - **Fix:** a follow-up in the Agent tab opened a new chat. The Agent tab now has chats: replying continues the selected chat, and the agent gets the earlier messages, tool calls and answers as context (newest kept when trimming). Approvals and budgets still apply to each message.
 - The view no longer jumps to whichever task is running; it stays on your chat and scrolls to the bottom. New chat (⌘N), rename from the right-click menu, Retry re-runs the last message in the same chat.

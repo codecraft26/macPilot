@@ -747,8 +747,8 @@ private struct ComputerUseSection: View {
     var body: some View {
         let _ = refresh
         Section {
-            permissionRow("Accessibility", granted: ComputerPermissions.accessibility,
-                          detail: "Lets the agent read and press buttons in apps you allow.",
+            permissionRow("Accessibility (\(ComputerPermissions.accessibilityPaneName()))", granted: ComputerPermissions.accessibility,
+                          detail: "Lets the agent read and press buttons in apps you allow. \(ComputerPermissions.accessibilityHelp)",
                           request: ComputerPermissions.requestAccessibility, settingsURL: ComputerPermissions.accessibilitySettings)
             permissionRow("Screen & System Audio Recording", granted: ComputerPermissions.screenRecording,
                           detail: "Lets the agent take screenshots (MacPilot's own windows are hidden).",
@@ -768,6 +768,8 @@ private struct ComputerUseSection: View {
         } header: {
             Text("Computer use — permissions")
         }
+        // Re-checks every 2 s while visible, so the state updates as soon as you switch it on.
+        .task { while !Task.isCancelled { try? await Task.sleep(for: .seconds(2)); refresh += 1 } }
         Section {
             TextField("Allowed sites, comma separated (e.g. github.com, example.com)", text: $domains, axis: .vertical)
                 .lineLimit(1...3)
@@ -811,6 +813,8 @@ private struct ComputerUseSection: View {
             if !granted {
                 Button("Request") { request(); refresh += 1 }
                 Button("Open Settings") { NSWorkspace.shared.open(settingsURL) }
+                Button("Relaunch") { SetupKeyStore.relaunch() }
+                    .help("macOS applies a new grant when MacPilot starts again.")
             }
         }
     }

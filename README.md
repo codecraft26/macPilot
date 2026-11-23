@@ -9,10 +9,10 @@
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-000?logo=apple)
 ![Swift 5.10](https://img.shields.io/badge/Swift-5.10-F05138?logo=swift&logoColor=white)
 ![SwiftUI](https://img.shields.io/badge/UI-SwiftUI-0A84FF)
-![Version](https://img.shields.io/badge/version-0.33.3-6E5BF7)
+![Version](https://img.shields.io/badge/version-0.33.4-6E5BF7)
 ![Universal](https://img.shields.io/badge/Apple%20silicon%20%2B%20Intel-universal-555)
 
-[**⬇ Download MacPilot 0.33.3 (.dmg)**](releases/MacPilot-0.33.3.dmg) · [What's new](#whats-new) · [Features](#features) · [Agent](#ai-agent) · [Telegram](#telegram-bot) · [Jobs](#scheduled-jobs) · [Job finder](#job-finder) · [Computer use](#computer-use) · [Smart reminders](#smart-reminders) · [Memory](#memory-and-open-loops) · [Focus](#smart-do-not-disturb) · [Search](#universal-search) · [Ports](#port-killer) · [Cleanup](#developer-cleanup) · [Updates](#auto-updates) · [Network & CPU](#network-speed-and-speed-test) · [Finder convert](#finder-convert-with-macpilot) · [Floating buddy](#-floating-buddy) · [First run](#first-run) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
+[**⬇ Download MacPilot 0.33.4 (.dmg)**](releases/MacPilot-0.33.4.dmg) · [What's new](#whats-new) · [Features](#features) · [Agent](#ai-agent) · [Telegram](#telegram-bot) · [Jobs](#scheduled-jobs) · [Job finder](#job-finder) · [Computer use](#computer-use) · [Smart reminders](#smart-reminders) · [Memory](#memory-and-open-loops) · [Focus](#smart-do-not-disturb) · [Search](#universal-search) · [Ports](#port-killer) · [Cleanup](#developer-cleanup) · [Updates](#auto-updates) · [Network & CPU](#network-speed-and-speed-test) · [Finder convert](#finder-convert-with-macpilot) · [Floating buddy](#-floating-buddy) · [First run](#first-run) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
 
 <img src="docs/screenshots/mac/dashboard.png" width="860" alt="MacPilot dashboard with today's briefing">
 
@@ -208,7 +208,7 @@ Every step can be skipped, you can go back and forth (Return continues, ⌘[ goe
 
 ## Install
 
-1. [Download `MacPilot-0.33.3.dmg`](releases/MacPilot-0.33.3.dmg) (universal: Apple silicon and Intel, macOS 14+).
+1. [Download `MacPilot-0.33.4.dmg`](releases/MacPilot-0.33.4.dmg) (universal: Apple silicon and Intel, macOS 14+).
 2. Open it and drag **MacPilot** into **Applications**.
 3. The build is ad-hoc signed (not notarized), so the first launch needs one approval: right-click MacPilot → **Open** → **Open**, or **System Settings → Privacy & Security → Open Anyway**. If macOS still refuses:
    ```bash
@@ -283,13 +283,28 @@ Use Claude through your own AWS account instead of an Anthropic API key:
 
 MacPilot calls `https://bedrock-mantle.<region>.api.aws/anthropic/v1/messages` (the Messages API, streamed) and signs each request with AWS Signature V4 (service `bedrock-mantle`) or sends the API key as a bearer token. Model IDs carry an `anthropic.` prefix (`anthropic.claude-opus-5-5` by default). Credentials are stored only in the Keychain. Bedrock has no models list or server-side refusal fallback, so **Test connection** sends a 16-token “ping” to the selected model.
 
-### Keychain prompts
+### Keychain prompts and permissions that don't stick
 
-The build script signs ad hoc by default, so macOS may ask for Keychain access again after each rebuild. To avoid that, sign with your own identity:
+Without a signing certificate the build is signed ad hoc. An ad-hoc app's identity is the hash of its binary, so after every rebuild macOS treats it as a new app: Keychain asks again, and the Accessibility / Screen Recording switches no longer apply (MacPilot can even vanish from the list). Fix it once with a free, local, self-signed certificate:
+
+```bash
+./scripts/create-local-signing-cert.sh
+```
+
+It creates **MacPilot Local Signing** in your login Keychain (macOS asks for your password to trust it for code signing). `build-app.sh` and `package.sh` then use it automatically, and the app keeps the same identity across rebuilds. Or sign with your own Apple identity:
 
 ```bash
 SIGN_IDENTITY="Apple Development: Your Name (TEAMID)" ./scripts/build-app.sh
 ```
+
+### MacPilot isn't in the Accessibility list (macOS 27)
+
+On macOS 27 the list of apps allowed to control your Mac is **System Settings → Privacy & Security → Device Control and Data Access** (earlier versions call it *Accessibility*). The separate **System Settings → Accessibility** section only lists assistive apps such as screen readers, so MacPilot never appears there. To grant it:
+
+1. Quit MacPilot. If you rebuilt it or have more than one copy, clear the old entry: `tccutil reset Accessibility com.macpilot.app`
+2. Keep one copy: put the new build in /Applications (drag it from the DMG, replacing the old one) and open it from there.
+3. In MacPilot: **Settings → Agent → Permissions → Request** (or the setup wizard). macOS adds MacPilot to *Device Control and Data Access*; switch it on.
+4. Press **Relaunch** in MacPilot (macOS applies the grant when the app starts again).
 
 ## Default shortcuts
 
@@ -341,7 +356,7 @@ Telegram control and scheduled jobs are described below.
 The agent can use its **own browser** and **your apps** — with the same approvals, audit log, kill switch and limits as everything else.
 
 **Permissions (Settings → Agent → Computer use)** — a checklist shows each one with **Request** and **Open Settings** buttons:
-1. **Accessibility** (System Settings → Privacy & Security → Accessibility → MacPilot): needed to read and press controls in apps.
+1. **Accessibility** (System Settings → Privacy & Security → Accessibility → MacPilot; on macOS 27: Privacy & Security → **Device Control and Data Access**): needed to read and press controls in apps.
 2. **Screen & System Audio Recording** (… → Screen & System Audio Recording → MacPilot): needed for screenshots. MacPilot's own windows are always left out.
 3. **Automation → Mail** is asked by macOS the first time a job emails through Mail.
 
@@ -695,7 +710,7 @@ Drop files on a tool (or choose them), set options, press Convert; results are s
 
 - MacPilot saves what you copy: text, rich text, links, files, colors and (optionally) images, with the app it came from. Copying the same thing again moves it to the top instead of duplicating it.
 - **⌥C** opens a floating panel over the app you are in: type to fuzzy-search, ↑/↓ to move, **Return** pastes into that app, **⇧Return** pastes as plain text, **⌘Return** only copies, **⌘1–⌘9** quick-paste, **⌘P** pin, **⌘F** favorite, **⌘⌫** delete, **Tab** cycles filters (Text, Links, Images, Code, Files, Favorites, Pinned), **Esc** closes.
-- Pasting into other apps needs **Accessibility** permission (System Settings → Privacy & Security → Accessibility). Without it, Return copies and you press ⌘V.
+- Pasting into other apps needs **Accessibility** permission (System Settings → Privacy & Security → Accessibility; on macOS 27 “Device Control and Data Access”). Without it, Return copies and you press ⌘V.
 - Never saved: items marked concealed/transient by password managers, copies from excluded apps (1Password, Bitwarden, Keychain Access, Passwords, LastPass, Dashlane by default) and anything that looks like an API key, token, private key or card number. Pause capture from the menu bar.
 - The **Clipboard** section has the full history with folders, pins, favorites, retention (1 day–unlimited, max items) and AI actions: Explain, Summarize, Fix grammar, Translate, Format JSON.
 

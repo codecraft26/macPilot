@@ -3,8 +3,9 @@
 # Usage: scripts/build-app.sh [debug|release]
 # The release build is universal (Apple silicon + Intel). Set ARCHS="arm64" for a faster single-arch build.
 # Set BUILD_DIR to choose a different output directory.
-# Set SIGN_IDENTITY="Apple Development: You (TEAMID)" for a stable signature
-# (otherwise the app is ad-hoc signed and Keychain may ask again after each rebuild).
+# Set SIGN_IDENTITY="Apple Development: You (TEAMID)" for a stable signature. Without it, the self-signed
+# "MacPilot Local Signing" certificate is used when present (scripts/create-local-signing-cert.sh);
+# otherwise the app is ad-hoc signed, and macOS forgets permissions (Accessibility…) after each rebuild.
 set -euo pipefail
 
 CONFIG="${1:-release}"
@@ -44,13 +45,26 @@ for framework in "$BIN_DIR"/*.framework; do
   ditto "$framework" "$APP/Contents/Frameworks/$(basename "$framework")"
 done
 
+# Without SIGN_IDENTITY, use the self-signed "MacPilot Local Signing" certificate if it exists
+# (scripts/create-local-signing-cert.sh). Its designated requirement stays the same across rebuilds, so
+# macOS keeps the Accessibility / Screen Recording grants and Keychain access. Otherwise: ad hoc, whose
+# requirement is the binary's hash, so every rebuild looks like a new app to privacy settings.
+LOCAL_IDENTITY="${LOCAL_SIGN_IDENTITY:-MacPilot Local Signing}"
+LOCAL_SIGNING=0
+if [ -z "${SIGN_IDENTITY:-}" ] && security find-identity -v -p codesigning 2>/dev/null | grep -q "\"$LOCAL_IDENTITY\""; then
+  LOCAL_SIGNING=1
+  echo "Signing with the local identity \"$LOCAL_IDENTITY\" (stable across rebuilds)."
+fi
+IDENTITY="${SIGN_IDENTITY:-}"
+[ "$LOCAL_SIGNING" = 1 ] && IDENTITY="$LOCAL_IDENTITY"
+
 # A Developer ID identity gets the hardened runtime and a timestamp so the app can be notarized.
-SIGN_ARGS=(--force --sign "${SIGN_IDENTITY:--}" --entitlements "$ROOT/Resources/MacPilot.entitlements")
+SIGN_ARGS=(--force --sign "${IDENTITY:--}" --entitlements "$ROOT/Resources/MacPilot.entitlements")
 if [ -n "${SIGN_IDENTITY:-}" ]; then
   SIGN_ARGS+=(--options runtime --timestamp)
 fi
 # Sign embedded frameworks (and Sparkle's helpers) first, then the app.
-FRAMEWORK_SIGN_ARGS=(--force --sign "${SIGN_IDENTITY:--}")
+FRAMEWORK_SIGN_ARGS=(--force --sign "${IDENTITY:--}")
 if [ -n "${SIGN_IDENTITY:-}" ]; then FRAMEWORK_SIGN_ARGS+=(--options runtime --timestamp); fi
 for framework in "$APP/Contents/Frameworks/"*.framework; do
   if [ -d "$framework/Versions/B" ]; then
