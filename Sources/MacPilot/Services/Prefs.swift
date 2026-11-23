@@ -40,6 +40,10 @@ enum PrefKey {
     static let notchNetworkReadout = "notch.networkReadout"
     static let notchNetworkCard = "notch.networkCard"
     static let menuBarNetwork = "menuBar.networkReadout"
+    static let notchCPUReadout = "notch.cpuReadout"
+    static let menuBarStats = "menuBar.stats"
+    static let statsUnit = "stats.unit"
+    static let statsInterval = "stats.interval"
     static let recordScreen = "recording.recordScreen"
     static let screenDisplayID = "recording.screenDisplayID"
     static let screenFPS = "recording.screenFPS"
@@ -124,7 +128,9 @@ enum Prefs {
             PrefKey.notchEnabled: true,
             PrefKey.notchExpandOnHover: true,
             PrefKey.notchMeetingCountdown: true,
-            PrefKey.notchNetworkReadout: false,
+            PrefKey.notchNetworkReadout: true,
+            PrefKey.notchCPUReadout: true,
+            PrefKey.statsInterval: 1.0,
             PrefKey.notchNetworkCard: true,
             PrefKey.menuBarNetwork: false,
             PrefKey.recordScreen: false,

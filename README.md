@@ -9,10 +9,10 @@
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-000?logo=apple)
 ![Swift 5.10](https://img.shields.io/badge/Swift-5.10-F05138?logo=swift&logoColor=white)
 ![SwiftUI](https://img.shields.io/badge/UI-SwiftUI-0A84FF)
-![Version](https://img.shields.io/badge/version-0.32.0-6E5BF7)
+![Version](https://img.shields.io/badge/version-0.33.3-6E5BF7)
 ![Universal](https://img.shields.io/badge/Apple%20silicon%20%2B%20Intel-universal-555)
 
-[**⬇ Download MacPilot 0.32.0 (.dmg)**](releases/MacPilot-0.32.0.dmg) · [What's new](#whats-new) · [Features](#features) · [Agent](#ai-agent) · [Telegram](#telegram-bot) · [Jobs](#scheduled-jobs) · [Job finder](#job-finder) · [Computer use](#computer-use) · [Smart reminders](#smart-reminders) · [Memory](#memory-and-open-loops) · [Focus](#smart-do-not-disturb) · [Search](#universal-search) · [Ports](#port-killer) · [Cleanup](#developer-cleanup) · [Updates](#auto-updates) · [Network](#network-speed-and-speed-test) · [Finder convert](#finder-convert-with-macpilot) · [Floating buddy](#-floating-buddy) · [First run](#first-run) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
+[**⬇ Download MacPilot 0.33.3 (.dmg)**](releases/MacPilot-0.33.3.dmg) · [What's new](#whats-new) · [Features](#features) · [Agent](#ai-agent) · [Telegram](#telegram-bot) · [Jobs](#scheduled-jobs) · [Job finder](#job-finder) · [Computer use](#computer-use) · [Smart reminders](#smart-reminders) · [Memory](#memory-and-open-loops) · [Focus](#smart-do-not-disturb) · [Search](#universal-search) · [Ports](#port-killer) · [Cleanup](#developer-cleanup) · [Updates](#auto-updates) · [Network & CPU](#network-speed-and-speed-test) · [Finder convert](#finder-convert-with-macpilot) · [Floating buddy](#-floating-buddy) · [First run](#first-run) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
 
 <img src="docs/screenshots/mac/dashboard.png" width="860" alt="MacPilot dashboard with today's briefing">
 
@@ -21,6 +21,15 @@
 MacPilot brings Raycast-style speed and an AI assistant to everything you do on a Mac: ask Claude (Anthropic or Amazon Bedrock), OpenAI or a local Ollama model from anywhere, record and summarize meetings, dictate into any app, manage notes, tasks and your calendar, search your clipboard, convert files, and sync it all between your Macs — with a friendly floating buddy on your desktop and live status in the MacBook notch. **Bring your own keys** — there is no MacPilot account or server; data stays on your Mac and credentials in the Keychain. Cloud features send only the relevant content to the provider you choose.
 
 ## What's new
+
+**0.33.3** — Agent chats
+- 💬 The Agent tab is now a list of **chats**: replying in a chat continues it, and the agent sees the earlier messages, tool calls and answers (trimmed to fit). **New chat** (⌘N) starts fresh; right-click to rename. The view stays on your chat when tasks finish. On Telegram, messages continue your current chat; `/new` (or 30 minutes of quiet) starts a new one.
+
+**0.33.1** — the agent uses Bedrock when that's what you set up
+- 🔧 With Claude via Amazon Bedrock configured, the agent no longer asks for an Anthropic key: it picks the provider you actually set up (your default, then Bedrock, Anthropic, OpenAI, Ollama). A provider you picked yourself is never switched; if it has no credentials you get a one-click “use Claude (Bedrock) instead?”. Labels now read **Claude (Bedrock)** and **Claude (Anthropic API)**.
+
+**0.33** — network speed and CPU beside the notch
+- 📶 **Live ↓/↑ speed and CPU % beside the notch**, on by default: network on the left, CPU on the right (orange above 80%), steady monospaced digits. It steps aside for recordings, timers, music and alerts, then comes back. On Macs without a notch it goes in the menu bar (network, CPU or both). Click it for 60-second graphs, per-core bars, memory, the top 5 processes and a speed test. Settings → Notch: separate toggles, units (Auto / MB/s / Mbps) and 1 s or 2 s updates. Sampling costs about 0.01% CPU and pauses while the screen is locked or asleep.
 
 **0.32** — developer cleanup
 - 🧹 **See how much space developer files take and free it safely:** Developer → Cleanup (and a “12.4 GB reclaimable” dashboard card) finds node_modules in your project folders, Xcode DerivedData, old Archives, iOS DeviceSupport, simulator caches and unavailable simulators, Docker leftovers, and npm/Yarn/pnpm/pip/Homebrew/CocoaPods/Gradle caches. Everything goes to the Trash after a confirmation; only caches can be deleted permanently. ⌥K “how much can I free?”, Telegram `/cleanup`, and an optional monthly reminder.
@@ -199,7 +208,7 @@ Every step can be skipped, you can go back and forth (Return continues, ⌘[ goe
 
 ## Install
 
-1. [Download `MacPilot-0.32.0.dmg`](releases/MacPilot-0.32.0.dmg) (universal: Apple silicon and Intel, macOS 14+).
+1. [Download `MacPilot-0.33.3.dmg`](releases/MacPilot-0.33.3.dmg) (universal: Apple silicon and Intel, macOS 14+).
 2. Open it and drag **MacPilot** into **Applications**.
 3. The build is ad-hoc signed (not notarized), so the first launch needs one approval: right-click MacPilot → **Open** → **Open**, or **System Settings → Privacy & Security → Open Anyway**. If macOS still refuses:
    ```bash
@@ -269,8 +278,8 @@ Use Claude through your own AWS account instead of an Anthropic API key:
 
 1. In the AWS console, enable the Claude models you want under [Amazon Bedrock → Model access](https://console.aws.amazon.com/bedrock/home#/modelaccess) (Opus 5.5, Sonnet 5.5 and Haiku 5.5 may need access requested).
 2. Create credentials with IAM permission `bedrock-mantle:CreateInference` on those models: either an **access key** (access key ID + secret, plus a session token for temporary credentials) or an **Amazon Bedrock API key** (that identity also needs `bedrock-mantle:CallWithBearerToken`).
-3. In **Settings → Providers → Claude via Amazon Bedrock**, choose *Access key* or *Bedrock API key*, paste the values, pick a region (default `us-east-1`) and press **Save**. Turn the provider on and press **Test connection**.
-4. Pick *Bedrock* as the provider for new chats or for transcript analysis in **Settings → Routing**, or per chat.
+3. In **Settings → Providers → Claude (Bedrock)**, choose *Access key* or *Bedrock API key*, paste the values, pick a region (default `us-east-1`) and press **Save**. Turn the provider on and press **Test connection**.
+4. That's it: with only AWS credentials saved, chat, analysis **and the agent** (plus memory, search Ask and smart reminders) use Claude via Bedrock automatically. You can still pick a provider in **Settings → Routing** and **Settings → Agent**; an explicit pick is never changed. If the provider you picked has no credentials, MacPilot offers the one that does (“Anthropic isn't set up — use Claude (Bedrock) instead?”) instead of asking for a key. **Settings → Agent → Test connection** checks the agent's provider and model.
 
 MacPilot calls `https://bedrock-mantle.<region>.api.aws/anthropic/v1/messages` (the Messages API, streamed) and signs each request with AWS Signature V4 (service `bedrock-mantle`) or sends the API key as a bearer token. Model IDs carry an `anthropic.` prefix (`anthropic.claude-opus-5-5` by default). Credentials are stored only in the Keychain. Bedrock has no models list or server-side refusal fallback, so **Test connection** sends a 16-token “ping” to the selected model.
 
@@ -439,6 +448,8 @@ When several apply, the most important wins (manual, sharing, recording, meeting
 
 ## Developer cleanup
 
+![Developer cleanup](docs/screenshots/mac/dev-cleanup.png)
+
 **Developer → Cleanup** scans in the background (low priority, **Cancel** any time) and groups what it finds by category with sizes. Sort by size or age, filter to items **not touched in 30 or 90 days**, tick what you want, **Select all**, and **Reveal in Finder**. The dashboard card shows the total from the last scan.
 
 | Category | What | How it's cleaned |
@@ -486,7 +497,7 @@ Control the agent from your phone. MacPilot talks to Telegram's Bot API by **lon
 **Set up (once)**
 1. In Telegram, open a chat with **@BotFather**, send `/newbot`, choose a name and a username ending in `bot`. BotFather replies with a token like `123456789:AA…`.
 2. Optional but recommended: in BotFather send `/setjoingroups` → your bot → **Disable**, so it can't be added to groups.
-3. On the Mac: **Settings → Agent → Telegram**, paste the token and press **Save** (it goes to the Keychain only, never to settings files, the database or logs). **Test** checks it with `getMe`. Turn on **Connect the bot**.
+3. On the Mac: **Settings (⌘,) → Agent tab → Telegram** (scroll down). “Bot: Off” is normal until you finish these steps; the section tells you the next one. Paste the token and press **Save** (it goes to the Keychain only, never to settings files, the database or logs). **Test** checks it with `getMe`. Turn on **Connect the bot**.
 4. Press **Pair a phone…**. MacPilot shows an 8-character code valid for 5 minutes. In a **private chat** with your bot, send `/pair CODE`. The code works once (five wrong tries cancel it). Your numeric Telegram user ID and chat ID are saved — usernames are never used for identity. Paired people are listed in Settings with **Remove**.
 
 **Commands**
@@ -494,6 +505,7 @@ Control the agent from your phone. MacPilot talks to Telegram's Bot API by **lon
 | Command | What it does |
 |---|---|
 | *any text* | Starts an agent task (channel “telegram”). The bot replies at once with the task ID and edits that message at milestones (rate-limited); the final message has a summary and a short redacted log. |
+| `/new` | Starts a new chat. Otherwise each message continues your current chat (the agent sees what came before); 30 minutes of quiet also starts a new one. |
 | `/status` | Active task, queue, network, kill switch and whether the screen is locked |
 | `/tasks`, `/cancel <id>` | Recent tasks; stop one |
 | `/model` | Provider and model in use (never keys) |
@@ -528,6 +540,20 @@ A built-in job template (Agent → Jobs → New job → Job finder) that doesn't
 
 ## Network speed and speed test
 
+![Network and CPU beside the notch](docs/screenshots/mac/notch-system.png)
+
+**Beside the notch** (on by default): download and upload speed on the left, CPU usage on the right. CPU turns orange from 80%; digits are monospaced so the text doesn't jitter. Whenever the notch has something else to show (recording, dictation, a timer, a meeting countdown, music or an alert), the readout steps aside and returns afterwards. Hovering the readout doesn't expand the notch; hovering the notch itself still does.
+
+**Click the readout** (or menu bar → System Monitor…) for a small panel with 60-second graphs for CPU and network, a bar per core, memory in use, the 5 busiest processes and a **Speed Test** button.
+
+| | |
+| --- | --- |
+| ![System panel](docs/screenshots/mac/system-monitor.png) | ![CPU over 80%](docs/screenshots/mac/notch-system-hot.png) |
+
+- **Macs without a notch** (or with MacPilot's notch turned off): the same readout goes in the menu bar, e.g. `↓2.4M ↑120K  CPU 23%`. Settings → Notch → Menu bar readout: Automatic, Network, CPU, both or Off.
+- **Settings → Notch:** separate toggles for network and CPU, units (Auto, MB/s or Mbps) and updates every 1 or 2 seconds.
+- **Light on the Mac:** one sample (CPU ticks from `host_processor_info`, memory, interface counters) takes about 70 µs, roughly 0.01% CPU at one per second; a test fails above 1%. The process list is only read while the panel is open. Everything pauses while the screen is locked, the displays sleep or the Mac sleeps.
+
 - **Live throughput:** MacPilot reads the byte counters of your active interfaces once a second (`getifaddrs`; loopback, VPN tunnels and AirDrop links are skipped so nothing is counted twice) and shows download ↓ and upload ↑ rates.
 - **Where it shows:** the expanded notch has a network card with a 1-minute graph and a speed test button; turn on **Network speed: show ↓/↑ next to the notch** for a compact readout whenever nothing else is showing. The dashboard's **Network** card has a live graph, interface name and local IP (⌥K → “Network” copies the IP). **Network speed in the menu bar** adds a small readout next to the MacPilot icon (off by default). All in **Settings → Recording & Calendar → Notch**.
 - **Speed test:** uses `networkQuality -c` (built into macOS 12+) for download and upload in Mbps and idle latency in ms, with a progress bar (a test takes about 20 seconds). The last 20 results are kept on this Mac (dashboard → Network → History). Start it from the dashboard, the notch, ⌥K → **Speed test**, or tell Pilot *“run a speed test”* — it reads the result out loud.
@@ -559,7 +585,7 @@ If the item doesn't appear: open **System Settings → Keyboard → Keyboard Sho
 
 #### AWS setup
 
-1. Save an AWS **Access key** in **Settings → Providers → Claude via Amazon Bedrock**. Include the session token for temporary credentials. A Bedrock bearer key works for Claude chat and analysis. AWS transcription uses the AWS access key and secret.
+1. Save an AWS **Access key** in **Settings → Providers → Claude (Bedrock)**. Include the session token for temporary credentials. A Bedrock bearer key works for Claude chat and analysis. AWS transcription uses the AWS access key and secret.
 2. In **Settings → Routing → Audio transcription**, select **Amazon Transcribe (AWS)** or **Amazon Bedrock Data Automation**. The transcription region defaults to the Bedrock region. Set an override if your transcription services use another region.
 3. For Amazon Transcribe streaming and live captions, give the AWS identity `transcribe:StartStreamTranscriptionWebSocket`. For batch, it needs `transcribe:StartTranscriptionJob`, `transcribe:GetTranscriptionJob`, and read and write access to your input bucket. If you enable cleanup, also allow `s3:DeleteObject` and `transcribe:DeleteTranscriptionJob`. To remove S3 files when you delete a recording (and for **Clean up S3** in Settings → Routing), also allow `s3:ListBucket` on the bucket for the `macpilot/` prefix. If the bucket doesn't exist, MacPilot creates it (private, S3-managed encryption, with a rule that expires `macpilot/` files after a day) when it first needs it or when you press **Create bucket**; that needs `s3:CreateBucket` and, for the rule, `s3:PutLifecycleConfiguration`. [Amazon Transcribe streaming setup](https://docs.aws.amazon.com/transcribe/latest/dg/streaming-setting-up.html) · [Batch requests](https://docs.aws.amazon.com/transcribe/latest/APIReference/API_StartTranscriptionJob.html)
 4. For Bedrock Data Automation, configure `bedrock:InvokeDataAutomationAsync` and `bedrock:GetDataAutomationStatus` for the profile and invocation resources, and allow the required reads and writes on the bucket. For example, a supported US profile uses an ARN ending in `data-automation-profile/us.data-automation-v1`. MacPilot can delete the uploaded audio after a completed job if granted `s3:DeleteObject`. Bedrock output stays in S3 and is subject to your bucket's retention policy. [Bedrock profiles and permissions](https://docs.aws.amazon.com/bedrock/latest/userguide/bda-cris.html) · [S3 access](https://docs.aws.amazon.com/bedrock/latest/userguide/s3-bucket-access.html)

@@ -67,7 +67,7 @@ enum TranscribeError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .missingAccessKeys:
-            return "Save an AWS access key ID and secret under Settings → Providers → Claude via Amazon Bedrock. AWS transcription uses Signature V4."
+            return "Save an AWS access key ID and secret under Settings → Providers → Claude (Bedrock). AWS transcription uses Signature V4."
         case .configuration(let message): return message
         case let .aws(service, status, message):
             var text = "\(service) returned \(status): \(Redactor.redact(message))"

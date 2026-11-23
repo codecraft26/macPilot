@@ -41,7 +41,7 @@ final class UpdateManager {
         get { controller?.updater.automaticallyChecksForUpdates ?? UpdatePreferences(defaults: .standard).automaticallyChecks }
         set {
             controller?.updater.automaticallyChecksForUpdates = newValue
-            var prefs = UpdatePreferences(defaults: .standard)
+            let prefs = UpdatePreferences(defaults: .standard)
             prefs.automaticallyChecks = newValue
         }
     }
@@ -50,7 +50,7 @@ final class UpdateManager {
         get { controller?.updater.automaticallyDownloadsUpdates ?? UpdatePreferences(defaults: .standard).automaticallyInstalls }
         set {
             controller?.updater.automaticallyDownloadsUpdates = newValue
-            var prefs = UpdatePreferences(defaults: .standard)
+            let prefs = UpdatePreferences(defaults: .standard)
             prefs.automaticallyInstalls = newValue
         }
     }

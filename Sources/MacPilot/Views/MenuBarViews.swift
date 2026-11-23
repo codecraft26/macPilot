@@ -5,18 +5,25 @@ import SwiftUI
 struct MenuBarLabel: View {
     @Environment(AppState.self) private var appState
     private let recorder = RecordingManager.shared
-    @AppStorage(PrefKey.menuBarNetwork) private var showNetwork = false
+    @AppStorage(PrefKey.menuBarNetwork) private var legacyNetwork = false
+    @AppStorage(PrefKey.menuBarStats) private var statsMode = ""
+    @AppStorage(PrefKey.notchNetworkReadout) private var networkOn = true
+    @AppStorage(PrefKey.notchCPUReadout) private var cpuOn = true
+    @AppStorage(PrefKey.notchEnabled) private var notchEnabled = true
+    @AppStorage(PrefKey.statsUnit) private var unit = RateUnit.auto.rawValue
 
     var body: some View {
+        // Read the stored values so the label refreshes when settings change.
+        let _ = (legacyNetwork, statsMode, networkOn, cpuOn, notchEnabled, unit)
+        let parts = StatsDisplay.menuBarParts
         // While audio is captured the icon is a red (orange when paused) record symbol, never hidden.
         if appState.isRecording {
             Image(nsImage: MenuBarIcon.recording(paused: recorder.isPaused))
-        } else if showNetwork {
-            let network = NetworkMonitor.shared
+        } else if parts.any, !SystemMonitor.shared.gate.isPaused {
             HStack(spacing: 4) {
                 Image(nsImage: MenuBarIcon.idle)
                 if FocusController.shared.isActive { Image(systemName: "moon.fill") }
-                Text("↓\(NetworkMath.compact(network.down)) ↑\(NetworkMath.compact(network.up))").monospacedDigit()
+                Text(MenuBarStats.text(parts)).monospacedDigit()
             }
         } else if FocusController.shared.isActive {
             // Focus indicator: the reason is in the menu.
@@ -27,6 +34,21 @@ struct MenuBarLabel: View {
         } else {
             Image(nsImage: MenuBarIcon.idle)
         }
+    }
+}
+
+/// Compact menu bar text: "↓2.4M ↑120K  CPU 23%".
+enum MenuBarStats {
+    @MainActor static func text(_ parts: StatsDisplay.Parts) -> String {
+        var pieces: [String] = []
+        if parts.network {
+            let unit = StatsDisplay.unit
+            let network = NetworkMonitor.shared
+            pieces.append(unit == .auto ? "↓\(NetworkMath.compact(network.down)) ↑\(NetworkMath.compact(network.up))"
+                                        : "↓\(unit.format(network.down)) ↑\(unit.format(network.up))")
+        }
+        if parts.cpu { pieces.append("CPU " + CPUMath.percent(SystemMonitor.shared.cpu)) }
+        return pieces.joined(separator: "  ")
     }
 }
 
@@ -135,6 +157,7 @@ struct MenuBarContent: View {
             FloatingBuddy.shared.toggle()
         }
         Toggle("Open at Login", isOn: Binding(get: { LoginItemState.shared.enabled }, set: { LaunchAtLogin.set($0) }))
+        Button("System Monitor…") { SystemMonitorPanel.shared.show() }
         Button("Developer Workspace") {
             WindowManager.shared.showDashboard(section: .developer)
         }

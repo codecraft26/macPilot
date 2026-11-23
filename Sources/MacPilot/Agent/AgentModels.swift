@@ -85,6 +85,14 @@ final class AgentTask {
     var isNative: Bool = false
     /// Set while a GUI or browser step waits for the screen to be unlocked.
     var pausedReason: String = ""
+    /// The chat this turn belongs to: nil for the first turn (its own uid is the chat's id), so tasks from
+    /// before chats existed are single-turn chats with no migration step.
+    var conversationID: UUID?
+    /// The chat's title (kept on its first turn; renamable). Empty = the first message.
+    var conversationTitle: String = ""
+
+    /// The chat this task belongs to.
+    var conversationKey: UUID { conversationID ?? uid }
 
     var allowedTools: Set<String> {
         Set(allowedToolsRaw.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty })
@@ -211,6 +219,10 @@ struct AgentSettings: Equatable {
     var guiAllowlist: [String] = []
     var commandTimeout: TimeInterval = 60
     var outputCap = 32_000
+    /// True once the user picked the agent's provider in Settings → Agent (then it's never changed for them).
+    var providerExplicit = false
+    /// Set when the explicitly picked provider has no credentials but another one does.
+    var providerOffer: AIProviderID?
 
     static let defaultAllowlist = ["ls", "cat", "head", "tail", "wc", "grep", "find", "pwd", "echo", "date", "du", "file",
                                    "git", "swift", "xcodebuild", "make", "npm", "node", "python3", "pytest", "go", "cargo"]
@@ -221,12 +233,32 @@ struct AgentSettings: Equatable {
         static let taskCap = "agent.taskCostCap", dailyCap = "agent.dailyCostCap", localOnly = "agent.localOnly"
         static let approveMedium = "agent.approveMedium", allowlist = "agent.commandAllowlist", timeout = "agent.commandTimeout"
         static let browser = "agent.browserAllowlist", gui = "agent.guiAllowlist"
+        static let explicit = "agent.providerExplicit"
     }
 
     static func load(_ defaults: UserDefaults = .standard) -> AgentSettings {
+        load(defaults, availability: .current, preferred: Prefs.chatProvider, modelFor: { Prefs.model(for: $0) })
+    }
+
+    /// The provider comes from ProviderResolver: an explicit pick is kept (with an offer if it has no credentials);
+    /// otherwise the first configured provider is used, e.g. Claude via Bedrock when only AWS keys are saved.
+    static func load(_ defaults: UserDefaults, availability: ProviderResolver.Availability, preferred: AIProviderID?,
+                     modelFor: (AIProviderID) -> String = { $0.defaultModel }) -> AgentSettings {
         var settings = AgentSettings()
-        if let raw = defaults.string(forKey: Keys.provider), let provider = AIProviderID(rawValue: raw) { settings.provider = provider }
-        settings.model = defaults.string(forKey: Keys.model).flatMap { $0.isEmpty ? nil : $0 } ?? settings.provider.defaultModel
+        let saved = defaults.string(forKey: Keys.provider).flatMap(AIProviderID.init(rawValue:))
+        settings.providerExplicit = defaults.bool(forKey: Keys.explicit) && saved != nil
+        switch ProviderResolver.resolve(explicit: settings.providerExplicit ? saved : nil, preferred: preferred, availability) {
+        case .use(let provider):
+            settings.provider = provider
+        case let .offer(chosen, alternative):
+            settings.provider = chosen
+            settings.providerOffer = alternative
+        case .setUp(let provider):
+            settings.provider = saved ?? provider
+        }
+        // A saved model only applies to the provider it was saved for.
+        let savedModel = defaults.string(forKey: Keys.model).flatMap { $0.isEmpty ? nil : $0 }
+        settings.model = (settings.provider == saved ? savedModel : nil) ?? modelFor(settings.provider)
         settings.workspaceRoots = defaults.stringArray(forKey: Keys.roots) ?? []
         if defaults.object(forKey: Keys.steps) != nil { settings.maxSteps = max(1, defaults.integer(forKey: Keys.steps)) }
         if defaults.object(forKey: Keys.seconds) != nil { settings.maxSeconds = max(10, defaults.double(forKey: Keys.seconds)) }
@@ -242,8 +274,24 @@ struct AgentSettings: Equatable {
         return settings
     }
 
+    /// Existing installs: the agent was stuck on Anthropic (the old default) with no key while Bedrock is set up.
+    /// Switches it once, keeps any explicit pick, and says so. Returns the new provider when it changed.
+    static func migrateProvider(_ defaults: UserDefaults, availability: ProviderResolver.Availability, preferred: AIProviderID?,
+                                modelFor: (AIProviderID) -> String = { $0.defaultModel }) -> AIProviderID? {
+        let doneKey = "agent.providerMigrated"
+        guard !defaults.bool(forKey: doneKey) else { return nil }
+        defaults.set(true, forKey: doneKey)
+        guard let saved = defaults.string(forKey: Keys.provider).flatMap(AIProviderID.init(rawValue:)),
+              !defaults.bool(forKey: Keys.explicit), !availability.has(saved),
+              let next = ProviderResolver.firstConfigured(preferred: preferred, availability), next != saved else { return nil }
+        defaults.set(next.rawValue, forKey: Keys.provider)
+        defaults.set(modelFor(next), forKey: Keys.model)
+        return next
+    }
+
     func save(_ defaults: UserDefaults = .standard) {
         defaults.set(provider.rawValue, forKey: Keys.provider)
+        defaults.set(providerExplicit, forKey: Keys.explicit)
         defaults.set(model, forKey: Keys.model)
         defaults.set(workspaceRoots, forKey: Keys.roots)
         defaults.set(maxSteps, forKey: Keys.steps)

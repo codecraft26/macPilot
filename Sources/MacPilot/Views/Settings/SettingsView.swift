@@ -287,7 +287,7 @@ private struct AWSTranscriptionSettingsView: View {
 
     var body: some View {
         Section("AWS transcription") {
-            Text("Save an AWS access key under Providers → Claude via Amazon Bedrock. Add the session token for temporary credentials.")
+            Text("Save an AWS access key under Providers → Claude (Bedrock). Add the session token for temporary credentials.")
                 .font(.caption).foregroundStyle(.secondary)
             TextField("AWS region", text: $region, prompt: Text(BedrockConfig.region))
             TextField("S3 bucket", text: $bucket)
@@ -1428,24 +1428,44 @@ private struct NotchSettingsSection: View {
     @AppStorage(PrefKey.notchExpandOnHover) private var expandOnHover = true
     @AppStorage(PrefKey.notchMeetingCountdown) private var countdown = true
     @AppStorage(PrefKey.notchShelfEnabled) private var shelf = true
-    @AppStorage(PrefKey.notchNetworkReadout) private var networkReadout = false
+    @AppStorage(PrefKey.notchNetworkReadout) private var networkReadout = true
+    @AppStorage(PrefKey.notchCPUReadout) private var cpuReadout = true
     @AppStorage(PrefKey.notchNetworkCard) private var networkCard = true
-    @AppStorage(PrefKey.menuBarNetwork) private var menuBarNetwork = false
+    @AppStorage(PrefKey.statsUnit) private var unit = RateUnit.auto.rawValue
+    @AppStorage(PrefKey.statsInterval) private var interval = 1.0
+    @State private var menuBarMode = StatsDisplay.menuBarMode
 
     var body: some View {
         Section {
             Toggle("Show MacPilot in the notch", isOn: $enabled)
-                .onChange(of: enabled) { _, _ in NotchController.shared.start() }
+                .onChange(of: enabled) { _, _ in NotchController.shared.start(); SystemMonitor.shared.refreshDemand() }
             Toggle("Expand when the pointer is on it", isOn: $expandOnHover).disabled(!enabled)
             Toggle("Count down to meetings starting in 15 minutes", isOn: $countdown).disabled(!enabled)
             Toggle("File shelf: drop files on the notch to park them", isOn: $shelf).disabled(!enabled)
-            Toggle("Network speed: show ↓/↑ next to the notch when nothing else is", isOn: $networkReadout).disabled(!enabled)
+            Toggle("Network speed beside the notch (↓/↑)", isOn: $networkReadout)
+                .onChange(of: networkReadout) { _, _ in SystemMonitor.shared.refreshDemand() }
+            Toggle("CPU usage beside the notch", isOn: $cpuReadout)
+                .onChange(of: cpuReadout) { _, _ in SystemMonitor.shared.refreshDemand() }
+            Picker("Network units", selection: $unit) {
+                ForEach(RateUnit.allCases) { Text($0.label).tag($0.rawValue) }
+            }
+            Picker("Update every", selection: $interval) {
+                Text("1 second").tag(1.0)
+                Text("2 seconds").tag(2.0)
+            }
+            .onChange(of: interval) { _, _ in NetworkMonitor.shared.start(); SystemMonitor.shared.stop(); SystemMonitor.shared.refreshDemand() }
+            Picker("Menu bar readout", selection: $menuBarMode) {
+                ForEach(StatsDisplay.MenuBarMode.allCases) { Text($0.label).tag($0) }
+            }
+            .onChange(of: menuBarMode) { _, mode in
+                UserDefaults.standard.set(mode.rawValue, forKey: PrefKey.menuBarStats)
+                SystemMonitor.shared.refreshDemand()
+            }
             Toggle("Network card with a 1-minute graph when expanded", isOn: $networkCard).disabled(!enabled)
-            Toggle("Network speed in the menu bar", isOn: $menuBarNetwork)
         } header: {
             Text("Notch")
         } footer: {
-            Text("A Dynamic Island–style area around the camera: recording timer, dictation, next meeting with Join and Record, and quick actions. On Macs without a notch it sits at the top centre of the main screen and only appears when something is happening.")
+            Text("A Dynamic Island–style area around the camera: recording timer, dictation, next meeting with Join and Record, and quick actions. On Macs without a notch it sits at the top centre of the main screen and only appears when something is happening; the network and CPU readout goes in the menu bar instead. Click the readout for graphs, top processes and a speed test. Sampling pauses while the screen is locked or asleep.")
                 .font(.caption).foregroundStyle(.secondary)
         }
     }

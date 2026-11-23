@@ -417,6 +417,32 @@ final class UISnapshots: XCTestCase {
         try? png.write(to: directory.appendingPathComponent("\(name).png"))
     }
 
+    func testRenderSystemReadout() {
+        let now = Date()
+        let netHistory = (0..<60).map { i in
+            NetworkSample(date: now.addingTimeInterval(Double(i - 60)), down: 1_200_000 + 1_400_000 * abs(sin(Double(i) / 7)), up: 90_000 + 60_000 * abs(cos(Double(i) / 5)))
+        }
+        NetworkMonitor.shared.setPreview(down: 2_400_000, up: 120_000, history: netHistory)
+        let cpuHistory = (0..<60).map { i in 0.18 + 0.12 * abs(sin(Double(i) / 6)) + (i > 50 ? 0.4 : 0) }
+        let cores = [0.42, 0.31, 0.18, 0.12, 0.85, 0.22, 0.09, 0.05, 0.14, 0.27]
+        SystemMonitor.shared.setPreview(cpu: 0.23, perCore: cores, history: cpuHistory, memory: 0.62, top: [
+            ProcessUsage(pid: 512, percent: 38.4, name: "WindowServer"), ProcessUsage(pid: 2231, percent: 21.7, name: "Xcode"),
+            ProcessUsage(pid: 4120, percent: 12.9, name: "node"), ProcessUsage(pid: 881, percent: 6.2, name: "Google Chrome Helper"),
+            ProcessUsage(pid: 301, percent: 3.1, name: "kernel_task")
+        ])
+        StatsDisplay.previewParts = .init(network: true, cpu: true)
+        defer { StatsDisplay.previewParts = nil }
+        notchShot("notch-system", activity: .network, expanded: false)
+        SystemMonitor.shared.setPreview(cpu: 0.87, perCore: cores.map { min(1, $0 + 0.5) }, history: cpuHistory, memory: 0.71, top: [])
+        notchShot("notch-system-hot", activity: .network, expanded: false)
+        SystemMonitor.shared.setPreview(cpu: 0.23, perCore: cores, history: cpuHistory, memory: 0.62, top: [
+            ProcessUsage(pid: 512, percent: 38.4, name: "WindowServer"), ProcessUsage(pid: 2231, percent: 21.7, name: "Xcode"),
+            ProcessUsage(pid: 4120, percent: 12.9, name: "node"), ProcessUsage(pid: 881, percent: 6.2, name: "Google Chrome Helper"),
+            ProcessUsage(pid: 301, percent: 3.1, name: "kernel_task")
+        ])
+        macShot("system-monitor", size: CGSize(width: 420, height: 520), title: "System", SystemMonitorView().onAppear {})
+    }
+
     func testRenderSetupWizard() {
         let setup = SetupController.shared
         let saved = setup.progress
@@ -428,6 +454,29 @@ final class UISnapshots: XCTestCase {
         macShot("setup-permissions", size: CGSize(width: 760, height: 560), title: "Set up MacPilot", SetupWizardView())
         setup.progress.current = .welcome
         macShot("setup-welcome", size: CGSize(width: 760, height: 560), title: "Set up MacPilot", SetupWizardView())
+    }
+
+    func testRenderCleanup() {
+        let now = Date()
+        let home = NSHomeDirectory()
+        func days(_ d: Double) -> Date { now.addingTimeInterval(-d * 86_400) }
+        let items = [
+            CleanupItem(category: .nodeModules, title: "storefront", detail: "~/Developer/storefront", url: URL(fileURLWithPath: home + "/Developer/storefront/node_modules"), bytes: 1_480_000_000, modified: days(140)),
+            CleanupItem(category: .nodeModules, title: "landing-page", detail: "~/Projects/landing-page", url: URL(fileURLWithPath: home + "/Projects/landing-page/node_modules"), bytes: 612_000_000, modified: days(64)),
+            CleanupItem(category: .nodeModules, title: "macpilot-site", detail: "~/Code/macpilot-site", url: URL(fileURLWithPath: home + "/Code/macpilot-site/node_modules"), bytes: 455_000_000, modified: days(2), isRecent: true),
+            CleanupItem(category: .derivedData, title: "MacPilot", url: URL(fileURLWithPath: home + "/Library/Developer/Xcode/DerivedData/MacPilot-a"), bytes: 3_900_000_000, modified: days(1)),
+            CleanupItem(category: .derivedData, title: "Notes", url: URL(fileURLWithPath: home + "/Library/Developer/Xcode/DerivedData/Notes-b"), bytes: 1_200_000_000, modified: days(95)),
+            CleanupItem(category: .deviceSupport, title: "17.4 (21E219)", url: URL(fileURLWithPath: home + "/Library/Developer/Xcode/iOS DeviceSupport/17.4"), bytes: 2_700_000_000, modified: days(210)),
+            CleanupItem(category: .unavailableSimulators, title: "3 unavailable simulators", bytes: 0, command: CleanupCommands.simctlDeleteUnavailable),
+            CleanupItem(category: .dockerBuildCache, title: "Docker build cache", bytes: 1_900_000_000, command: CleanupCommands.dockerBuilderPrune),
+            CleanupItem(category: .npmCache, title: "npm cache", detail: "~/.npm/_cacache", url: URL(fileURLWithPath: home + "/.npm/_cacache"), bytes: 194_000_000, modified: days(3)),
+            CleanupItem(category: .homebrew, title: "Old Homebrew downloads and versions", bytes: 78_000_000, command: CleanupCommands.brewCleanup)
+        ]
+        let cleanup = DevCleanup.shared
+        cleanup.showForPreview(items)
+        defer { cleanup.showForPreview([]) }
+        macShot("dev-cleanup", size: CGSize(width: 1000, height: 860), title: "Developer Workspace — Cleanup", CleanupView())
+        macShot("dev-cleanup-card", size: CGSize(width: 640, height: 70), title: nil, panel: true, CleanupDashboardCard().padding(10))
     }
 
     func testRenderMacScreens() {

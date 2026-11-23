@@ -7,12 +7,18 @@ struct AgentView: View {
     @Query(sort: \AgentTask.createdAt, order: .reverse) private var tasks: [AgentTask]
     @State private var selectedID: UUID?
     @State private var prompt = ""
+    /// Bumped to re-read settings after a one-click provider change.
+    @State private var providerRefresh = 0
     private let engine = AgentEngine.shared
 
-    private var selected: AgentTask? {
-        if let selectedID { return tasks.first { $0.uid == selectedID } }
-        return nil
+    /// Chats (each a list of turns), newest activity first.
+    private var chats: [AgentChat] { AgentChat.group(tasks) }
+    private var selectedChat: AgentChat? {
+        guard let selectedID else { return nil }
+        return chats.first { $0.id == selectedID }
     }
+    @State private var renaming: AgentChat?
+    @State private var newTitle = ""
 
     @Bindable private var tabState = AgentTabState.shared
 
@@ -36,8 +42,8 @@ struct AgentView: View {
             }
         }
         .navigationTitle("Agent")
-        .onChange(of: tabState.focusTaskID) { _, id in if let id { selectedID = id; tabState.focusTaskID = nil } }
-        .onAppear { if let id = tabState.focusTaskID { selectedID = id; tabState.focusTaskID = nil } }
+        .onChange(of: tabState.focusTaskID) { _, id in if let id { selectedID = chatKey(for: id); tabState.focusTaskID = nil } }
+        .onAppear { if let id = tabState.focusTaskID { selectedID = chatKey(for: id); tabState.focusTaskID = nil } }
     }
 
     private var tasksBody: some View {
@@ -45,8 +51,8 @@ struct AgentView: View {
             taskList.frame(minWidth: 230, idealWidth: 260, maxWidth: 320)
             VStack(spacing: 0) {
                 statusBanner
-                if let task = selected {
-                    AgentTaskDetail(task: task)
+                if let chat = selectedChat {
+                    AgentChatDetail(chat: chat)
                 } else {
                     intro
                 }
@@ -57,30 +63,51 @@ struct AgentView: View {
         }
         .onAppear(perform: takePending)
         .onChange(of: appState.pendingAction) { _, _ in takePending() }
-        .onChange(of: engine.activeTaskID) { _, id in if let id { selectedID = id } }
+        // No jump when a task starts or finishes: the selected chat stays selected.
+        .alert("Rename chat", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
+            TextField("Title", text: $newTitle)
+            Button("Rename") {
+                if let chat = renaming, let first = chat.turns.first {
+                    first.conversationTitle = newTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+                    try? engine.context.save()
+                }
+                renaming = nil
+            }
+            Button("Cancel", role: .cancel) { renaming = nil }
+        }
+    }
+
+    private func chatKey(for taskID: UUID) -> UUID {
+        tasks.first { $0.uid == taskID }?.conversationKey ?? taskID
     }
 
     private var taskList: some View {
         List(selection: $selectedID) {
-            Section("Tasks") {
-                if tasks.isEmpty { Text("No tasks yet.").foregroundStyle(.secondary) }
-                ForEach(tasks) { task in
+            Section("Chats") {
+                if chats.isEmpty { Text("No chats yet.").foregroundStyle(.secondary) }
+                ForEach(chats) { chat in
                     HStack(spacing: 8) {
-                        AgentStateIcon(state: task.state)
+                        AgentStateIcon(state: chat.latest.state)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(task.title.isEmpty ? "Task" : task.title).lineLimit(2)
-                            Text("\(task.state.label) · \(task.createdAt.formatted(date: .abbreviated, time: .shortened))")
+                            Text(chat.title).lineLimit(2)
+                            Text("\(chat.turns.count) message\(chat.turns.count == 1 ? "" : "s") · \(chat.latest.createdAt.formatted(date: .abbreviated, time: .shortened))"
+                                 + (chat.latest.channel == "app" ? "" : " · \(chat.latest.channel)"))
                                 .font(.caption2).foregroundStyle(.secondary)
                         }
                     }
-                    .tag(task.uid)
+                    .tag(chat.id)
+                    .contextMenu {
+                        Button("Rename…") { newTitle = chat.title; renaming = chat }
+                    }
                 }
             }
         }
         .listStyle(.sidebar)
         .safeAreaInset(edge: .top) {
-            Button { selectedID = nil } label: { Label("New task", systemImage: "plus") }
+            Button { selectedID = nil; prompt = "" } label: { Label("New chat", systemImage: "square.and.pencil") }
                 .buttonStyle(.borderless)
+                .keyboardShortcut("n", modifiers: .command)
+                .help("New chat (⌘N)")
                 .padding(8)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -88,6 +115,7 @@ struct AgentView: View {
 
     @ViewBuilder
     private var statusBanner: some View {
+        let _ = providerRefresh
         let settings = AgentSettings.load()
         if engine.isHalted {
             banner("Kill switch is on: no model or tool calls will run.", systemImage: "hand.raised.fill", color: .red) {
@@ -95,6 +123,22 @@ struct AgentView: View {
             }
         } else if settings.workspaceRoots.isEmpty {
             banner("Add a workspace folder so the agent can work with files.", systemImage: "folder.badge.plus", color: .orange) {
+                Button("Settings…") { appState.selectedSection = .settings }
+            }
+        } else if let alternative = settings.providerOffer {
+            banner(ProviderResolver.offerText(chosen: settings.provider, alternative: alternative), systemImage: "exclamationmark.triangle.fill", color: .orange) {
+                Button("Use \(alternative.displayName)") {
+                    var updated = settings
+                    updated.provider = alternative
+                    updated.model = Prefs.model(for: alternative)
+                    updated.providerExplicit = true
+                    updated.providerOffer = nil
+                    updated.save()
+                    providerRefresh += 1
+                }
+            }
+        } else if !settings.provider.hasCredentials && settings.provider != .ollama {
+            banner("\(settings.provider.displayName) isn't set up yet. Add credentials in Settings → Providers.", systemImage: "key.fill", color: .orange) {
                 Button("Settings…") { appState.selectedSection = .settings }
             }
         } else if settings.localOnly && settings.provider.isExternal {
@@ -135,11 +179,12 @@ struct AgentView: View {
 
     private var composer: some View {
         HStack(spacing: DS.Space.s) {
-            TextField("Ask the agent… e.g. “Find TODOs in my project and list them in TODO.md”", text: $prompt, axis: .vertical)
+            TextField(selectedChat == nil ? "Ask the agent… e.g. “Find TODOs in my project and list them in TODO.md”" : "Reply in this chat…", text: $prompt, axis: .vertical)
                 .textFieldStyle(.roundedBorder)
                 .lineLimit(1...5)
                 .onSubmit(send)
-            Button(action: send) { Label(engine.isBusy ? "Queue" : "Run", systemImage: "paperplane.fill") }
+            Button(action: send) { Label(engine.isBusy ? "Queue" : (selectedChat == nil ? "Run" : "Send"), systemImage: "paperplane.fill") }
+                .help(engine.isBusy ? "Runs after the current step finishes, in this chat" : "")
                 .buttonStyle(.borderedProminent)
                 .tint(.mint)
                 .disabled(prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || engine.isHalted)
@@ -148,11 +193,12 @@ struct AgentView: View {
         .padding(DS.Space.s)
     }
 
+    /// Return in a selected chat adds to it (queued if a turn is still running); with no chat selected it starts one.
     private func send() {
         let text = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !engine.isHalted else { return }
-        let task = engine.submit(text)
-        selectedID = task.uid
+        let task = engine.submit(text, conversation: selectedChat?.id)
+        selectedID = task.conversationKey
         prompt = ""
     }
 
@@ -181,15 +227,66 @@ struct AgentStateIcon: View {
     }
 }
 
-private struct AgentTaskDetail: View {
+/// A chat: every turn in order, each with its tool timeline, and the latest turn's controls on top.
+private struct AgentChatDetail: View {
+    let chat: AgentChat
+    private let engine = AgentEngine.shared
+
+    var body: some View {
+        let last = chat.latest
+        VStack(spacing: 0) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(chat.title).font(.headline).lineLimit(1)
+                    HStack(spacing: 6) {
+                        AgentStateIcon(state: last.state)
+                        Text("\(last.state.label) · \(last.provider.shortName) · \(last.model) · " + String(format: "≈$%.3f", chat.turns.reduce(0) { $0 + $1.costUSD }))
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    if !last.pausedReason.isEmpty {
+                        Label(last.pausedReason, systemImage: "lock.fill").font(.caption).foregroundStyle(.orange)
+                    }
+                }
+                Spacer()
+                if let running = chat.turns.last(where: { $0.state.isActive || $0.state == .queued }) {
+                    Button(role: .destructive) { engine.stop(running.uid) } label: { Label("Stop", systemImage: "stop.fill") }
+                        .tint(.red)
+                } else if last.state.isFinished {
+                    Button { engine.retry(last) } label: { Label("Retry", systemImage: "arrow.clockwise") }
+                        .disabled(engine.isHalted)
+                        .help("Runs the last message again in this chat; nothing from that run is replayed.")
+                }
+            }
+            .padding(DS.Space.m)
+            Divider()
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: DS.Space.s) {
+                        ForEach(chat.turns) { turn in
+                            AgentTurnView(task: turn, onGrow: { withAnimation { proxy.scrollTo("end") } })
+                        }
+                        Color.clear.frame(height: 1).id("end")
+                    }
+                    .padding(DS.Space.m)
+                }
+                .onAppear { proxy.scrollTo("end") }
+                .onChange(of: chat.signature) { _, _ in withAnimation { proxy.scrollTo("end") } }
+            }
+        }
+    }
+}
+
+private struct AgentTurnView: View {
     let task: AgentTask
+    var onGrow: () -> Void = {}
     @Query private var actions: [AgentToolAction]
     @Query private var events: [AgentEvent]
     @Query private var approvals: [AgentApproval]
     private let engine = AgentEngine.shared
 
-    init(task: AgentTask) {
+    init(task: AgentTask, onGrow: @escaping () -> Void = {}) {
         self.task = task
+        self.onGrow = onGrow
         let id = task.uid
         _actions = Query(filter: #Predicate<AgentToolAction> { $0.taskID == id }, sort: \.createdAt)
         _events = Query(filter: #Predicate<AgentEvent> { $0.taskID == id }, sort: \.date)
@@ -197,61 +294,31 @@ private struct AgentTaskDetail: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            header.padding(DS.Space.m)
-            Divider()
-            ScrollViewReader { proxy in
-                ScrollView {
-                    VStack(alignment: .leading, spacing: DS.Space.s) {
-                        bubble(task.prompt, user: true)
-                        ForEach(timeline, id: \.id) { item in
-                            switch item {
-                            case .action(let action): AgentActionCard(action: action)
-                            case .event(let event): eventRow(event)
-                            }
-                        }
-                        if !task.finalAnswer.isEmpty { bubble(task.finalAnswer, user: false) }
-                        if let error = task.errorMessage, task.state != .done {
-                            Label(error, systemImage: task.state == .failed ? "exclamationmark.triangle.fill" : "stop.circle")
-                                .foregroundStyle(task.state == .failed ? .red : .secondary)
-                                .textSelection(.enabled)
-                        }
-                        Color.clear.frame(height: 1).id("end")
-                    }
-                    .padding(DS.Space.m)
+        VStack(alignment: .leading, spacing: DS.Space.s) {
+            bubble(task.prompt, user: true)
+            if task.retryOf != nil {
+                Label("Retry", systemImage: "arrow.clockwise").font(.caption2).foregroundStyle(.secondary)
+            }
+            ForEach(timeline, id: \.id) { item in
+                switch item {
+                case .action(let action): AgentActionCard(action: action)
+                case .event(let event): eventRow(event)
                 }
-                .onChange(of: actions.count + events.count) { _, _ in withAnimation { proxy.scrollTo("end") } }
+            }
+            if !task.finalAnswer.isEmpty { bubble(task.finalAnswer, user: false) }
+            if let error = task.errorMessage, task.state != .done {
+                Label(error, systemImage: task.state == .failed ? "exclamationmark.triangle.fill" : "stop.circle")
+                    .foregroundStyle(task.state == .failed ? .red : .secondary)
+                    .textSelection(.enabled)
+            }
+            if task.state == .queued {
+                Label("Queued — runs after the current step", systemImage: "clock").font(.caption).foregroundStyle(.secondary)
             }
             if let approval = approvals.first, let action = actions.first(where: { $0.uid == approval.actionID }) {
                 AgentApprovalDrawer(approval: approval, action: action)
             }
         }
-    }
-
-    private var header: some View {
-        HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack {
-                    AgentStateIcon(state: task.state)
-                    Text(task.state.label).font(.headline)
-                }
-                if !task.pausedReason.isEmpty {
-                    Label(task.pausedReason, systemImage: "lock.fill").font(.caption).foregroundStyle(.orange)
-                }
-                Text("\(task.provider.shortName) · \(task.model) · \(task.steps) step\(task.steps == 1 ? "" : "s") · \(task.inputTokens + task.outputTokens) tokens · " + String(format: "≈$%.3f", task.costUSD))
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-            Spacer()
-            if task.state.isActive || task.state == .queued {
-                Button(role: .destructive) { engine.stop(task.uid) } label: { Label("Stop", systemImage: "stop.fill") }
-                    .tint(.red)
-            }
-            if task.state.isFinished {
-                Button { engine.retry(task) } label: { Label("Retry", systemImage: "arrow.clockwise") }
-                    .disabled(engine.isHalted)
-                    .help("Starts the request again from scratch; nothing from this run is replayed.")
-            }
-        }
+        .onChange(of: actions.count + events.count + approvals.count) { _, _ in onGrow() }
     }
 
     private enum Item {
@@ -410,8 +477,26 @@ private struct AgentApprovalDrawer: View {
 
 struct AgentSettingsView: View {
     @State private var settings = AgentSettings.load()
+    @State private var testing = false
+    @State private var testResult: String?
     @State private var allowlistText = ""
     @State private var models: [String] = []
+
+    /// One tiny request through the same adapter the agent uses (Bedrock included).
+    private func testConnection() {
+        testing = true
+        testResult = nil
+        let adapter = AgentAdapters.make(provider: settings.provider, model: settings.model)
+        Task {
+            do {
+                _ = try await adapter.generate(system: "Reply with OK.", messages: [.user("ping")], tools: [])
+                testResult = "✓ \(settings.provider.displayName) · \(settings.model) works"
+            } catch {
+                testResult = AIError.describe(error)
+            }
+            testing = false
+        }
+    }
 
     var body: some View {
         Form {
@@ -419,14 +504,37 @@ struct AgentSettingsView: View {
                 Picker("Provider", selection: $settings.provider) {
                     ForEach(AIProviderID.allCases) { Text($0.displayName).tag($0) }
                 }
-                .onChange(of: settings.provider) { _, provider in settings.model = Prefs.model(for: provider) }
+                .onChange(of: settings.provider) { _, provider in
+                    settings.model = Prefs.model(for: provider)
+                    settings.providerExplicit = true
+                    settings.providerOffer = nil
+                    testResult = nil
+                }
+                if let alternative = settings.providerOffer {
+                    HStack {
+                        Label(ProviderResolver.offerText(chosen: settings.provider, alternative: alternative), systemImage: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                        Spacer()
+                        Button("Use \(alternative.displayName)") { settings.provider = alternative }
+                    }
+                    .font(.callout)
+                } else if !settings.provider.hasCredentials && settings.provider != .ollama {
+                    Label("\(settings.provider.displayName) has no credentials yet. Add them in Settings → Providers.", systemImage: "key")
+                        .font(.callout).foregroundStyle(.orange)
+                }
                 TextField("Model", text: $settings.model)
+                HStack {
+                    Button(testing ? "Testing…" : "Test connection") { testConnection() }.disabled(testing)
+                    if let testResult { Text(testResult).font(.caption).foregroundStyle(testResult.hasPrefix("✓") ? .green : .orange).lineLimit(2) }
+                }
                 Toggle("Local-only mode (block cloud providers)", isOn: $settings.localOnly)
                 if settings.localOnly && settings.provider.isExternal {
                     Label("\(settings.provider.shortName) is a cloud provider and will be blocked. Choose Ollama.", systemImage: "lock.fill")
                         .font(.caption).foregroundStyle(.orange)
                 }
-                Text("The agent uses exactly this provider and model. If it fails, the task fails — MacPilot never switches to another provider on its own.")
+                Text(settings.providerExplicit
+                     ? "The agent uses exactly this provider and model. If it fails, the task fails — MacPilot never switches to another provider on its own."
+                     : "Picked automatically from the providers you've set up (your default first, then Bedrock, Anthropic, OpenAI, Ollama). Choose one to pin it.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section("Workspaces") {
@@ -512,6 +620,17 @@ private struct TelegramSettingsSection: View {
             HStack {
                 Circle().fill(bot.status.isOnline ? Color.green : Color.secondary.opacity(0.5)).frame(width: 8, height: 8)
                 Text("Bot: \(bot.status.label)" + (bot.botUsername.isEmpty ? "" : " · @\(bot.botUsername)")).lineLimit(2)
+            }
+            // "Off" is the normal state before setup: say what to do next.
+            if bot.status == .off {
+                Label(!hasToken ? "Step 1: paste the token from @BotFather below and press Save."
+                      : !enabled ? "Step 2: turn on “Connect the bot”."
+                      : bot.pairing.users.isEmpty ? "Step 3: press “Pair a phone…” and send the code to your bot." : "Starting…",
+                      systemImage: "arrow.down.circle")
+                    .font(.callout).foregroundStyle(.blue)
+            } else if bot.pairing.users.isEmpty && bot.status.isOnline {
+                Label("Step 3: press “Pair a phone…” and send /pair CODE to your bot in a private chat.", systemImage: "arrow.down.circle")
+                    .font(.callout).foregroundStyle(.blue)
             }
             if hasToken {
                 HStack {

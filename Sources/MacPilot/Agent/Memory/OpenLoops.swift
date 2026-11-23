@@ -129,7 +129,7 @@ final class OpenLoops {
 
     func start() {
         let timer = Timer(timeInterval: 10 * 60, repeats: true) { _ in
-            MainActor.assumeIsolated { Task { await OpenLoops.shared.process() } }
+            _ = MainActor.assumeIsolated { Task { await OpenLoops.shared.process() } }
         }
         timer.tolerance = 60
         RunLoop.main.add(timer, forMode: .common)

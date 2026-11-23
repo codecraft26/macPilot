@@ -11,16 +11,16 @@ enum AIProviderID: String, CaseIterable, Identifiable, Codable {
 
     var displayName: String {
         switch self {
-        case .anthropic: return "Anthropic (Claude)"
+        case .anthropic: return "Claude (Anthropic API)"
         case .openAI: return "OpenAI"
-        case .bedrock: return "Claude via Amazon Bedrock"
+        case .bedrock: return "Claude (Bedrock)"
         case .ollama: return "Ollama (local)"
         }
     }
 
     var shortName: String {
         switch self {
-        case .anthropic: return "Claude"
+        case .anthropic: return "Anthropic"
         case .openAI: return "OpenAI"
         case .bedrock: return "Bedrock"
         case .ollama: return "Ollama"

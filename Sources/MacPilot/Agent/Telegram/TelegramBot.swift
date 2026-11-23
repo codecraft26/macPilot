@@ -215,6 +215,9 @@ final class TelegramBot {
         case "/ports": await listPorts(chat)
         case "/killport": await requestKill(argument, update: update)
         case "/cleanup": await cleanupReport(update)
+        case "/new":
+            chats.reset(update.userID)
+            await send(update.chatID, "New chat started. Your next message begins a fresh conversation.")
         case "/loops": await send(chat, MemorySettings.load().enabled || !OpenLoops.shared.store.loops().isEmpty
                                   ? "Open loops (last 7 days):\n" + OpenLoops.shared.summary(days: 7)
                                   : "Memory is off on the Mac (Settings → Memory), so there are no open loops yet.")
@@ -250,6 +253,7 @@ final class TelegramBot {
     /version — MacPilot version and whether an update is available (updates install only on the Mac)
     /ports — listening ports; /killport <port> — stop one (asks first)
     /cleanup — how much developer files you can free (cache cleanup needs Approve)
+    /new — start a new chat (messages otherwise continue the current one; 30 min of quiet also starts fresh)
     /focus [25|50|off] — Focus status, start or end it
     /loops — what you promised or were asked this week
     /remind <words> — e.g. “/remind check PR reviews when I open Xcode”
@@ -326,13 +330,19 @@ final class TelegramBot {
 
     // MARK: Tasks from chat
 
+    /// Each paired user's current agent chat.
+    private(set) var chats = TelegramConversations()
+
     private func startTask(_ text: String, update: TelegramIncoming) async {
         guard !text.isEmpty else { return }
         if engine.isHalted {
             await send(update.chatID, "The kill switch is on, so I can't start tasks. Resume the agent on the Mac first.")
             return
         }
-        let task = engine.submit(text, channel: "telegram", telegramUserID: update.userID, telegramChatID: update.chatID)
+        // Free text continues this person's current chat (until /new or 30 minutes of quiet).
+        let continuing = chats.conversation(for: update.userID, now: now())
+        let task = engine.submit(text, channel: "telegram", telegramUserID: update.userID, telegramChatID: update.chatID, conversation: continuing)
+        chats.touch(update.userID, conversation: task.conversationKey, now: now())
         // Reply right away with the ID; this message is edited as the task progresses.
         if let message = try? await transport?.call("sendMessage", ["chat_id": update.chatID, "text": progressText(task)]) as? [String: Any],
            let id = message["message_id"] as? Int {
