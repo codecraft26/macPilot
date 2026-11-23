@@ -5,11 +5,25 @@ import SwiftUI
 struct MenuBarLabel: View {
     @Environment(AppState.self) private var appState
     private let recorder = RecordingManager.shared
+    @AppStorage(PrefKey.menuBarNetwork) private var showNetwork = false
 
     var body: some View {
         // While audio is captured the icon is a red (orange when paused) record symbol, never hidden.
         if appState.isRecording {
             Image(nsImage: MenuBarIcon.recording(paused: recorder.isPaused))
+        } else if showNetwork {
+            let network = NetworkMonitor.shared
+            HStack(spacing: 4) {
+                Image(nsImage: MenuBarIcon.idle)
+                if FocusController.shared.isActive { Image(systemName: "moon.fill") }
+                Text("↓\(NetworkMath.compact(network.down)) ↑\(NetworkMath.compact(network.up))").monospacedDigit()
+            }
+        } else if FocusController.shared.isActive {
+            // Focus indicator: the reason is in the menu.
+            HStack(spacing: 2) {
+                Image(nsImage: MenuBarIcon.idle)
+                Image(systemName: "moon.fill")
+            }
         } else {
             Image(nsImage: MenuBarIcon.idle)
         }
@@ -69,6 +83,20 @@ struct MenuBarContent: View {
         Button("AI Assistant") {
             WindowManager.shared.showDashboard(section: .assistant)
         }
+        let agent = AgentEngine.shared
+        if agent.isHalted {
+            Button("Agent: Resume (kill switch is on)") { agent.resume() }
+        } else {
+            Button(agent.isBusy ? "⏹ Agent: Stop Everything (kill switch)" : "Agent: Kill Switch") { agent.killSwitch() }
+        }
+        Button("Agent…") { WindowManager.shared.open(.agent, action: .askAgent("")) }
+        FocusMenuItems()
+        if MemorySettings.load().enabled {
+            Toggle("Pause Memory Capture", isOn: Binding(get: { MemoryCapture.shared.isPaused }, set: { MemoryCapture.shared.isPaused = $0 }))
+        }
+        if TelegramBot.shared.isEnabled {
+            Text(TelegramBot.shared.status.isOnline ? "Telegram bot: online" : "Telegram bot: offline")
+        }
 
         Divider()
 
@@ -103,12 +131,20 @@ struct MenuBarContent: View {
         Button("Command Launcher…  \(shortcutLabel(.launcher))") {
             WindowManager.shared.toggleLauncher()
         }
+        Button(FloatingBuddy.shared.isVisible ? "Hide Floating Buddy" : "Show Floating Buddy") {
+            FloatingBuddy.shared.toggle()
+        }
+        Toggle("Open at Login", isOn: Binding(get: { LoginItemState.shared.enabled }, set: { LaunchAtLogin.set($0) }))
         Button("Developer Workspace") {
             WindowManager.shared.showDashboard(section: .developer)
         }
 
         Divider()
 
+        Button(SetupController.shared.progress.allRequiredDone ? "Setup…" : "Finish Setup…") { SetupController.shared.show() }
+        if UpdateManager.shared.isAvailable {
+            Button("Check for Updates…") { UpdateManager.shared.checkForUpdates() }
+        }
         Button("Settings…") {
             WindowManager.shared.showDashboard(section: .settings)
         }
@@ -121,5 +157,24 @@ struct MenuBarContent: View {
 
     private func shortcutLabel(_ action: ShortcutAction) -> String {
         shortcuts.hotKey(for: action)?.displayString ?? ""
+    }
+}
+
+/// Focus status and controls in the menu bar menu.
+struct FocusMenuItems: View {
+    private let focus = FocusController.shared
+
+    var body: some View {
+        Divider()
+        if let reason = focus.active {
+            Text("🌙 Focus: \(reason.label)")
+            Button("Not Now (pause automatic Focus for an hour)") { Task { await focus.notNow() } }
+            if case .manual = reason { Button("End Focus") { Task { await focus.end() } } }
+        } else {
+            Text("Focus: \(focus.statusText)")
+            Button("Focus for 25 Minutes") { Task { await focus.focus(minutes: 25) } }
+            Button("Focus for 50 Minutes") { Task { await focus.focus(minutes: 50) } }
+        }
+        Divider()
     }
 }

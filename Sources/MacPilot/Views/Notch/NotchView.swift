@@ -104,6 +104,8 @@ private struct CompactNotch: View {
             }
         case .nowPlaying:
             ArtworkThumb(image: NowPlaying.shared.artwork, size: 20)
+        case .network:
+            Text("↓ " + NetworkMath.compact(NetworkMonitor.shared.down)).foregroundStyle(.green)
         case .idle:
             EmptyView()
         }
@@ -129,6 +131,8 @@ private struct CompactNotch: View {
             }
         case .nowPlaying:
             EqualizerBars(playing: NowPlaying.shared.isPlaying).frame(width: 18, height: 14)
+        case .network:
+            Text("↑ " + NetworkMath.compact(NetworkMonitor.shared.up)).foregroundStyle(.cyan)
         case .idle:
             EmptyView()
         }
@@ -165,6 +169,9 @@ private struct ExpandedNotch: View {
             mainCard
             if NotchTimers.shared.current != nil { TimerCard() }
             if NowPlaying.shared.track != nil { MediaCard() }
+            if !NotchShelf.shared.items.isEmpty || NotchShelf.shared.isDropTargeted { ShelfCard() }
+            if UserDefaults.standard.bool(forKey: PrefKey.notchNetworkCard) { NotchNetworkCard() }
+            if FocusController.shared.isActive { NotchFocusCard() }
             quickActions
         }
         .foregroundStyle(.white)
@@ -290,6 +297,12 @@ private struct ExpandedNotch: View {
             QuickNotchAction(systemImage: "doc.on.clipboard", label: "Clipboard", color: .teal) { WindowManager.shared.toggleClipboardPanel() }
             QuickNotchAction(systemImage: "command", label: "Launcher", color: DS.indigo) { WindowManager.shared.toggleLauncher() }
             QuickNotchAction(systemImage: "square.and.pencil", label: "Note", color: .orange) { WindowManager.shared.open(.notes, action: .newNote) }
+            QuickNotchAction(systemImage: FocusController.shared.isActive ? "moon.zzz.fill" : "moon.fill",
+                             label: FocusController.shared.isActive ? "Not now" : "Focus 25", color: .indigo) {
+                Task {
+                    if FocusController.shared.isActive { await FocusController.shared.notNow() } else { await FocusController.shared.focus(minutes: 25) }
+                }
+            }
         }
     }
 }
@@ -372,33 +385,48 @@ private struct PeekBanner: View {
     }
 
     var body: some View {
-        Button {
-            if let action = peek.action { NotchController.shared.perform(action) } else { NotchController.shared.dismissPeek() }
-        } label: {
-            HStack(spacing: 10) {
-                Image(systemName: peek.systemImage)
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(.white)
-                    .frame(width: 30, height: 30)
-                    .background(Circle().fill(color.gradient))
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(peek.title).font(.system(size: 13, weight: .semibold)).lineLimit(1)
-                    if !peek.subtitle.isEmpty {
-                        Text(peek.subtitle).font(.system(size: 11)).foregroundStyle(.white.opacity(0.7)).lineLimit(1)
+        HStack(spacing: 10) {
+            Button {
+                if let action = peek.action { NotchController.shared.perform(action) } else { NotchController.shared.dismissPeek() }
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: peek.systemImage)
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 30, height: 30)
+                        .background(Circle().fill(color.gradient))
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(peek.title).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+                        if !peek.subtitle.isEmpty {
+                            Text(peek.subtitle).font(.system(size: 11)).foregroundStyle(.white.opacity(0.7)).lineLimit(1)
+                        }
+                    }
+                    Spacer(minLength: 0)
+                    if peek.action != nil && peek.buttonTitle == nil {
+                        Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(.white.opacity(0.6))
                     }
                 }
-                Spacer(minLength: 0)
-                if peek.action != nil {
-                    Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(.white.opacity(0.6))
-                }
+                .contentShape(Rectangle())
             }
-            .foregroundStyle(.white)
-            .padding(.top, notchHeight + 6)
-            .padding(.bottom, 10)
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+            .accessibilityLabel(peek.title)
+            if let title = peek.buttonTitle, let action = peek.buttonAction {
+                Button {
+                    NotchController.shared.perform(action)
+                } label: {
+                    Text(title)
+                        .font(.system(size: 12, weight: .bold))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Capsule().fill(color.opacity(0.9)))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(title)
+            }
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(peek.title)
+        .foregroundStyle(.white)
+        .padding(.top, notchHeight + 6)
+        .padding(.bottom, 10)
     }
 }
 
@@ -424,6 +452,142 @@ private struct TimerCard: View {
                 .notchCard()
             }
         }
+    }
+}
+
+/// Files parked on the notch. Drop files here; drag them out to any app.
+private struct ShelfCard: View {
+    private let shelf = NotchShelf.shared
+    @State private var targeted = false
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if shelf.items.isEmpty {
+                Image(systemName: "tray.and.arrow.down.fill").font(.title3).foregroundStyle(DS.accent)
+                Text("Drop files to park them here").font(.headline)
+                Spacer()
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(shelf.items, id: \.self) { url in
+                            ShelfFile(url: url)
+                        }
+                    }
+                }
+                Divider().frame(height: 30).overlay(.white.opacity(0.2))
+                if !ConversionTool.matching(shelf.items).isEmpty {
+                    NotchButton(systemImage: "arrow.triangle.2.circlepath", label: "Convert…") {
+                        NotchController.shared.collapse()
+                        ConvertPicker.shared.show(shelf.items)
+                    }
+                }
+                NotchButton(systemImage: "sparkles", label: "Ask AI about these files") { shelf.askAI(shelf.items) }
+                NotchButton(systemImage: "dot.radiowaves.left.and.right", label: "AirDrop all") { shelf.airDrop(shelf.items) }
+                NotchButton(systemImage: "xmark", label: "Clear shelf") { shelf.clear() }
+            }
+        }
+        .frame(height: 38)
+        .notchCard()
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(DS.accent, style: StrokeStyle(lineWidth: 2, dash: [6, 4]))
+                .opacity(targeted || shelf.isDropTargeted ? 1 : 0)
+        )
+        .onDrop(of: [.fileURL], isTargeted: $targeted) { providers in
+            for provider in providers {
+                _ = provider.loadObject(ofClass: URL.self) { url, _ in
+                    guard let url else { return }
+                    Task { @MainActor in NotchShelf.shared.add([url]) }
+                }
+            }
+            NotchShelf.shared.isDropTargeted = false
+            return true
+        }
+    }
+}
+
+private struct ShelfFile: View {
+    let url: URL
+    private let shelf = NotchShelf.shared
+    @State private var hovering = false
+
+    var body: some View {
+        VStack(spacing: 2) {
+            Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
+                .resizable().frame(width: 26, height: 26)
+            Text(url.deletingPathExtension().lastPathComponent)
+                .font(.system(size: 9, weight: .medium)).lineLimit(1).truncationMode(.tail)
+                .frame(width: 60)
+        }
+        .padding(2)
+        .background(RoundedRectangle(cornerRadius: 6).fill(.white.opacity(hovering ? 0.14 : 0)))
+        .onHover { hovering = $0 }
+        .onDrag { NSItemProvider(contentsOf: url) ?? NSItemProvider() }
+        .onTapGesture(count: 2) { shelf.open(url) }
+        .help("\(url.lastPathComponent) — drag out to use it, double-click to open, right-click for more")
+        .contextMenu {
+            Button("Open") { shelf.open(url) }
+            Button("Ask AI about it") { shelf.askAI([url]) }
+            Button("Convert…") {
+                NotchController.shared.collapse()
+                ConvertPicker.shared.show([url])
+            }
+            .disabled(ConversionTool.matching([url]).isEmpty)
+            Button("AirDrop…") { shelf.airDrop([url]) }
+            Button("Show in Finder") { shelf.reveal([url]) }
+            Divider()
+            Button("Remove from shelf") { shelf.remove(url) }
+        }
+    }
+}
+
+/// Live throughput with a 60-second sparkline.
+private struct NotchNetworkCard: View {
+    private let network = NetworkMonitor.shared
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "network").font(.title3).foregroundStyle(.cyan).frame(width: 26)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 10) {
+                    Text("↓ " + NetworkMath.rate(network.down)).foregroundStyle(.green)
+                    Text("↑ " + NetworkMath.rate(network.up)).foregroundStyle(.cyan)
+                }
+                .font(.system(size: 13, weight: .semibold).monospacedDigit())
+                Text([network.interfaceDisplayName, network.localIP].filter { !$0.isEmpty }.joined(separator: " · "))
+                    .font(.caption).foregroundStyle(.white.opacity(0.7)).lineLimit(1)
+            }
+            Spacer(minLength: 8)
+            NetworkSparkline(samples: network.history, downColor: .green, upColor: .cyan)
+                .frame(width: 150, height: 30)
+            NotchButton(systemImage: "speedometer", label: SpeedTest.shared.isRunning ? "Speed test running…" : "Run a speed test") {
+                Task { await SpeedTest.shared.run() }
+            }
+            .disabled(SpeedTest.shared.isRunning)
+        }
+        .frame(height: 38)
+        .notchCard()
+    }
+}
+
+/// Why Focus is on, with Not now and a 50-minute option.
+private struct NotchFocusCard: View {
+    private let focus = FocusController.shared
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "moon.fill").font(.title3).foregroundStyle(.indigo).frame(width: 26)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(focus.active?.label ?? "Focus").font(.headline).lineLimit(1)
+                Text(focus.held.isEmpty ? "MacPilot alerts are held" : "\(focus.held.count) alert\(focus.held.count == 1 ? "" : "s") held")
+                    .font(.caption).foregroundStyle(.white.opacity(0.7))
+            }
+            Spacer()
+            NotchButton(systemImage: "plus", label: "Focus for 50 minutes") { Task { await focus.focus(minutes: 50) } }
+            NotchButton(systemImage: "xmark", label: "Not now") { Task { await focus.notNow() } }
+        }
+        .frame(height: 38)
+        .notchCard()
     }
 }
 

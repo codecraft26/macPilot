@@ -30,7 +30,7 @@ struct AnthropicClient: ChatProvider {
     }
 
     /// Builds a POST to the Messages endpoint with authentication applied. `body` must be final.
-    private func messagesRequest(body: [String: Any], useFallbackBeta: Bool) throws -> URLRequest {
+    func messagesRequest(body: [String: Any], useFallbackBeta: Bool) throws -> URLRequest {
         let data = try JSONSerialization.data(withJSONObject: body)
         switch backend {
         case .anthropic:

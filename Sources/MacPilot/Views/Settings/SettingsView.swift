@@ -3,28 +3,53 @@ import SwiftData
 import SwiftUI
 
 struct SettingsView: View {
+    @Environment(AppState.self) private var appState
+
     var body: some View {
-        TabView {
+        @Bindable var appState = appState
+        TabView(selection: $appState.settingsTab) {
+            GeneralSettingsView()
+                .tabItem { Label("General", systemImage: "gearshape") }
+                .tag("General")
             ProvidersSettingsView()
                 .tabItem { Label("Providers", systemImage: "key") }
+                .tag("Providers")
             RoutingSettingsView()
                 .tabItem { Label("Routing", systemImage: "arrow.triangle.branch") }
+                .tag("Routing")
+            AgentSettingsView()
+                .tabItem { Label("Agent", systemImage: "cpu") }
+                .tag("Agent")
+            MemorySettingsView()
+                .tabItem { Label("Memory", systemImage: "brain") }
+                .tag("Memory")
+            FocusSettingsView()
+                .tabItem { Label("Focus", systemImage: "moon") }
+                .tag("Focus")
             DictationSettingsView()
                 .tabItem { Label("Dictation", systemImage: "mic.badge.plus") }
+                .tag("Dictation")
             RecordingSettingsView()
                 .tabItem { Label("Recording & Calendar", systemImage: "waveform") }
+                .tag("Recording & Calendar")
             ClipboardSettingsView()
                 .tabItem { Label("Clipboard", systemImage: "doc.on.clipboard") }
+                .tag("Clipboard")
             SnippetsSettingsView()
                 .tabItem { Label("Snippets & Links", systemImage: "text.quote") }
+                .tag("Snippets & Links")
             SyncSettingsView()
                 .tabItem { Label("Sync", systemImage: "icloud") }
+                .tag("Sync")
             ShortcutsSettingsView()
                 .tabItem { Label("Shortcuts", systemImage: "keyboard") }
+                .tag("Shortcuts")
             UsageSettingsView()
                 .tabItem { Label("Usage", systemImage: "chart.bar") }
+                .tag("Usage")
             PrivacySettingsView()
                 .tabItem { Label("Privacy & Data", systemImage: "lock.shield") }
+                .tag("Privacy & Data")
         }
         .padding(16)
         .navigationTitle("Settings")
@@ -338,9 +363,47 @@ private struct LocalWhisperSettingsView: View {
 
 struct ShortcutsSettingsView: View {
     private let manager = ShortcutManager.shared
+    @AppStorage(PrefKey.buddyEnabled) private var buddyEnabled = true
+    @AppStorage(PrefKey.pilotWakeWord) private var wakeWord = false
+    @AppStorage(PrefKey.pilotSpeaks) private var speaks = true
+    @State private var openAtLogin = LoginItemState.shared.enabled
+    @State private var loginMessage: String?
 
     var body: some View {
         Form {
+            Section {
+                Toggle("Open MacPilot when I log in", isOn: $openAtLogin)
+                    .onChange(of: LoginItemState.shared.enabled) { _, on in openAtLogin = on }
+                    .onChange(of: openAtLogin) { _, on in
+                        guard on != LoginItemState.shared.enabled else { return }
+                        loginMessage = LaunchAtLogin.set(on)
+                        openAtLogin = LaunchAtLogin.isEnabled || (on && LaunchAtLogin.needsApproval)
+                        if LaunchAtLogin.needsApproval {
+                            loginMessage = "Allow MacPilot in System Settings → General → Login Items."
+                        }
+                    }
+                if let loginMessage {
+                    Text(loginMessage).font(.caption).foregroundStyle(.orange)
+                }
+                Text("Starts in the menu bar so your shortcuts, notch, buddy, clipboard history and sync are ready right away.")
+                    .font(.caption).foregroundStyle(.secondary)
+            } header: {
+                Text("Startup")
+            }
+            Section {
+                Toggle("Show the floating buddy on the desktop", isOn: $buddyEnabled)
+                    .onChange(of: buddyEnabled) { _, on in FloatingBuddy.shared.setEnabled(on) }
+                Text("A small always-on-top helper: click it and speak, use its buttons for a voice note, dictation or a new note, drag it anywhere, right-click for more.")
+                    .font(.caption).foregroundStyle(.secondary)
+                Toggle("Answer out loud", isOn: $speaks).disabled(!buddyEnabled)
+                Toggle("Listen for “Hey Pilot”", isOn: $wakeWord)
+                    .disabled(!buddyEnabled)
+                    .onChange(of: wakeWord) { _, _ in WakeWordListener.shared.start() }
+                Text("Try: “add a task call mom tomorrow at 5”, “what's next today?”, “start recording”, “set a timer for 25 minutes”, “new note …”, or any question. “Hey Pilot” keeps the microphone on and works only with on-device recognition — nothing is sent anywhere until you speak to it — and pauses during recordings and dictation.")
+                    .font(.caption).foregroundStyle(.secondary)
+            } header: {
+                Text("Floating buddy")
+            }
             Section {
                 ForEach(ShortcutAction.allCases) { action in
                     VStack(alignment: .leading, spacing: 4) {
@@ -693,7 +756,51 @@ struct RecordingSettingsView: View {
 
 // MARK: - Google Calendar
 
-private struct GoogleCalendarSettingsSection: View {
+/// One connected Google account: its calendars with show/hide toggles, and Disconnect.
+private struct GoogleAccountCalendars: View {
+    let account: String
+    private let google = GoogleCalendarService.shared
+    private let calendar = CalendarService.shared
+    @State private var confirmDisconnect = false
+
+    var body: some View {
+        let calendars = google.calendars(of: account)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                GoogleBadge()
+                Text(account).font(.headline)
+                Text("\(calendars.count) calendar\(calendars.count == 1 ? "" : "s")").font(.caption).foregroundStyle(.secondary)
+                Spacer()
+                if !calendars.isEmpty {
+                    Button("Show all") { calendars.forEach { calendar.setVisible(true, $0) } }.buttonStyle(.link)
+                    Button("Hide all") { calendars.forEach { calendar.setVisible(false, $0) } }.buttonStyle(.link)
+                }
+                Button("Disconnect…", role: .destructive) { confirmDisconnect = true }
+            }
+            if calendars.isEmpty {
+                Text("No calendars loaded yet — press Refresh calendars.").font(.caption).foregroundStyle(.secondary)
+            }
+            ForEach(calendars) { item in
+                Toggle(isOn: Binding(get: { calendar.isVisible(item) }, set: { calendar.setVisible($0, item) })) {
+                    HStack(spacing: 6) {
+                        Circle().fill(item.color.color).frame(width: 9, height: 9)
+                        Text(item.title)
+                        if !item.isWritable { Text("read only").font(.caption).foregroundStyle(.secondary) }
+                    }
+                }
+                .padding(.leading, 22)
+            }
+        }
+        .padding(.vertical, 4)
+        .confirmationDialog("Disconnect \(account)?", isPresented: $confirmDisconnect) {
+            Button("Disconnect", role: .destructive) { google.disconnect(account) }
+        } message: {
+            Text("Its calendars disappear from MacPilot and its access is revoked. Your events stay in Google Calendar.")
+        }
+    }
+}
+
+struct GoogleCalendarSettingsSection: View {
     private let google = GoogleCalendarService.shared
     private let calendar = CalendarService.shared
     @State private var clientID = GoogleCalendarService.shared.clientID
@@ -706,24 +813,23 @@ private struct GoogleCalendarSettingsSection: View {
         Section {
             if google.isConnected {
                 HStack {
-                    Label(google.accountEmail.isEmpty ? "Connected" : "Connected as \(google.accountEmail)", systemImage: "checkmark.circle.fill")
+                    Label("\(google.accounts.count) Google account\(google.accounts.count == 1 ? "" : "s") connected", systemImage: "checkmark.circle.fill")
                         .foregroundStyle(.green)
                     Spacer()
                     Button("Refresh calendars") { Task { await google.refreshCalendars() } }
-                    Button("Disconnect", role: .destructive) { google.disconnect() }
-                }
-                let calendars = calendar.calendars.filter { $0.source == .google }
-                if calendars.isEmpty {
-                    Text("No calendars loaded yet.").font(.caption).foregroundStyle(.secondary)
-                }
-                ForEach(calendars) { item in
-                    Toggle(isOn: Binding(get: { calendar.isVisible(item) }, set: { calendar.setVisible($0, item) })) {
-                        HStack(spacing: 6) {
-                            Circle().fill(item.color.color).frame(width: 9, height: 9)
-                            Text(item.title)
-                            if !item.isWritable { Text("read only").font(.caption).foregroundStyle(.secondary) }
+                    Button {
+                        Task { await google.connect() }
+                    } label: {
+                        if google.isSigningIn {
+                            HStack(spacing: 6) { ProgressView().controlSize(.small); Text("Waiting for Google…") }
+                        } else {
+                            Label("Add another Google account", systemImage: "plus")
                         }
                     }
+                    .disabled(google.isSigningIn)
+                }
+                ForEach(google.accounts, id: \.self) { account in
+                    GoogleAccountCalendars(account: account)
                 }
             } else {
                 TextField("OAuth client ID", text: $clientID, prompt: Text("1234-abc.apps.googleusercontent.com"))
@@ -768,7 +874,7 @@ private struct GoogleCalendarSettingsSection: View {
                 Text(message).font(.caption).foregroundStyle(.secondary)
             }
         } header: {
-            Text("Google Calendar (optional)")
+            Text("Google Calendar (optional, any number of accounts)")
         } footer: {
             Text("MacPilot talks to Google directly with your own OAuth client; the refresh token and client secret are kept in your Keychain. Simpler alternative: add your Google account under System Settings → Internet Accounts and turn on Calendars — it then shows up through Apple Calendar with no setup here (don't use both, or events appear twice).")
                 .font(.caption)
@@ -1321,6 +1427,10 @@ private struct NotchSettingsSection: View {
     @AppStorage(PrefKey.notchEnabled) private var enabled = true
     @AppStorage(PrefKey.notchExpandOnHover) private var expandOnHover = true
     @AppStorage(PrefKey.notchMeetingCountdown) private var countdown = true
+    @AppStorage(PrefKey.notchShelfEnabled) private var shelf = true
+    @AppStorage(PrefKey.notchNetworkReadout) private var networkReadout = false
+    @AppStorage(PrefKey.notchNetworkCard) private var networkCard = true
+    @AppStorage(PrefKey.menuBarNetwork) private var menuBarNetwork = false
 
     var body: some View {
         Section {
@@ -1328,6 +1438,10 @@ private struct NotchSettingsSection: View {
                 .onChange(of: enabled) { _, _ in NotchController.shared.start() }
             Toggle("Expand when the pointer is on it", isOn: $expandOnHover).disabled(!enabled)
             Toggle("Count down to meetings starting in 15 minutes", isOn: $countdown).disabled(!enabled)
+            Toggle("File shelf: drop files on the notch to park them", isOn: $shelf).disabled(!enabled)
+            Toggle("Network speed: show ↓/↑ next to the notch when nothing else is", isOn: $networkReadout).disabled(!enabled)
+            Toggle("Network card with a 1-minute graph when expanded", isOn: $networkCard).disabled(!enabled)
+            Toggle("Network speed in the menu bar", isOn: $menuBarNetwork)
         } header: {
             Text("Notch")
         } footer: {

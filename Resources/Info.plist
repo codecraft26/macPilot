@@ -21,9 +21,9 @@
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.17.1</string>
+    <string>0.32.0</string>
     <key>CFBundleVersion</key>
-    <string>22</string>
+    <string>40</string>
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.productivity</string>
     <key>LSMinimumSystemVersion</key>
@@ -32,6 +32,8 @@
     <true/>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>MacPilot's buddy uses speech recognition (on this Mac when supported) to understand what you say to it.</string>
     <key>NSMicrophoneUsageDescription</key>
     <string>MacPilot uses the microphone only while you are dictating or recording. A recording indicator is always shown.</string>
     <key>NSCalendarsFullAccessUsageDescription</key>
@@ -40,7 +42,59 @@
     <string>MacPilot can sync tasks with Reminders after you allow it.</string>
     <key>NSCalendarsUsageDescription</key>
     <string>MacPilot shows your upcoming meetings and can create events after you confirm them.</string>
+    <key>NSLocationUsageDescription</key>
+    <string>Smart reminders can fire when you arrive at or leave a saved place, and macOS needs Location access to tell MacPilot the Wi-Fi network name. Your location never leaves this Mac.</string>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>Smart reminders can fire when you arrive at or leave a saved place, and macOS needs Location access to tell MacPilot the Wi-Fi network name. Your location never leaves this Mac.</string>
+    <key>SUFeedURL</key>
+    <string>https://raw.githubusercontent.com/codecraft26/macPilot/main/appcast.xml</string>
+    <key>SUEnableAutomaticChecks</key>
+    <true/>
+    <key>SUScheduledCheckInterval</key>
+    <integer>86400</integer>
+    <key>SUAllowsAutomaticUpdates</key>
+    <true/>
+    <key>NSFocusStatusUsageDescription</key>
+    <string>Smart Do Not Disturb checks whether a Focus was already on, so it can restore it exactly as it was.</string>
+    <key>NSAccessibilityUsageDescription</key>
+    <string>MacPilot's agent reads and presses controls only in apps you allow, and asks before anything else.</string>
     <key>NSAppleEventsUsageDescription</key>
     <string>MacPilot controls Music or Spotify from the notch, toggles Dark Mode and empties the Trash only when you ask it to.</string>
+    <key>NSServices</key>
+    <array>
+        <dict>
+            <key>NSMenuItem</key>
+            <dict>
+                <key>default</key>
+                <string>Convert with MacPilot</string>
+            </dict>
+            <key>NSMessage</key>
+            <string>convertWithMacPilot</string>
+            <key>NSPortName</key>
+            <string>MacPilot</string>
+            <key>NSRequiredContext</key>
+            <dict/>
+            <key>NSSendTypes</key>
+            <array>
+                <string>public.file-url</string>
+                <string>NSFilenamesPboardType</string>
+            </array>
+            <key>NSSendFileTypes</key>
+            <array>
+                <string>public.image</string>
+                <string>com.adobe.pdf</string>
+                <string>public.movie</string>
+                <string>public.audiovisual-content</string>
+                <string>public.plain-text</string>
+                <string>public.rtf</string>
+                <string>public.html</string>
+                <string>org.openxmlformats.wordprocessingml.document</string>
+                <string>com.microsoft.word.doc</string>
+                <string>org.oasis-open.opendocument.text</string>
+                <string>net.daringfireball.markdown</string>
+                <string>com.apple.rtfd</string>
+            </array>
+        </dict>
+    </array>
 </dict>
 </plist>

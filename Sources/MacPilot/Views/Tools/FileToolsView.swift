@@ -247,58 +247,12 @@ private struct ToolWorkspace: View {
 
     @ViewBuilder
     private var optionsCard: some View {
-        let fields = optionFields
-        if fields != nil {
+        if ConversionOptionFields.hasFields(tool) {
             VStack(alignment: .leading, spacing: DS.Space.s) {
                 Text("Options").font(.headline)
-                fields
+                ConversionOptionFields(tool: tool, options: $options)
             }
             .card(padding: DS.Space.s)
-        }
-    }
-
-    private var optionFields: AnyView? {
-        switch tool {
-        case .convertImages, .resizeImages, .pdfToImages:
-            return AnyView(VStack(alignment: .leading, spacing: DS.Space.s) {
-                Picker("Format", selection: $options.imageFormat) {
-                    ForEach(tool == .pdfToImages ? [.png, .jpeg] : ConversionOptions.ImageFormat.allCases) { Text($0.rawValue).tag($0) }
-                }
-                if options.imageFormat == .jpeg || options.imageFormat == .heic {
-                    HStack {
-                        Text("Quality")
-                        Slider(value: $options.quality, in: 0.4...1)
-                        Text("\(Int(options.quality * 100))%").monospacedDigit().frame(width: 40)
-                    }
-                }
-                if tool == .resizeImages {
-                    Picker("Fit within", selection: $options.maxPixels) {
-                        ForEach([640, 1024, 1280, 1920, 2560, 3840], id: \.self) { Text("\($0) px").tag($0) }
-                    }
-                }
-            })
-        case .splitPDF:
-            return AnyView(VStack(alignment: .leading, spacing: 4) {
-                TextField("Pages, e.g. 1-3, 5, 8-", text: $options.pageRanges).textFieldStyle(.roundedBorder)
-                Text("Leave empty to save every page as its own PDF.").font(.caption).foregroundStyle(.secondary)
-            })
-        case .protectPDF:
-            return AnyView(SecureField("Password (at least 4 characters)", text: $options.password).textFieldStyle(.roundedBorder))
-        case .documentConvert:
-            return AnyView(Picker("Convert to", selection: $options.documentFormat) {
-                ForEach(ConversionOptions.DocumentFormat.allCases) { Text($0.rawValue).tag($0) }
-            })
-        case .markdownExport:
-            return AnyView(Picker("Convert to", selection: $options.documentFormat) {
-                Text("Word (.docx)").tag(ConversionOptions.DocumentFormat.docx)
-                Text("PDF").tag(ConversionOptions.DocumentFormat.pdf)
-            })
-        case .videoToMP4:
-            return AnyView(Picker("Size", selection: $options.videoQuality) {
-                ForEach(ConversionOptions.VideoQuality.allCases) { Text($0.rawValue).tag($0) }
-            }.pickerStyle(.segmented))
-        default:
-            return nil
         }
     }
 
@@ -386,6 +340,68 @@ private struct ToolWorkspace: View {
                 self.error = error.localizedDescription
             }
             isRunning = false
+        }
+    }
+}
+
+/// Options for a conversion (format, quality, pages, password…), shared by File Tools and the Convert picker.
+struct ConversionOptionFields: View {
+    let tool: ConversionTool
+    @Binding var options: ConversionOptions
+
+    static func hasFields(_ tool: ConversionTool) -> Bool {
+        switch tool {
+        case .convertImages, .resizeImages, .pdfToImages, .splitPDF, .protectPDF, .documentConvert, .markdownExport, .videoToMP4: return true
+        default: return false
+        }
+    }
+
+    var body: some View {
+        if let fields { fields }
+    }
+
+    private var fields: AnyView? {
+        switch tool {
+        case .convertImages, .resizeImages, .pdfToImages:
+            return AnyView(VStack(alignment: .leading, spacing: DS.Space.s) {
+                Picker("Format", selection: $options.imageFormat) {
+                    ForEach(tool == .pdfToImages ? [.png, .jpeg] : ConversionOptions.ImageFormat.allCases) { Text($0.rawValue).tag($0) }
+                }
+                if options.imageFormat == .jpeg || options.imageFormat == .heic {
+                    HStack {
+                        Text("Quality")
+                        Slider(value: $options.quality, in: 0.4...1)
+                        Text("\(Int(options.quality * 100))%").monospacedDigit().frame(width: 40)
+                    }
+                }
+                if tool == .resizeImages {
+                    Picker("Fit within", selection: $options.maxPixels) {
+                        ForEach([640, 1024, 1280, 1920, 2560, 3840], id: \.self) { Text("\($0) px").tag($0) }
+                    }
+                }
+            })
+        case .splitPDF:
+            return AnyView(VStack(alignment: .leading, spacing: 4) {
+                TextField("Pages, e.g. 1-3, 5, 8-", text: $options.pageRanges).textFieldStyle(.roundedBorder)
+                Text("Leave empty to save every page as its own PDF.").font(.caption).foregroundStyle(.secondary)
+            })
+        case .protectPDF:
+            return AnyView(SecureField("Password (at least 4 characters)", text: $options.password).textFieldStyle(.roundedBorder))
+        case .documentConvert:
+            return AnyView(Picker("Convert to", selection: $options.documentFormat) {
+                ForEach(ConversionOptions.DocumentFormat.allCases) { Text($0.rawValue).tag($0) }
+            })
+        case .markdownExport:
+            return AnyView(Picker("Convert to", selection: $options.documentFormat) {
+                Text("Word (.docx)").tag(ConversionOptions.DocumentFormat.docx)
+                Text("PDF").tag(ConversionOptions.DocumentFormat.pdf)
+            })
+        case .videoToMP4:
+            return AnyView(Picker("Size", selection: $options.videoQuality) {
+                ForEach(ConversionOptions.VideoQuality.allCases) { Text($0.rawValue).tag($0) }
+            }.pickerStyle(.segmented))
+        default:
+            return nil
         }
     }
 }

@@ -30,9 +30,16 @@ enum PrefKey {
     static let iCloudSyncEnabled = "sync.iCloudEnabled"
     static let hideFromScreenCapture = "privacy.hideFromScreenCapture"
     static let autoBriefing = "briefing.auto"
+    static let buddyEnabled = "buddy.enabled"
+    static let notchShelfEnabled = "notch.shelfEnabled"
+    static let pilotWakeWord = "buddy.wakeWord"
+    static let pilotSpeaks = "buddy.speaks"
     static let notchEnabled = "notch.enabled"
     static let notchExpandOnHover = "notch.expandOnHover"
     static let notchMeetingCountdown = "notch.meetingCountdown"
+    static let notchNetworkReadout = "notch.networkReadout"
+    static let notchNetworkCard = "notch.networkCard"
+    static let menuBarNetwork = "menuBar.networkReadout"
     static let recordScreen = "recording.recordScreen"
     static let screenDisplayID = "recording.screenDisplayID"
     static let screenFPS = "recording.screenFPS"
@@ -110,9 +117,16 @@ enum Prefs {
             PrefKey.snippetsEnabled: true,
             PrefKey.hideFromScreenCapture: true,
             PrefKey.autoBriefing: true,
+            PrefKey.buddyEnabled: true,
+            PrefKey.notchShelfEnabled: true,
+            PrefKey.pilotWakeWord: false,
+            PrefKey.pilotSpeaks: true,
             PrefKey.notchEnabled: true,
             PrefKey.notchExpandOnHover: true,
             PrefKey.notchMeetingCountdown: true,
+            PrefKey.notchNetworkReadout: false,
+            PrefKey.notchNetworkCard: true,
+            PrefKey.menuBarNetwork: false,
             PrefKey.recordScreen: false,
             PrefKey.screenDisplayID: 0,
             PrefKey.screenFPS: 15,

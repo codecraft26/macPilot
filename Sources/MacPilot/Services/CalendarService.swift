@@ -47,6 +47,8 @@ struct CalendarInfo: Identifiable, Hashable {
     var title: String
     var color: RGBColor
     var isWritable: Bool
+    /// Google account the calendar belongs to (empty for Apple Calendar).
+    var account: String = ""
 
     /// Unique across sources, e.g. "apple:<id>" or "google:<id>".
     var id: String { "\(source.rawValue):\(rawID)" }

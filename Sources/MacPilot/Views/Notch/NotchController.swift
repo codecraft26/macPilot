@@ -35,6 +35,8 @@ enum NotchActivity: Equatable {
     case timer
     case meetingSoon(title: String, start: Date)
     case nowPlaying
+    /// Live ↓/↑ throughput (optional, Settings → Notch).
+    case network
 }
 
 /// A short message that drops out of the notch for a few seconds.
@@ -46,6 +48,11 @@ struct NotchPeek: Equatable, Identifiable {
     var subtitle: String = ""
     var duration: Double = 4.5
     var action: NotchPeekAction?
+    /// An extra button on the right of the banner (e.g. "Stop" for an automatic recording).
+    var buttonTitle: String?
+    var buttonAction: NotchPeekAction?
+    /// Urgent alerts still show during Focus; others are held for the summary.
+    var urgent = false
 
     static func == (lhs: NotchPeek, rhs: NotchPeek) -> Bool { lhs.id == rhs.id }
 }
@@ -56,6 +63,8 @@ enum NotchPeekAction: Equatable {
     case openRecording(UUID, kind: RecordingKind)
     case joinMeeting(URL)
     case openTasks
+    case stopRecording
+    case reminderDone(UUID)
 }
 
 /// A Dynamic Island–style area around the MacBook notch: live status when something is happening,
@@ -74,7 +83,7 @@ final class NotchController {
     private var lastAnnouncementCheck = Date.distantPast
 
     /// Size of the panel window; the visible black shape is drawn inside it.
-    static let panelSize = CGSize(width: 620, height: 300)
+    static let panelSize = CGSize(width: 620, height: 440)
     static let expandedSize = CGSize(width: 560, height: 196)
     static let compactSideWidth: CGFloat = 78
 
@@ -82,6 +91,8 @@ final class NotchController {
     private var timer: Timer?
     private var hoverStartedAt: Date?
     private var leftAt: Date?
+    private var dragChangeCount = NSPasteboard(name: .drag).changeCount
+    private var fileDragActive = false
 
     static var isEnabled: Bool { UserDefaults.standard.bool(forKey: PrefKey.notchEnabled) }
 
@@ -155,11 +166,15 @@ final class NotchController {
         var count = 0
         if NotchTimers.shared.current != nil { count += 1 }
         if NowPlaying.shared.track != nil { count += 1 }
+        if !NotchShelf.shared.items.isEmpty || NotchShelf.shared.isDropTargeted { count += 1 }
+        if UserDefaults.standard.bool(forKey: PrefKey.notchNetworkCard) { count += 1 }
+        if FocusController.shared.isActive { count += 1 }
         return count
     }
 
     /// Shows a message for a few seconds (only when the notch is enabled).
     func peek(_ message: NotchPeek) {
+        guard FocusController.shared.allow(message.title, urgent: message.urgent) else { return }
         guard Self.isEnabled, panel != nil else { return }
         peekTask?.cancel()
         withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) { peekMessage = message }
@@ -184,6 +199,10 @@ final class NotchController {
             NSWorkspace.shared.open(url)
         case .openTasks:
             WindowManager.shared.showDashboard(section: .tasks)
+        case .stopRecording:
+            Task { await RecordingManager.shared.stop() }
+        case .reminderDone(let id):
+            if let reminder = ReminderEngine.shared.reminders.first(where: { $0.uid == id }) { ReminderEngine.shared.done(reminder) }
         }
     }
 
@@ -218,7 +237,27 @@ final class NotchController {
         // On screens without a notch, the empty top centre only reacts while something is showing.
         let idleWithoutNotch = !geometry.hasHardwareNotch && activity == .idle && !isExpanded && peekMessage == nil
         let hotRect = idleWithoutNotch ? .zero : shapeRect.union(geometry.notch).insetBy(dx: -4, dy: -2)
-        let inside = hotRect.contains(mouse)
+        var inside = hotRect.contains(mouse)
+
+        // File shelf: while files are dragged near the notch, open it as a drop zone.
+        let buttonDown = NSEvent.pressedMouseButtons & 1 == 1
+        if buttonDown {
+            let changeCount = NSPasteboard(name: .drag).changeCount
+            if changeCount != dragChangeCount {
+                dragChangeCount = changeCount
+                fileDragActive = !NotchShelf.draggedFileURLs().isEmpty
+            }
+        } else {
+            fileDragActive = false
+        }
+        let dropZone = geometry.notch.insetBy(dx: -170, dy: -90)
+        let dragNear = fileDragActive && UserDefaults.standard.bool(forKey: PrefKey.notchShelfEnabled)
+            && (dropZone.contains(mouse) || (isExpanded && shapeRect.contains(mouse)))
+        if dragNear != NotchShelf.shared.isDropTargeted {
+            NotchShelf.shared.isDropTargeted = dragNear
+            if dragNear { withAnimation(.spring(response: 0.35, dampingFraction: 0.78)) { isExpanded = true } }
+        }
+        if dragNear { inside = true }
         panel.ignoresMouseEvents = !inside
 
         let now = Date()
@@ -257,6 +296,8 @@ final class NotchController {
             next = .meetingSoon(title: event.title, start: event.start)
         } else if NowPlaying.shared.isPlaying {
             next = .nowPlaying
+        } else if UserDefaults.standard.bool(forKey: PrefKey.notchNetworkReadout) {
+            next = .network
         }
         if next != activity {
             withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) { activity = next }

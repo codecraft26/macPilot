@@ -38,11 +38,28 @@ for bundle in "$BIN_DIR"/*.bundle; do
   cp -R "$bundle" "$APP/Contents/Resources/"
 done
 
+# Sparkle (auto-updates): embed the framework next to the executable (rpath @executable_path/../Frameworks).
+mkdir -p "$APP/Contents/Frameworks"
+for framework in "$BIN_DIR"/*.framework; do
+  ditto "$framework" "$APP/Contents/Frameworks/$(basename "$framework")"
+done
+
 # A Developer ID identity gets the hardened runtime and a timestamp so the app can be notarized.
 SIGN_ARGS=(--force --sign "${SIGN_IDENTITY:--}" --entitlements "$ROOT/Resources/MacPilot.entitlements")
 if [ -n "${SIGN_IDENTITY:-}" ]; then
   SIGN_ARGS+=(--options runtime --timestamp)
 fi
+# Sign embedded frameworks (and Sparkle's helpers) first, then the app.
+FRAMEWORK_SIGN_ARGS=(--force --sign "${SIGN_IDENTITY:--}")
+if [ -n "${SIGN_IDENTITY:-}" ]; then FRAMEWORK_SIGN_ARGS+=(--options runtime --timestamp); fi
+for framework in "$APP/Contents/Frameworks/"*.framework; do
+  if [ -d "$framework/Versions/B" ]; then
+    for helper in "$framework/Versions/B/XPCServices/"*.xpc "$framework/Versions/B/Autoupdate" "$framework/Versions/B/Updater.app"; do
+      [ -e "$helper" ] && codesign "${FRAMEWORK_SIGN_ARGS[@]}" "$helper"
+    done
+  fi
+  codesign "${FRAMEWORK_SIGN_ARGS[@]}" "$framework"
+done
 codesign "${SIGN_ARGS[@]}" "$APP"
 
 # Make Finder and the Dock pick up the new icon.

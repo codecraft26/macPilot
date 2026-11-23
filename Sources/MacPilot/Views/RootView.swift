@@ -22,6 +22,7 @@ struct RootView: View {
         switch section {
         case .dashboard: DashboardView()
         case .assistant: AssistantView()
+        case .agent: AgentView()
         case .notes: NotesView()
         case .tasks: TasksView()
         case .settings: SettingsView()

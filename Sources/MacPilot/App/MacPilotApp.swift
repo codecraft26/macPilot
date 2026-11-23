@@ -6,6 +6,13 @@ import SwiftUI
 struct MacPilotApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
+    init() {
+        // `MacPilot --mcp-stdio`: run only the memory MCP server for a client that launched us (no UI).
+        if CommandLine.arguments.contains("--mcp-stdio") { MemoryMCPServer.runStdio() }
+        // `MacPilot --update-appcast …`: used by scripts/release.sh to add a release to appcast.xml.
+        if CommandLine.arguments.contains("--update-appcast") { Appcast.runCLI(CommandLine.arguments) }
+    }
+
     var body: some Scene {
         MenuBarExtra {
             MenuBarContent()
@@ -41,12 +48,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         SnippetExpander.shared.start()
         ICloudSync.shared.start()
         ScreenPrivacy.start()
+        FloatingBuddy.shared.start()
+        LaunchAtLogin.setUpOnce()
+        MeetingAutoRecord.shared.start()
+        NetworkMonitor.shared.start()
+        SessionMonitor.shared.start()
+        // Queued agent tasks start again; interrupted steps stay "needs review" and are never replayed.
+        AgentEngine.shared.recoverAfterLaunch()
+        TelegramBot.shared.startIfEnabled()
+        JobScheduler.shared.onRunFinished = { job, run in TelegramBot.shared.jobFinished(job, run: run) }
+        JobScheduler.shared.start()
+        ReminderEngine.shared.start()
+        MemoryCapture.shared.start()
+        OpenLoops.shared.start()
+        MemoryMCPServer.shared.startIfEnabled()
+        FocusController.shared.start()
+        UpdateManager.shared.start()
+        // Optional monthly "developer files are using N GB" reminder; quiet, low priority, a few minutes after launch.
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(300))
+            await DevCleanup.shared.monthlyCheck()
+        }
+        // Finder → right-click → Quick Actions / Services → "Convert with MacPilot".
+        NSApp.servicesProvider = FinderServiceProvider.shared
+        NSUpdateDynamicServices()
         AutomationEngine.shared.start()
 
         let defaults = UserDefaults.standard
-        if !defaults.bool(forKey: PrefKey.hasLaunchedBefore) {
-            defaults.set(true, forKey: PrefKey.hasLaunchedBefore)
-            WindowManager.shared.showDashboard(section: .settings)
+        let firstLaunch = !defaults.bool(forKey: PrefKey.hasLaunchedBefore)
+        defaults.set(true, forKey: PrefKey.hasLaunchedBefore)
+        // First launch, or a newer setup added steps: show setup (resuming where it was left).
+        if firstLaunch || SetupController.shared.shouldShowAtLaunch {
+            SetupController.shared.show()
         }
     }
 

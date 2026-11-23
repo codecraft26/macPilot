@@ -3,7 +3,7 @@ import Observation
 
 /// The ten top-level areas from the PRD navigation (section 7).
 enum AppSection: String, CaseIterable, Identifiable, Hashable {
-    case dashboard, assistant, voice, calendar, notes, tasks, clipboard, tools, developer, automations, settings
+    case dashboard, assistant, agent, voice, calendar, notes, tasks, clipboard, tools, developer, automations, settings
 
     var id: String { rawValue }
 
@@ -11,6 +11,7 @@ enum AppSection: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .dashboard: return "Dashboard"
         case .assistant: return "AI Assistant"
+        case .agent: return "Agent"
         case .voice: return "Voice & Transcription"
         case .calendar: return "Calendar & Meetings"
         case .notes: return "Notes & Knowledge"
@@ -27,6 +28,7 @@ enum AppSection: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .dashboard: return "square.grid.2x2"
         case .assistant: return "sparkles"
+        case .agent: return "cpu"
         case .voice: return "waveform"
         case .calendar: return "calendar"
         case .notes: return "note.text"
@@ -48,6 +50,7 @@ enum PendingAction: Equatable {
     case openRecording(UUID)
     case quickAddEvent(String)
     case openTool(String)
+    case askAgent(String)
 }
 
 @Observable
@@ -57,6 +60,12 @@ final class AppState {
 
     var selectedSection: AppSection? = .dashboard
     var pendingAction: PendingAction?
+    /// Which Settings tab is shown (by its title), e.g. from setup's "Set up later" links.
+    var settingsTab = "General"
+    /// Tab to show when a recording opens from a calendar event ("Summary", "Transcript").
+    var pendingRecordingTab: String?
+    /// Seconds to jump to in a transcript opened from search.
+    var pendingTranscriptSeek: Double?
     /// Drives the menu bar recording indicator. Set by `RecordingManager`.
     var isRecording = false
     /// Text for the quick assistant to ask as soon as it opens (from the launcher).

@@ -45,6 +45,7 @@ extension AppSection {
         case .clipboard: return .teal
         case .tools: return .indigo
         case .developer: return .gray
+        case .agent: return .mint
         case .automations: return .green
         case .settings: return Color(nsColor: .systemGray)
         }
@@ -52,7 +53,7 @@ extension AppSection {
 
     var group: String {
         switch self {
-        case .dashboard, .assistant, .voice, .calendar: return "Workspace"
+        case .dashboard, .assistant, .agent, .voice, .calendar: return "Workspace"
         case .notes, .tasks, .clipboard, .tools: return "Organize"
         case .developer, .automations: return "Build"
         case .settings: return ""
@@ -195,11 +196,19 @@ extension View {
 struct VisualEffectBackground: NSViewRepresentable {
     var material: NSVisualEffectView.Material = .popover
 
+    #if DEBUG
+    /// Offscreen screenshots can't render behind-window blur (it comes out flat gray), so they hide it.
+    nonisolated(unsafe) static var hiddenForSnapshots = false
+    #endif
+
     func makeNSView(context: Context) -> NSVisualEffectView {
         let view = NSVisualEffectView()
         view.material = material
         view.blendingMode = .behindWindow
         view.state = .active
+        #if DEBUG
+        view.isHidden = Self.hiddenForSnapshots
+        #endif
         return view
     }
 

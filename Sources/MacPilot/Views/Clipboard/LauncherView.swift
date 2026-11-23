@@ -90,10 +90,68 @@ enum LauncherCatalog {
                                         primary: { NSWorkspace.shared.open(url) }))
         }
 
+        // "?" or "/" opens universal search with the rest of the text.
+        if trimmed.hasPrefix("?") || trimmed.hasPrefix("/") {
+            let rest = String(trimmed.dropFirst()).trimmingCharacters(in: .whitespaces)
+            return [LauncherItem(id: "search.all", title: rest.isEmpty ? "Search everything…" : "Search everything: \(rest)",
+                                 subtitle: "Notes, meetings, memory, files, mail, calendar… (in:mail from: after:)",
+                                 icon: .system("magnifyingglass"), section: "Search",
+                                 primary: { UniversalSearchPanel.shared.show(query: rest) })]
+        }
+
+        // "kill port 3000" / "what's on port 5432"
+        if let command = PortKiller.command(trimmed) {
+            switch command {
+            case .kill(let number):
+                let owner = PortKiller.shared.owners(of: number).first
+                instant.append(LauncherItem(id: "port.kill.\(number)", title: "Stop what's on port \(number)…",
+                                            subtitle: owner.map { "\($0.process) · PID \($0.pid) — asks before stopping" } ?? "Checks the port, then asks before stopping",
+                                            icon: .system("xmark.octagon"), section: "Ports",
+                                            primary: { Task { await PortActions.confirmAndStop(port: number) } }))
+            case .show(let number):
+                let owners = PortKiller.shared.owners(of: number)
+                instant.append(LauncherItem(id: "port.show.\(number)",
+                                            title: owners.first.map { "Port \(number): \($0.process) (PID \($0.pid))" } ?? "Port \(number): open Ports to check",
+                                            subtitle: owners.first.map { $0.projectName.isEmpty ? $0.command : "\($0.projectName) · \($0.command)" } ?? "Lists what's listening",
+                                            icon: .system("point.3.connected.trianglepath.dotted"), section: "Ports",
+                                            primary: { DeveloperView.openPortsNext = true; windows.showDashboard(section: .developer) }))
+            }
+            Task { await PortKiller.shared.refresh() }
+        }
+
+        // "clean up developer files" / "how much can I free?"
+        if CleanupRules.isLauncherQuery(trimmed) {
+            let known = DevCleanup.shared.lastKnownTotal
+            instant.append(LauncherItem(id: "cleanup.open", title: "Clean up developer files",
+                                        subtitle: known > 0 ? "\(CleanupFormat.bytes(known)) reclaimable at the last scan — review before anything is removed"
+                                                            : "Scans node_modules, Xcode, Docker and caches — nothing is removed without confirming",
+                                        icon: .system("externaldrive.badge.minus"), section: "Cleanup",
+                                        primary: {
+                                            DeveloperView.openCleanupNext = true
+                                            windows.showDashboard(section: .developer)
+                                            if !DevCleanup.shared.scanning { Task { await DevCleanup.shared.scan() } }
+                                        }))
+        }
+
         // Typed-text actions first.
         if !trimmed.isEmpty {
             results.append(LauncherItem(id: "ask", title: "Ask AI: \(trimmed)", icon: .system("sparkles"), section: "AI",
                                         primary: { windows.askQuickAssistant(trimmed) }))
+            if let draft = ReminderParser.parse(trimmed) {
+                results.append(LauncherItem(id: "remind.add", title: "Remind me: \(draft.confirmation)", subtitle: "↩ save this smart reminder",
+                                            icon: .system("bell.badge"), section: "Reminders",
+                                            primary: {
+                                                ReminderEngine.shared.add(draft, source: trimmed)
+                                                NotchController.shared.peek(NotchPeek(systemImage: "bell.badge", tint: .blue, title: "Reminder saved", subtitle: draft.confirmation, duration: 5))
+                                            }))
+            } else if trimmed.lowercased().hasPrefix("remind") {
+                results.append(LauncherItem(id: "remind.open", title: "Remind me… (open Reminders to confirm)", subtitle: trimmed,
+                                            icon: .system("bell.badge"), section: "Reminders",
+                                            primary: { AgentTabState.shared.tab = "Reminders"; AgentTabState.shared.pendingReminder = trimmed; windows.showDashboard(section: .agent) }))
+            }
+            results.append(LauncherItem(id: "agent.ask", title: "Ask agent: \(trimmed)", subtitle: "Runs tools in your workspaces; asks before writes and commands",
+                                        icon: .system("cpu"), section: "Agent",
+                                        primary: { windows.open(.agent, action: .askAgent(trimmed)) }))
         }
 
         var commands: [LauncherItem] = [
@@ -146,6 +204,8 @@ enum LauncherCatalog {
                          primary: { if NotchTimers.shared.current != nil { NotchTimers.shared.cancel() } else { WindowManager.shared.toggleLauncher() } }),
             LauncherItem(id: "cmd.askmac", title: "Ask my Mac", subtitle: "Answers from your meetings, notes, tasks and clipboard (⌥⇧A)",
                          icon: .system("sparkle.magnifyingglass"), section: "AI", primary: { WindowManager.shared.toggleAskMac() }),
+            LauncherItem(id: "cmd.buddy", title: "Show / hide floating buddy", subtitle: "The desktop helper with voice note, dictation and Ask AI",
+                         icon: .system("face.smiling"), section: "MacPilot", primary: { FloatingBuddy.shared.toggle() }),
             LauncherItem(id: "cmd.screenshot", title: "Screenshot & read text", subtitle: "Capture an area, OCR, ask AI, pin (⌥⇧S)",
                          icon: .system("camera.viewfinder"), section: "AI", primary: { ScreenCaptureTool.shared.captureArea() }),
             LauncherItem(id: "cmd.askscreen", title: "Ask AI about this window", subtitle: "Summarize or explain the window you were using",
@@ -156,6 +216,38 @@ enum LauncherCatalog {
                          icon: .system("icloud"), section: "MacPilot", primary: {
                              if ICloudSync.isEnabled { ICloudSync.shared.syncNow() } else { windows.open(.settings) }
                          }),
+            LauncherItem(id: "app.setup", title: "Setup", subtitle: "Permissions, AI provider, features — \(SetupController.shared.progress.doneCount)/\(SetupProgress.totalCount) done",
+                         icon: .system("checklist"), section: "MacPilot", primary: { SetupController.shared.show() }),
+            LauncherItem(id: "app.update", title: "Check for Updates…", subtitle: "MacPilot \(UpdateManager.shared.currentVersion) (build \(UpdateManager.shared.currentBuild))",
+                         icon: .system("arrow.down.circle"), section: "MacPilot", primary: {
+                             if UpdateManager.shared.isAvailable { UpdateManager.shared.checkForUpdates() } else { windows.showDashboard(section: .settings) }
+                         }),
+            LauncherItem(id: "focus.25", title: "Focus for 25 min", subtitle: "Silences notifications (via your Focus shortcuts) and holds MacPilot alerts",
+                         icon: .system("moon.fill"), section: "Focus", primary: { Task { await FocusController.shared.focus(minutes: 25) } }),
+            LauncherItem(id: "focus.50", title: "Focus for 50 min", icon: .system("moon.fill"), section: "Focus",
+                         primary: { Task { await FocusController.shared.focus(minutes: 50) } }),
+            LauncherItem(id: "focus.off", title: FocusController.shared.isActive ? "Not now — end Focus (\(FocusController.shared.statusText))" : "End Focus",
+                         icon: .system("moon.zzz"), section: "Focus", primary: { Task { await FocusController.shared.notNow() } }),
+            LauncherItem(id: "remind.new", title: "Remind me…", subtitle: "Type e.g. “remind me to check PRs when I open Xcode”",
+                         icon: .system("bell.badge"), section: "Reminders",
+                         primary: { AgentTabState.shared.tab = "Reminders"; windows.showDashboard(section: .agent) }),
+            LauncherItem(id: "agent.open", title: "Ask agent…", subtitle: "Type a request after opening, or type it here first",
+                         icon: .system("cpu"), section: "Agent", primary: { windows.open(.agent, action: .askAgent("")) }),
+            LauncherItem(id: "agent.kill", title: AgentEngine.shared.isHalted ? "Agent: resume" : "Agent: kill switch (stop everything)",
+                         icon: .system("hand.raised.fill"), section: "Agent",
+                         primary: { if AgentEngine.shared.isHalted { AgentEngine.shared.resume() } else { AgentEngine.shared.killSwitch() } }),
+            LauncherItem(id: "cmd.speedtest", title: SpeedTest.shared.isRunning ? "Speed test running…" : "Speed test",
+                         subtitle: SpeedTest.shared.latest.map { "Last: \($0.summary)" } ?? "Download, upload and latency (networkQuality)",
+                         icon: .system("speedometer"), section: "Network",
+                         primary: {
+                             Task { await SpeedTest.shared.run() }
+                             NotchController.shared.peek(NotchPeek(systemImage: "speedometer", tint: .blue, title: "Running a speed test…",
+                                                                   subtitle: "About 20 seconds", duration: 4))
+                         }),
+            LauncherItem(id: "cmd.network", title: "Network: ↓ \(NetworkMath.rate(NetworkMonitor.shared.down))  ↑ \(NetworkMath.rate(NetworkMonitor.shared.up))",
+                         subtitle: [NetworkMonitor.shared.interfaceDisplayName, NetworkMonitor.shared.localIP].filter { !$0.isEmpty }.joined(separator: " · ") + " · ↩ copy IP",
+                         icon: .system("network"), section: "Network",
+                         primary: { PasteService.write(text: NetworkMonitor.shared.localIP) }),
             LauncherItem(id: "sys.lock", title: "Lock Screen", icon: .system("lock"), section: "System", primary: { SystemCommands.lockScreen() }),
             LauncherItem(id: "sys.sleepdisplay", title: "Sleep Display", icon: .system("display"), section: "System", primary: { SystemCommands.sleepDisplay() }),
             LauncherItem(id: "sys.screensaver", title: "Start Screen Saver", icon: .system("sparkles.tv"), section: "System", primary: { SystemCommands.startScreenSaver() }),
