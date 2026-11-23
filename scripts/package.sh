@@ -25,8 +25,9 @@ codesign --verify --deep --strict "$APP"
 echo "Architectures: $(lipo -archs "$APP/Contents/MacOS/MacPilot")"
 echo "Gatekeeper: $(spctl -a -vv "$APP" 2>&1 | head -1)"
 if [ -z "${SIGN_IDENTITY:-}" ]; then
-  echo "  (Ad-hoc signed: on another Mac, allow it once — see README \"Installing on another Mac\".)"
+  echo "  (Not Developer ID signed: on another Mac, allow it once — see README \"Installing on another Mac\".)"
 fi
+echo "Designated requirement: $(codesign -d -r- "$APP" 2>&1 | sed -n 's/^# designated => //p' | cut -c1-120)"
 
 # ditto keeps the code signature, permissions and bundle structure intact (Finder zips and some
 # upload services can break them, which makes macOS report the app as "damaged").

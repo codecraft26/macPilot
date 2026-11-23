@@ -219,9 +219,7 @@ enum PasteService {
     }
 
     static func openAccessibilitySettings() {
-        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
-            NSWorkspace.shared.open(url)
-        }
+        NSWorkspace.shared.open(ComputerPermissions.accessibilitySettings)
     }
 
     /// Puts the item on the pasteboard without re-capturing it.

@@ -28,7 +28,7 @@ enum GUIError: LocalizedError, Equatable {
 
     var errorDescription: String? {
         switch self {
-        case .noAccessibility: return "MacPilot needs Accessibility permission (Settings → Agent → Permissions)."
+        case .noAccessibility: return "MacPilot needs control permission: turn it on in \(ComputerPermissions.accessibilityPath()) (Settings → Agent → Permissions → Request)."
         case .appNotFound(let name): return "“\(name)” isn't running."
         case .noElement(let path): return "No UI element at \(path). Read the app's UI tree first."
         case .badKeys(let keys): return "Couldn't understand the keys “\(keys)” (try cmd+s, return, tab, escape)."
@@ -256,8 +256,28 @@ enum ComputerPermissions {
     static var accessibility: Bool { AXIsProcessTrusted() }
     static var screenRecording: Bool { CGPreflightScreenCaptureAccess() }
 
+    /// Shows macOS's prompt (which adds MacPilot to the list, switched off) and opens the right pane.
     static func requestAccessibility() {
-        _ = AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary)
+        let trusted = AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary)
+        if !trusted {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { NSWorkspace.shared.open(accessibilitySettings) }
+        }
+    }
+
+    /// What System Settings calls the Accessibility (control your computer) list on this macOS.
+    /// macOS 27 renamed it "Device Control and Data Access"; the Accessibility *settings* section only lists assistive apps.
+    static func accessibilityPaneName(majorVersion: Int = ProcessInfo.processInfo.operatingSystemVersion.majorVersion) -> String {
+        majorVersion >= 27 ? "Device Control and Data Access" : "Accessibility"
+    }
+
+    /// "System Settings → Privacy & Security → Device Control and Data Access"
+    static func accessibilityPath(majorVersion: Int = ProcessInfo.processInfo.operatingSystemVersion.majorVersion) -> String {
+        "System Settings → Privacy & Security → \(accessibilityPaneName(majorVersion: majorVersion))"
+    }
+
+    /// Short instruction for any view that needs the permission.
+    static var accessibilityHelp: String {
+        "Turn on MacPilot in \(accessibilityPath()), then quit and reopen MacPilot. (Not System Settings → Accessibility: that only lists assistive apps.)"
     }
 
     static func requestScreenRecording() { _ = CGRequestScreenCaptureAccess() }

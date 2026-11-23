@@ -250,7 +250,7 @@ enum WindowLayout: String, CaseIterable {
     func apply(to app: NSRunningApplication?) -> String? {
         guard PasteService.isTrusted else {
             PasteService.requestTrust()
-            return "Allow MacPilot in System Settings → Privacy & Security → Accessibility to move windows."
+            return "Allow MacPilot in \(ComputerPermissions.accessibilityPath()) to move windows."
         }
         guard let app else { return "No app window to move." }
         let element = AXUIElementCreateApplication(app.processIdentifier)

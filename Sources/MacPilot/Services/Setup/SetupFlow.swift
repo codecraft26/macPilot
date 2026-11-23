@@ -172,7 +172,7 @@ enum SetupPermission: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .accessibility: return "Accessibility"
+        case .accessibility: return ComputerPermissions.accessibilityPaneName() == "Accessibility" ? "Accessibility" : "Accessibility (\(ComputerPermissions.accessibilityPaneName()))"
         case .screenRecording: return "Screen & System Audio Recording"
         case .microphone: return "Microphone"
         case .speech: return "Speech Recognition"
@@ -187,7 +187,7 @@ enum SetupPermission: String, CaseIterable, Identifiable {
 
     var why: String {
         switch self {
-        case .accessibility: return "Paste dictation and snippets into apps, read selected text, control apps you allow, and (if you turn it on) Memory."
+        case .accessibility: return "Paste dictation and snippets into apps, read selected text, control apps you allow, and (if you turn it on) Memory. Request adds MacPilot to \(ComputerPermissions.accessibilityPath()); switch it on there, then relaunch."
         case .screenRecording: return "Record meeting audio from other apps, screenshots and OCR, and the agent's screenshots. macOS may need MacPilot relaunched after you allow it."
         case .microphone: return "Dictation, voice notes, meeting recording and talking to Pilot."
         case .speech: return "Understand what you say to Pilot on this Mac."
