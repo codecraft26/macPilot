@@ -439,6 +439,8 @@ When several apply, the most important wins (manual, sharing, recording, meeting
 
 ## Developer cleanup
 
+![Developer cleanup](docs/screenshots/mac/dev-cleanup.png)
+
 **Developer → Cleanup** scans in the background (low priority, **Cancel** any time) and groups what it finds by category with sizes. Sort by size or age, filter to items **not touched in 30 or 90 days**, tick what you want, **Select all**, and **Reveal in Finder**. The dashboard card shows the total from the last scan.
 
 | Category | What | How it's cleaned |

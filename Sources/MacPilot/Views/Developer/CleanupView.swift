@@ -61,7 +61,7 @@ struct CleanupView: View {
             Picker("Not touched in", selection: $ageFilter) {
                 Text("Any age").tag(0); Text("30+ days").tag(30); Text("90+ days").tag(90)
             }.frame(width: 190)
-            Picker("Sort", selection: $sort) { ForEach(Sort.allCases) { Text($0.rawValue).tag($0) } }.pickerStyle(.segmented).frame(width: 120)
+            Picker("Sort", selection: $sort) { ForEach(Sort.allCases) { Text($0.rawValue).tag($0) } }.pickerStyle(.segmented).labelsHidden().frame(width: 110).help("Sort by size or age")
             Button { showSettings = true } label: { Image(systemName: "gearshape") }.help("Folders and options")
         }
     }
@@ -75,7 +75,7 @@ struct CleanupView: View {
                     HStack {
                         Label(category.title, systemImage: category.systemImage)
                         Spacer()
-                        Text(CleanupFormat.bytes(bytes)).monospacedDigit()
+                        Text(bytes > 0 ? CleanupFormat.bytes(bytes) : "—").monospacedDigit()
                         Button("Select") { selection.formUnion(CleanupRules.selectAll(items)) }.buttonStyle(.borderless).font(.caption)
                     }
                 }

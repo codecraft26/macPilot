@@ -434,6 +434,13 @@ final class DevCleanup {
         running?.cancel()
     }
 
+    /// Previews and snapshots: show a fixed result without scanning.
+    func showForPreview(_ items: [CleanupItem]) {
+        self.items = items
+        lastScan = Date()
+        status = "\(CleanupFormat.bytes(total)) reclaimable"
+    }
+
     /// Resolves ids from scan_cleanup (or the same path spelled differently, e.g. /var vs /private/var) to scanned items.
     func resolve(_ ids: [String]) -> (found: [CleanupItem], missing: [String]) {
         var found: [CleanupItem] = [], missing: [String] = []
