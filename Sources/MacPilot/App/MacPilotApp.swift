@@ -9,6 +9,8 @@ struct MacPilotApp: App {
     init() {
         // `MacPilot --mcp-stdio`: run only the memory MCP server for a client that launched us (no UI).
         if CommandLine.arguments.contains("--mcp-stdio") { MemoryMCPServer.runStdio() }
+        // `MacPilot --update-appcast …`: used by scripts/release.sh to add a release to appcast.xml.
+        if CommandLine.arguments.contains("--update-appcast") { Appcast.runCLI(CommandLine.arguments) }
     }
 
     var body: some Scene {
@@ -61,6 +63,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         OpenLoops.shared.start()
         MemoryMCPServer.shared.startIfEnabled()
         FocusController.shared.start()
+        UpdateManager.shared.start()
         // Finder → right-click → Quick Actions / Services → "Convert with MacPilot".
         NSApp.servicesProvider = FinderServiceProvider.shared
         NSUpdateDynamicServices()

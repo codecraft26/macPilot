@@ -141,6 +141,9 @@ struct MenuBarContent: View {
 
         Divider()
 
+        if UpdateManager.shared.isAvailable {
+            Button("Check for Updates…") { UpdateManager.shared.checkForUpdates() }
+        }
         Button("Settings…") {
             WindowManager.shared.showDashboard(section: .settings)
         }

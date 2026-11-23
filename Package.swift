@@ -7,10 +7,16 @@ let package = Package(
     products: [
         .executable(name: "MacPilot", targets: ["MacPilot"])
     ],
+    dependencies: [
+        // Auto-updates. Pinned exactly; bump deliberately.
+        .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.10.1")
+    ],
     targets: [
         .executableTarget(
             name: "MacPilot",
-            path: "Sources/MacPilot"
+            dependencies: [.product(name: "Sparkle", package: "Sparkle")],
+            path: "Sources/MacPilot",
+            linkerSettings: [.unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@executable_path/../Frameworks"])]
         ),
         .testTarget(
             name: "MacPilotTests",

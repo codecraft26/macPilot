@@ -202,6 +202,10 @@ enum LauncherCatalog {
                          icon: .system("icloud"), section: "MacPilot", primary: {
                              if ICloudSync.isEnabled { ICloudSync.shared.syncNow() } else { windows.open(.settings) }
                          }),
+            LauncherItem(id: "app.update", title: "Check for Updates…", subtitle: "MacPilot \(UpdateManager.shared.currentVersion) (build \(UpdateManager.shared.currentBuild))",
+                         icon: .system("arrow.down.circle"), section: "MacPilot", primary: {
+                             if UpdateManager.shared.isAvailable { UpdateManager.shared.checkForUpdates() } else { windows.showDashboard(section: .settings) }
+                         }),
             LauncherItem(id: "focus.25", title: "Focus for 25 min", subtitle: "Silences notifications (via your Focus shortcuts) and holds MacPilot alerts",
                          icon: .system("moon.fill"), section: "Focus", primary: { Task { await FocusController.shared.focus(minutes: 25) } }),
             LauncherItem(id: "focus.50", title: "Focus for 50 min", icon: .system("moon.fill"), section: "Focus",

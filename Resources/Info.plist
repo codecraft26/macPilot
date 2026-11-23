@@ -21,9 +21,9 @@
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.29.0</string>
+    <string>0.30.0</string>
     <key>CFBundleVersion</key>
-    <string>37</string>
+    <string>38</string>
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.productivity</string>
     <key>LSMinimumSystemVersion</key>
@@ -46,6 +46,14 @@
     <string>Smart reminders can fire when you arrive at or leave a saved place, and macOS needs Location access to tell MacPilot the Wi-Fi network name. Your location never leaves this Mac.</string>
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>Smart reminders can fire when you arrive at or leave a saved place, and macOS needs Location access to tell MacPilot the Wi-Fi network name. Your location never leaves this Mac.</string>
+    <key>SUFeedURL</key>
+    <string>https://raw.githubusercontent.com/codecraft26/macPilot/main/appcast.xml</string>
+    <key>SUEnableAutomaticChecks</key>
+    <true/>
+    <key>SUScheduledCheckInterval</key>
+    <integer>86400</integer>
+    <key>SUAllowsAutomaticUpdates</key>
+    <true/>
     <key>NSFocusStatusUsageDescription</key>
     <string>Smart Do Not Disturb checks whether a Focus was already on, so it can restore it exactly as it was.</string>
     <key>NSAccessibilityUsageDescription</key>

@@ -9,10 +9,10 @@
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-000?logo=apple)
 ![Swift 5.10](https://img.shields.io/badge/Swift-5.10-F05138?logo=swift&logoColor=white)
 ![SwiftUI](https://img.shields.io/badge/UI-SwiftUI-0A84FF)
-![Version](https://img.shields.io/badge/version-0.29.0-6E5BF7)
+![Version](https://img.shields.io/badge/version-0.30.0-6E5BF7)
 ![Universal](https://img.shields.io/badge/Apple%20silicon%20%2B%20Intel-universal-555)
 
-[**⬇ Download MacPilot 0.29.0 (.dmg)**](releases/MacPilot-0.29.0.dmg) · [What's new](#whats-new) · [Features](#features) · [Agent](#ai-agent) · [Telegram](#telegram-bot) · [Jobs](#scheduled-jobs) · [Job finder](#job-finder) · [Computer use](#computer-use) · [Smart reminders](#smart-reminders) · [Memory](#memory-and-open-loops) · [Focus](#smart-do-not-disturb) · [Search](#universal-search) · [Ports](#port-killer) · [Network](#network-speed-and-speed-test) · [Finder convert](#finder-convert-with-macpilot) · [Floating buddy](#-floating-buddy) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
+[**⬇ Download MacPilot 0.30.0 (.dmg)**](releases/MacPilot-0.30.0.dmg) · [What's new](#whats-new) · [Features](#features) · [Agent](#ai-agent) · [Telegram](#telegram-bot) · [Jobs](#scheduled-jobs) · [Job finder](#job-finder) · [Computer use](#computer-use) · [Smart reminders](#smart-reminders) · [Memory](#memory-and-open-loops) · [Focus](#smart-do-not-disturb) · [Search](#universal-search) · [Ports](#port-killer) · [Updates](#auto-updates) · [Network](#network-speed-and-speed-test) · [Finder convert](#finder-convert-with-macpilot) · [Floating buddy](#-floating-buddy) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
 
 <img src="docs/screenshots/mac/dashboard.png" width="860" alt="MacPilot dashboard with today's briefing">
 
@@ -21,6 +21,9 @@
 MacPilot brings Raycast-style speed and an AI assistant to everything you do on a Mac: ask Claude (Anthropic or Amazon Bedrock), OpenAI or a local Ollama model from anywhere, record and summarize meetings, dictate into any app, manage notes, tasks and your calendar, search your clipboard, convert files, and sync it all between your Macs — with a friendly floating buddy on your desktop and live status in the MacBook notch. **Bring your own keys** — there is no MacPilot account or server; data stays on your Mac and credentials in the Keychain. Cloud features send only the relevant content to the provider you choose.
 
 ## What's new
+
+**0.30** — auto-updates
+- ⬆️ MacPilot keeps itself up to date: it checks daily (Sparkle 2) and installs a new version when you click **Install Update** — or automatically, if you turn that on. **Check for Updates…** is in the menu bar, ⌥K and Settings → General; Telegram `/version` tells you if one is waiting.
 
 **0.29** — port killer
 - 🔌 **See what's listening and free a port:** Developer → Ports (and a dashboard card) lists every listening TCP/UDP port with the app, PID, user, command and project folder, refreshing live, with quick chips for :3000, :5173, :8080, :5432 and :6379.
@@ -171,7 +174,7 @@ Live ↓/↑ throughput sampled once a second from the network interface counter
 
 ## Install
 
-1. [Download `MacPilot-0.29.0.dmg`](releases/MacPilot-0.29.0.dmg) (universal: Apple silicon and Intel, macOS 14+).
+1. [Download `MacPilot-0.30.0.dmg`](releases/MacPilot-0.30.0.dmg) (universal: Apple silicon and Intel, macOS 14+).
 2. Open it and drag **MacPilot** into **Applications**.
 3. The build is ad-hoc signed (not notarized), so the first launch needs one approval: right-click MacPilot → **Open** → **Open**, or **System Settings → Privacy & Security → Open Anyway**. If macOS still refuses:
    ```bash
@@ -408,6 +411,21 @@ When several apply, the most important wins (manual, sharing, recording, meeting
 - **⌥K:** “kill port 3000” shows what's there and opens the same confirmation; “what's on port 5432” answers inline.
 - **Telegram:** `/ports` lists them; `/killport 3000` replies with **Stop it / Cancel** buttons that only you can use, once, within 10 minutes, for that exact PID; if it's still running you get a separate **Force kill** button.
 - **Agent:** `list_ports` (low risk) and `kill_port` (high risk: the approval shows the exact process and PID; if another process takes the port in the meantime, nothing is stopped).
+
+## Auto-updates
+
+MacPilot uses [Sparkle 2](https://sparkle-project.org) to update itself.
+
+- **Settings → General:** your version and build, **Automatically check for updates** (daily, on by default), **Automatically download and install** (off by default) and **Check for Updates…**. The same button is in the menu bar and ⌥K. Telegram `/version` says whether an update is available; updates are never installed from Telegram.
+- **Where updates come from:** the feed is `appcast.xml` on the repository's **main** branch (`https://raw.githubusercontent.com/codecraft26/macPilot/main/appcast.xml`), and each entry points at `releases/MacPilot-<version>.dmg` on main. Updates reach people only after a release is merged into main.
+- **Signed updates:** every DMG is signed with an EdDSA (Ed25519) key. The public half is `SUPublicEDKey` in Info.plist; the private half stays in the release Mac's login Keychain and is never in the repository. Sparkle refuses an update whose signature doesn't match — this works for MacPilot's ad-hoc code signature too.
+- **Permissions after an update:** until MacPilot is signed with an Apple Developer ID, macOS sees each update as a new app, so it may ask again for Accessibility and Screen Recording. A Developer ID signature (`SIGN_IDENTITY=… NOTARY_PROFILE=… scripts/release.sh`) fixes that and removes the "allow it once" step on install.
+
+**Making a release (maintainers)**
+1. Once per Mac: create the update key with Sparkle's `generate_keys` (`scripts/release.sh` downloads Sparkle's tools on first run and tells you the path). It goes into your login Keychain; back it up with `generate_keys -x` somewhere safe — never in the repo.
+2. Bump `CFBundleShortVersionString` / `CFBundleVersion` in `Resources/Info.plist` and add a `## <version>` section to `CHANGELOG.md` (shown as release notes).
+3. Run `scripts/release.sh`. It puts the matching public key into Info.plist (first time), builds, makes the DMG, signs it with the Keychain key, copies it to `releases/` and adds the release to `appcast.xml` — keeping the newest three and dropping entries whose DMG is gone, so there are no broken links.
+4. Commit and merge into main. To host DMGs on GitHub Releases instead, run with `BASE_URL=…` pointing at the release downloads.
 
 ## Telegram bot
 

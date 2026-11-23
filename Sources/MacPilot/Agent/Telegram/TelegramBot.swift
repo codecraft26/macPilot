@@ -211,6 +211,7 @@ final class TelegramBot {
         case "/newjob": await createJob(argument, update: update)
         case "/remind": await createReminder(argument, update: update)
         case "/focus": await send(chat, await focusCommand(argument))
+        case "/version": await send(chat, await UpdateManager.shared.versionText())
         case "/ports": await listPorts(chat)
         case "/killport": await requestKill(argument, update: update)
         case "/loops": await send(chat, MemorySettings.load().enabled || !OpenLoops.shared.store.loops().isEmpty
@@ -245,6 +246,7 @@ final class TelegramBot {
     /status — active task, queue, connection, screen lock
     /tasks — recent tasks
     /jobs — scheduled jobs (pause, resume, run now)
+    /version — MacPilot version and whether an update is available (updates install only on the Mac)
     /ports — listening ports; /killport <port> — stop one (asks first)
     /focus [25|50|off] — Focus status, start or end it
     /loops — what you promised or were asked this week
