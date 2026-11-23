@@ -417,6 +417,32 @@ final class UISnapshots: XCTestCase {
         try? png.write(to: directory.appendingPathComponent("\(name).png"))
     }
 
+    func testRenderSystemReadout() {
+        let now = Date()
+        let netHistory = (0..<60).map { i in
+            NetworkSample(date: now.addingTimeInterval(Double(i - 60)), down: 1_200_000 + 1_400_000 * abs(sin(Double(i) / 7)), up: 90_000 + 60_000 * abs(cos(Double(i) / 5)))
+        }
+        NetworkMonitor.shared.setPreview(down: 2_400_000, up: 120_000, history: netHistory)
+        let cpuHistory = (0..<60).map { i in 0.18 + 0.12 * abs(sin(Double(i) / 6)) + (i > 50 ? 0.4 : 0) }
+        let cores = [0.42, 0.31, 0.18, 0.12, 0.85, 0.22, 0.09, 0.05, 0.14, 0.27]
+        SystemMonitor.shared.setPreview(cpu: 0.23, perCore: cores, history: cpuHistory, memory: 0.62, top: [
+            ProcessUsage(pid: 512, percent: 38.4, name: "WindowServer"), ProcessUsage(pid: 2231, percent: 21.7, name: "Xcode"),
+            ProcessUsage(pid: 4120, percent: 12.9, name: "node"), ProcessUsage(pid: 881, percent: 6.2, name: "Google Chrome Helper"),
+            ProcessUsage(pid: 301, percent: 3.1, name: "kernel_task")
+        ])
+        StatsDisplay.previewParts = .init(network: true, cpu: true)
+        defer { StatsDisplay.previewParts = nil }
+        notchShot("notch-system", activity: .network, expanded: false)
+        SystemMonitor.shared.setPreview(cpu: 0.87, perCore: cores.map { min(1, $0 + 0.5) }, history: cpuHistory, memory: 0.71, top: [])
+        notchShot("notch-system-hot", activity: .network, expanded: false)
+        SystemMonitor.shared.setPreview(cpu: 0.23, perCore: cores, history: cpuHistory, memory: 0.62, top: [
+            ProcessUsage(pid: 512, percent: 38.4, name: "WindowServer"), ProcessUsage(pid: 2231, percent: 21.7, name: "Xcode"),
+            ProcessUsage(pid: 4120, percent: 12.9, name: "node"), ProcessUsage(pid: 881, percent: 6.2, name: "Google Chrome Helper"),
+            ProcessUsage(pid: 301, percent: 3.1, name: "kernel_task")
+        ])
+        macShot("system-monitor", size: CGSize(width: 420, height: 520), title: "System", SystemMonitorView().onAppear {})
+    }
+
     func testRenderSetupWizard() {
         let setup = SetupController.shared
         let saved = setup.progress

@@ -2,6 +2,12 @@
 
 Release notes shown in MacPilot's update window (one `## version` section per release).
 
+## 0.33.0
+- **Network speed and CPU beside the notch**, on by default: ↓/↑ on the left, CPU % on the right (orange above 80%). It steps aside for recordings, music and alerts.
+- Click it for 60-second graphs, per-core bars, memory, the top 5 processes and a speed test (also in the menu bar: System Monitor…).
+- Macs without a notch show it in the menu bar (network, CPU or both). Settings → Notch: separate toggles, units (Auto / MB/s / Mbps), 1 s or 2 s updates.
+- Sampling uses about 0.01% CPU and pauses while the screen is locked or asleep.
+
 ## 0.32.0
 - **Developer cleanup:** Developer → Cleanup finds node_modules, Xcode DerivedData/Archives/DeviceSupport, simulator caches, unavailable simulators, Docker leftovers and package-manager caches, with sizes, age filters and Reveal in Finder.
 - Safe by default: everything is confirmed and goes to the Trash; only caches can be deleted permanently (second confirmation); symlinks and paths outside the scanned folders are refused; active projects are skipped; commands are shown before they run; every cleanup is audit-logged.

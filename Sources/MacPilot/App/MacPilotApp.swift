@@ -52,6 +52,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         LaunchAtLogin.setUpOnce()
         MeetingAutoRecord.shared.start()
         NetworkMonitor.shared.start()
+        SystemMonitor.shared.refreshDemand()
         SessionMonitor.shared.start()
         // Queued agent tasks start again; interrupted steps stay "needs review" and are never replayed.
         AgentEngine.shared.recoverAfterLaunch()

@@ -94,6 +94,7 @@ final class NetworkMonitor {
     private(set) var interfaceName = ""
     private(set) var interfaceDisplayName = ""
     private(set) var localIP = ""
+    var isPaused: Bool { paused }
 
     private var previous: [InterfaceCounters] = []
     private var previousDate = Date()
@@ -103,15 +104,20 @@ final class NetworkMonitor {
 
     private init() {}
 
+    private var paused = false
+
     func start() {
-        guard timer == nil else { return }
+        guard !paused else { return }
+        let interval = StatsDisplay.interval
+        if let timer, timer.timeInterval == interval { return }
+        timer?.invalidate()
         previous = Self.readCounters().counters
         previousDate = Date()
         refreshDisplayNames()
-        let timer = Timer(timeInterval: 1, repeats: true) { _ in
+        let timer = Timer(timeInterval: interval, repeats: true) { _ in
             MainActor.assumeIsolated { NetworkMonitor.shared.sample() }
         }
-        timer.tolerance = 0.2
+        timer.tolerance = interval * 0.2
         RunLoop.main.add(timer, forMode: .common)
         self.timer = timer
     }
@@ -119,6 +125,21 @@ final class NetworkMonitor {
     func stop() {
         timer?.invalidate()
         timer = nil
+    }
+
+    /// Previews and snapshots only.
+    func setPreview(down: Double, up: Double, history: [NetworkSample], interface: String = "Wi-Fi", ip: String = "192.168.1.24") {
+        self.down = down
+        self.up = up
+        self.history = history
+        interfaceDisplayName = interface
+        localIP = ip
+    }
+
+    /// Paused while the screen is locked or asleep; resumes with fresh counters (no spike).
+    func setPaused(_ value: Bool) {
+        paused = value
+        if value { stop(); down = 0; up = 0 } else { start() }
     }
 
     private func sample() {

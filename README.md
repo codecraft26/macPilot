@@ -9,10 +9,10 @@
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-000?logo=apple)
 ![Swift 5.10](https://img.shields.io/badge/Swift-5.10-F05138?logo=swift&logoColor=white)
 ![SwiftUI](https://img.shields.io/badge/UI-SwiftUI-0A84FF)
-![Version](https://img.shields.io/badge/version-0.32.0-6E5BF7)
+![Version](https://img.shields.io/badge/version-0.33.0-6E5BF7)
 ![Universal](https://img.shields.io/badge/Apple%20silicon%20%2B%20Intel-universal-555)
 
-[**⬇ Download MacPilot 0.32.0 (.dmg)**](releases/MacPilot-0.32.0.dmg) · [What's new](#whats-new) · [Features](#features) · [Agent](#ai-agent) · [Telegram](#telegram-bot) · [Jobs](#scheduled-jobs) · [Job finder](#job-finder) · [Computer use](#computer-use) · [Smart reminders](#smart-reminders) · [Memory](#memory-and-open-loops) · [Focus](#smart-do-not-disturb) · [Search](#universal-search) · [Ports](#port-killer) · [Cleanup](#developer-cleanup) · [Updates](#auto-updates) · [Network](#network-speed-and-speed-test) · [Finder convert](#finder-convert-with-macpilot) · [Floating buddy](#-floating-buddy) · [First run](#first-run) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
+[**⬇ Download MacPilot 0.33.0 (.dmg)**](releases/MacPilot-0.33.0.dmg) · [What's new](#whats-new) · [Features](#features) · [Agent](#ai-agent) · [Telegram](#telegram-bot) · [Jobs](#scheduled-jobs) · [Job finder](#job-finder) · [Computer use](#computer-use) · [Smart reminders](#smart-reminders) · [Memory](#memory-and-open-loops) · [Focus](#smart-do-not-disturb) · [Search](#universal-search) · [Ports](#port-killer) · [Cleanup](#developer-cleanup) · [Updates](#auto-updates) · [Network & CPU](#network-speed-and-speed-test) · [Finder convert](#finder-convert-with-macpilot) · [Floating buddy](#-floating-buddy) · [First run](#first-run) · [Install](#install) · [Build from source](#build-and-run) · [Shortcuts](#default-shortcuts)
 
 <img src="docs/screenshots/mac/dashboard.png" width="860" alt="MacPilot dashboard with today's briefing">
 
@@ -21,6 +21,9 @@
 MacPilot brings Raycast-style speed and an AI assistant to everything you do on a Mac: ask Claude (Anthropic or Amazon Bedrock), OpenAI or a local Ollama model from anywhere, record and summarize meetings, dictate into any app, manage notes, tasks and your calendar, search your clipboard, convert files, and sync it all between your Macs — with a friendly floating buddy on your desktop and live status in the MacBook notch. **Bring your own keys** — there is no MacPilot account or server; data stays on your Mac and credentials in the Keychain. Cloud features send only the relevant content to the provider you choose.
 
 ## What's new
+
+**0.33** — network speed and CPU beside the notch
+- 📶 **Live ↓/↑ speed and CPU % beside the notch**, on by default: network on the left, CPU on the right (orange above 80%), steady monospaced digits. It steps aside for recordings, timers, music and alerts, then comes back. On Macs without a notch it goes in the menu bar (network, CPU or both). Click it for 60-second graphs, per-core bars, memory, the top 5 processes and a speed test. Settings → Notch: separate toggles, units (Auto / MB/s / Mbps) and 1 s or 2 s updates. Sampling costs about 0.01% CPU and pauses while the screen is locked or asleep.
 
 **0.32** — developer cleanup
 - 🧹 **See how much space developer files take and free it safely:** Developer → Cleanup (and a “12.4 GB reclaimable” dashboard card) finds node_modules in your project folders, Xcode DerivedData, old Archives, iOS DeviceSupport, simulator caches and unavailable simulators, Docker leftovers, and npm/Yarn/pnpm/pip/Homebrew/CocoaPods/Gradle caches. Everything goes to the Trash after a confirmation; only caches can be deleted permanently. ⌥K “how much can I free?”, Telegram `/cleanup`, and an optional monthly reminder.
@@ -199,7 +202,7 @@ Every step can be skipped, you can go back and forth (Return continues, ⌘[ goe
 
 ## Install
 
-1. [Download `MacPilot-0.32.0.dmg`](releases/MacPilot-0.32.0.dmg) (universal: Apple silicon and Intel, macOS 14+).
+1. [Download `MacPilot-0.33.0.dmg`](releases/MacPilot-0.33.0.dmg) (universal: Apple silicon and Intel, macOS 14+).
 2. Open it and drag **MacPilot** into **Applications**.
 3. The build is ad-hoc signed (not notarized), so the first launch needs one approval: right-click MacPilot → **Open** → **Open**, or **System Settings → Privacy & Security → Open Anyway**. If macOS still refuses:
    ```bash
@@ -529,6 +532,20 @@ A built-in job template (Agent → Jobs → New job → Job finder) that doesn't
 - **The email:** company, title, location, posted date and apply link, grouped by company, with HTML and plain-text versions. Nothing new means no email. Results also appear under the job in the app, and in Telegram if you turn that on.
 
 ## Network speed and speed test
+
+![Network and CPU beside the notch](docs/screenshots/mac/notch-system.png)
+
+**Beside the notch** (on by default): download and upload speed on the left, CPU usage on the right. CPU turns orange from 80%; digits are monospaced so the text doesn't jitter. Whenever the notch has something else to show (recording, dictation, a timer, a meeting countdown, music or an alert), the readout steps aside and returns afterwards. Hovering the readout doesn't expand the notch; hovering the notch itself still does.
+
+**Click the readout** (or menu bar → System Monitor…) for a small panel with 60-second graphs for CPU and network, a bar per core, memory in use, the 5 busiest processes and a **Speed Test** button.
+
+| | |
+| --- | --- |
+| ![System panel](docs/screenshots/mac/system-monitor.png) | ![CPU over 80%](docs/screenshots/mac/notch-system-hot.png) |
+
+- **Macs without a notch** (or with MacPilot's notch turned off): the same readout goes in the menu bar, e.g. `↓2.4M ↑120K  CPU 23%`. Settings → Notch → Menu bar readout: Automatic, Network, CPU, both or Off.
+- **Settings → Notch:** separate toggles for network and CPU, units (Auto, MB/s or Mbps) and updates every 1 or 2 seconds.
+- **Light on the Mac:** one sample (CPU ticks from `host_processor_info`, memory, interface counters) takes about 70 µs, roughly 0.01% CPU at one per second; a test fails above 1%. The process list is only read while the panel is open. Everything pauses while the screen is locked, the displays sleep or the Mac sleeps.
 
 - **Live throughput:** MacPilot reads the byte counters of your active interfaces once a second (`getifaddrs`; loopback, VPN tunnels and AirDrop links are skipped so nothing is counted twice) and shows download ↓ and upload ↑ rates.
 - **Where it shows:** the expanded notch has a network card with a 1-minute graph and a speed test button; turn on **Network speed: show ↓/↑ next to the notch** for a compact readout whenever nothing else is showing. The dashboard's **Network** card has a live graph, interface name and local IP (⌥K → “Network” copies the IP). **Network speed in the menu bar** adds a small readout next to the MacPilot icon (off by default). All in **Settings → Recording & Calendar → Notch**.

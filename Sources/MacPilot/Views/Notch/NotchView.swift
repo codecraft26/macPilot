@@ -68,6 +68,42 @@ struct NotchView: View {
 
 // MARK: - Compact
 
+/// Live readout beside the notch: network on the left, CPU on the right (or whichever is on). Click to open System.
+private struct StatsSide: View {
+    let leading: Bool
+    private let network = NetworkMonitor.shared
+    private let system = SystemMonitor.shared
+
+    var body: some View {
+        let parts = StatsDisplay.notchParts
+        Group {
+            if leading {
+                if parts.network {
+                    VStack(alignment: .leading, spacing: -1) {
+                        Text(StatsText.down).foregroundStyle(.green)
+                        Text(StatsText.up).foregroundStyle(.cyan)
+                    }
+                    .font(.system(size: 9.5, weight: .semibold).monospacedDigit())
+                    .lineLimit(1).minimumScaleFactor(0.8)
+                    .accessibilityLabel("Download \(StatsText.down), upload \(StatsText.up)")
+                } else if parts.cpu {
+                    Text("MEM " + CPUMath.percent(system.memory)).font(.system(size: 11, weight: .semibold).monospacedDigit()).foregroundStyle(.white.opacity(0.75))
+                }
+            } else if parts.cpu {
+                Text(StatsText.cpu)
+                    .font(.system(size: 11, weight: .semibold).monospacedDigit())
+                    .foregroundStyle(CPUMath.isHot(system.cpu) ? .orange : .white)
+                    .help(system.perCore.map { CPUMath.percent($0) }.joined(separator: " "))
+            } else if parts.network {
+                Text("\(network.interfaceDisplayName.isEmpty ? "" : String(network.interfaceDisplayName.prefix(8)))")
+                    .font(.system(size: 10, weight: .medium)).foregroundStyle(.white.opacity(0.6))
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture { SystemMonitorPanel.shared.toggle() }
+    }
+}
+
 private struct CompactNotch: View {
     let activity: NotchActivity
     let notchWidth: CGFloat
@@ -105,7 +141,7 @@ private struct CompactNotch: View {
         case .nowPlaying:
             ArtworkThumb(image: NowPlaying.shared.artwork, size: 20)
         case .network:
-            Text("↓ " + NetworkMath.compact(NetworkMonitor.shared.down)).foregroundStyle(.green)
+            StatsSide(leading: true)
         case .idle:
             EmptyView()
         }
@@ -132,7 +168,7 @@ private struct CompactNotch: View {
         case .nowPlaying:
             EqualizerBars(playing: NowPlaying.shared.isPlaying).frame(width: 18, height: 14)
         case .network:
-            Text("↑ " + NetworkMath.compact(NetworkMonitor.shared.up)).foregroundStyle(.cyan)
+            StatsSide(leading: false)
         case .idle:
             EmptyView()
         }

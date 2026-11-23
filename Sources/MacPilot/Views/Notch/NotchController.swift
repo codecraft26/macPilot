@@ -35,7 +35,7 @@ enum NotchActivity: Equatable {
     case timer
     case meetingSoon(title: String, start: Date)
     case nowPlaying
-    /// Live ↓/↑ throughput (optional, Settings → Notch).
+    /// Live ↓/↑ throughput and CPU beside the notch (Settings → Notch).
     case network
 }
 
@@ -264,6 +264,9 @@ final class NotchController {
         if inside, peekMessage != nil {
             // Hovering a peek keeps it open; clicking it runs its action (handled by the view).
             hoverStartedAt = nil
+        } else if inside, activity == .network, !isExpanded, !geometry.notch.insetBy(dx: -2, dy: 0).contains(mouse) {
+            // Over the readout beside the notch: it's clickable (opens System), so don't expand.
+            hoverStartedAt = nil
         } else if inside {
             leftAt = nil
             if hoverStartedAt == nil { hoverStartedAt = now }
@@ -296,7 +299,8 @@ final class NotchController {
             next = .meetingSoon(title: event.title, start: event.start)
         } else if NowPlaying.shared.isPlaying {
             next = .nowPlaying
-        } else if UserDefaults.standard.bool(forKey: PrefKey.notchNetworkReadout) {
+        } else if geometry.hasHardwareNotch, StatsDisplay.notchParts.any, !SystemMonitor.shared.gate.isPaused {
+            // Live network / CPU readout beside the notch whenever nothing else is showing.
             next = .network
         }
         if next != activity {
